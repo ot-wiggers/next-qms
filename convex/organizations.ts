@@ -75,6 +75,35 @@ export const create = mutation({
   },
 });
 
+/** Update organization (admin only — name/code only, no structural changes) */
+export const update = mutation({
+  args: {
+    id: v.id("organizations"),
+    name: v.optional(v.string()),
+    code: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const user = await requirePermission(ctx, "admin:settings");
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Organisation nicht gefunden");
+
+    const now = Date.now();
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: now,
+      updatedBy: user._id,
+    });
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "organizations",
+      entityId: id,
+      changes: updates,
+    });
+  },
+});
+
 /** Archive organization (admin only) */
 export const archive = mutation({
   args: { id: v.id("organizations") },

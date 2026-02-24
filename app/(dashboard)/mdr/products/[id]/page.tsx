@@ -6,17 +6,34 @@ import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { AuditHistory } from "@/components/shared/audit-history";
+import { ArchiveConfirmDialog } from "@/components/shared/archive-confirm-dialog";
 import { DeclarationUpload } from "@/components/domain/products/declaration-upload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatDate, daysUntil } from "@/lib/utils/dates";
-import { STATUS_LABELS } from "@/lib/types/enums";
+import { STATUS_LABELS, RISK_CLASSES } from "@/lib/types/enums";
 import { getAllowedTransitions } from "../../../../../convex/lib/stateMachine";
-import { ArrowLeft, AlertTriangle, FileText } from "lucide-react";
+import { ArrowLeft, AlertTriangle, FileText, Pencil, Archive } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 
 interface Product {
@@ -70,7 +87,24 @@ export default function ProductDetailPage() {
     product?.manufacturerId ? { id: product.manufacturerId as any } : "skip" as any,
   ) as Manufacturer | null | undefined;
 
+  const updateProduct = useMutation(api.products.update);
+  const archiveProduct = useMutation(api.products.archive);
   const reviewDeclaration = useMutation(api.declarations.review);
+
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    articleNumber: "",
+    udi: "",
+    productGroup: "",
+    riskClass: "",
+    notes: "",
+  });
+
+  // Archive state
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
 
   if (product === undefined) {
     return <div className="text-sm text-muted-foreground">Lade Produkt...</div>;
@@ -79,6 +113,49 @@ export default function ProductDetailPage() {
   if (!product) {
     return <div className="text-sm text-red-600">Produkt nicht gefunden</div>;
   }
+
+  const openEdit = () => {
+    setEditForm({
+      name: product.name,
+      articleNumber: product.articleNumber,
+      udi: product.udi ?? "",
+      productGroup: product.productGroup ?? "",
+      riskClass: product.riskClass,
+      notes: product.notes ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    try {
+      await updateProduct({
+        id: productId as any,
+        name: editForm.name,
+        articleNumber: editForm.articleNumber,
+        udi: editForm.udi || undefined,
+        productGroup: editForm.productGroup || undefined,
+        riskClass: editForm.riskClass,
+        notes: editForm.notes || undefined,
+      });
+      toast.success("Produkt aktualisiert");
+      setEditOpen(false);
+    } catch (err: any) {
+      toast.error(err.message ?? "Fehler beim Aktualisieren");
+    }
+  };
+
+  const handleArchive = async () => {
+    setArchiveLoading(true);
+    try {
+      await archiveProduct({ id: productId as any });
+      toast.success("Produkt archiviert");
+      router.push("/mdr/products");
+    } catch (err: any) {
+      toast.error(err.message ?? "Fehler beim Archivieren");
+    } finally {
+      setArchiveLoading(false);
+    }
+  };
 
   const handleReview = async (declarationId: string, currentStatus: string, newStatus: string) => {
     try {
@@ -111,6 +188,22 @@ export default function ProductDetailPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {can("products:update") && (
+                <>
+                  <Button variant="outline" size="sm" onClick={openEdit}>
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Bearbeiten
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setArchiveOpen(true)}
+                  >
+                    <Archive className="mr-1 h-4 w-4" />
+                    Archivieren
+                  </Button>
+                </>
+              )}
               <span className="rounded-full border px-2 py-0.5 text-xs font-medium">
                 Klasse {product.riskClass}
               </span>
@@ -228,6 +321,97 @@ export default function ProductDetailPage() {
           <AuditHistory entityType="products" entityId={product._id} />
         </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Produkt bearbeiten</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, name: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Art.-Nr.</Label>
+                <Input
+                  value={editForm.articleNumber}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, articleNumber: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>UDI</Label>
+                <Input
+                  value={editForm.udi}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, udi: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Produktgruppe</Label>
+              <Input
+                value={editForm.productGroup}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, productGroup: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Risikoklasse</Label>
+              <Select
+                value={editForm.riskClass}
+                onValueChange={(v) =>
+                  setEditForm({ ...editForm, riskClass: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RISK_CLASSES.map((rc) => (
+                    <SelectItem key={rc} value={rc}>
+                      Klasse {rc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Anmerkungen</Label>
+              <Input
+                value={editForm.notes}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, notes: e.target.value })
+                }
+              />
+            </div>
+            <Button className="w-full" onClick={handleEdit}>
+              Änderungen speichern
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive Confirmation */}
+      <ArchiveConfirmDialog
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        onConfirm={handleArchive}
+        entityName="Produkt"
+        entityLabel={product.name}
+        isLoading={archiveLoading}
+      />
     </div>
   );
 }

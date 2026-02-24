@@ -3,6 +3,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
+import { hasPermission } from "./lib/permissions";
 
 /** List tasks for current user */
 export const myTasks = query({
@@ -88,6 +89,51 @@ export const create = mutation({
     });
 
     return id;
+  },
+});
+
+/** Update task details (own tasks → anyone; team → dept lead; all → QMB/admin) */
+export const update = mutation({
+  args: {
+    id: v.id("tasks"),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    assigneeId: v.optional(v.id("users")),
+    dueDate: v.optional(v.number()),
+    priority: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const user = await getAuthenticatedUser(ctx);
+    const task = await ctx.db.get(id);
+    if (!task) throw new Error("Aufgabe nicht gefunden");
+
+    if (task.status === "DONE" || task.status === "CANCELLED") {
+      throw new Error("Abgeschlossene Aufgaben können nicht bearbeitet werden");
+    }
+
+    // Permission check: own tasks → anyone; team → dept lead; all → QMB/admin
+    const isOwn = task.assigneeId === user._id;
+    const canAll = hasPermission(user.role as any, "tasks:all");
+    const canTeam = hasPermission(user.role as any, "tasks:team");
+
+    if (!isOwn && !canAll && !canTeam) {
+      throw new Error("Keine Berechtigung zum Bearbeiten dieser Aufgabe");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: now,
+      updatedBy: user._id,
+    } as any);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "tasks",
+      entityId: id,
+      changes: updates,
+    });
   },
 });
 
