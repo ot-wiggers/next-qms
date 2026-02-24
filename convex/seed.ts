@@ -414,7 +414,6 @@ export const run = mutation({
     // Valid DoC
     await ctx.db.insert("declarationsOfConformity", {
       productId: prod1,
-      fileId: "" as any, // placeholder — no real file in seed
       fileName: "DoC_MED001_v2.pdf",
       version: "2.0",
       issuedAt: now - 180 * day,
@@ -433,7 +432,6 @@ export const run = mutation({
     // Expiring DoC (within 90 days)
     await ctx.db.insert("declarationsOfConformity", {
       productId: prod2,
-      fileId: "" as any,
       fileName: "DoC_OB002_v1.pdf",
       version: "1.0",
       issuedAt: now - 300 * day,
@@ -451,7 +449,6 @@ export const run = mutation({
     // Expired DoC
     await ctx.db.insert("declarationsOfConformity", {
       productId: prod5,
-      fileId: "" as any,
       fileName: "DoC_EL005_v1.pdf",
       version: "1.0",
       issuedAt: now - 400 * day,

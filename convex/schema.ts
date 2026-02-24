@@ -401,8 +401,8 @@ export default defineSchema({
 
   declarationsOfConformity: defineTable({
     productId: v.id("products"),
-    fileId: v.id("_storage"),
-    fileName: v.string(),
+    fileId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
     version: v.string(),
     issuedAt: v.number(),
     validFrom: v.number(),
