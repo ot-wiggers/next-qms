@@ -1,13 +1,69 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { requirePermission, getAuthenticatedUser } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { archiveRecord } from "./lib/softDelete";
 
-/** Get current authenticated user profile */
+/** Get current authenticated user profile (returns null if no profile yet) */
 export const me = query({
   handler: async (ctx) => {
-    return await getAuthenticatedUser(ctx);
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUserId))
+      .first();
+
+    return user ?? null;
+  },
+});
+
+/**
+ * Create a user profile after registration.
+ * Links the Convex Auth account to our users table.
+ * Defaults to "employee" role — an admin can upgrade later.
+ */
+export const createProfile = mutation({
+  args: {
+    firstName: v.string(),
+    lastName: v.string(),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) throw new Error("Nicht authentifiziert");
+
+    // Check if profile already exists
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authUserId))
+      .first();
+    if (existing) return existing._id;
+
+    // Find first organization as default
+    const org = await ctx.db
+      .query("organizations")
+      .filter((q) => q.eq(q.field("type"), "organization"))
+      .first();
+    if (!org) throw new Error("Keine Organisation vorhanden — bitte zuerst Seed ausführen");
+
+    const now = Date.now();
+    const id = await ctx.db.insert("users", {
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      role: "employee",
+      organizationId: org._id,
+      status: "active",
+      authId: authUserId,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return id;
   },
 });
 
