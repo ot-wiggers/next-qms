@@ -1,12 +1,12 @@
 import { MutationCtx } from "../_generated/server";
-import { Id } from "../_generated/dataModel";
+import { Id, TableNames } from "../_generated/dataModel";
 import { logAuditEvent } from "./auditLog";
 
 /**
  * Soft-delete (archive) a record. Sets isArchived=true and logs the event.
  * NEVER hard-delete — ISO 13485 requires full traceability.
  */
-export async function archiveRecord<T extends string>(
+export async function archiveRecord<T extends TableNames>(
   ctx: MutationCtx,
   table: T,
   id: Id<T>,
