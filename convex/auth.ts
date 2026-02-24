@@ -1,16 +1,27 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 
+const CustomPassword = Password({
+  profile(params) {
+    return {
+      email: params.email as string,
+      name: `${params.firstName ?? ""} ${params.lastName ?? ""}`.trim(),
+      firstName: (params.firstName as string) ?? "",
+      lastName: (params.lastName as string) ?? "",
+    };
+  },
+});
+
 export const { auth, signIn, signOut, store } = convexAuth({
-  providers: [Password],
+  providers: [CustomPassword],
   callbacks: {
     async createOrUpdateUser(ctx, { existingUserId, ...args }) {
-      // Existing user (sign in) — just return the ID
       if (existingUserId) {
         return existingUserId;
       }
 
-      // New user (sign up) — create with required schema fields
+      const profile = (args as any).profile ?? {};
+
       const org = await ctx.db
         .query("organizations")
         .filter((q: any) => q.eq(q.field("type"), "organization"))
@@ -18,18 +29,16 @@ export const { auth, signIn, signOut, store } = convexAuth({
 
       const now = Date.now();
       return await ctx.db.insert("users", {
-        email: (args as any).profile?.email ?? "",
-        firstName: "",
-        lastName: "",
+        email: profile.email ?? "",
+        firstName: profile.firstName ?? "",
+        lastName: profile.lastName ?? "",
         role: "employee",
         organizationId: org!._id,
         status: "active",
-        authId: "",
         isArchived: false,
         createdAt: now,
         updatedAt: now,
       } as any);
     },
-
   },
 });

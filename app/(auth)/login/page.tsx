@@ -1,8 +1,6 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -20,7 +18,6 @@ import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const { signIn } = useAuthActions();
-  const createProfile = useMutation(api.users.createProfile);
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -49,10 +46,7 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
     try {
-      // 1. Create auth account
-      await signIn("password", { email, password, flow: "signUp" });
-      // 2. Create user profile in our users table
-      await createProfile({ firstName, lastName, email });
+      await signIn("password", { email, password, flow: "signUp", firstName, lastName });
       router.push("/");
     } catch (err: any) {
       setError(err.message ?? "Registrierung fehlgeschlagen");
