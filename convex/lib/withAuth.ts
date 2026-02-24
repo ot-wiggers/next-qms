@@ -32,10 +32,9 @@ export async function getAuthenticatedUser(
     throw new Error("Nicht authentifiziert");
   }
 
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_authId", (q) => q.eq("authId", authUserId))
-    .first();
+  // createOrUpdateUser returns our users table _id,
+  // so getAuthUserId gives us that _id directly.
+  const user = await ctx.db.get(authUserId as Id<"users">);
 
   if (!user) {
     throw new Error("Benutzer nicht gefunden");

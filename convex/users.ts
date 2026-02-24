@@ -5,25 +5,23 @@ import { requirePermission, getAuthenticatedUser } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { archiveRecord } from "./lib/softDelete";
 
-/** Get current authenticated user profile (returns null if no profile yet) */
+/** Get current authenticated user profile (returns null if not logged in) */
 export const me = query({
   handler: async (ctx) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) return null;
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_authId", (q) => q.eq("authId", authUserId))
-      .first();
-
+    // createOrUpdateUser returns our users table _id,
+    // so getAuthUserId gives us that _id directly.
+    const user = await ctx.db.get(authUserId as any);
     return user ?? null;
   },
 });
 
 /**
- * Create a user profile after registration.
- * Links the Convex Auth account to our users table.
- * Defaults to "employee" role — an admin can upgrade later.
+ * Complete user profile after registration.
+ * The auth callback already created the user row with defaults —
+ * this patches in the real name.
  */
 export const createProfile = mutation({
   args: {
@@ -35,35 +33,18 @@ export const createProfile = mutation({
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Nicht authentifiziert");
 
-    // Check if profile already exists
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_authId", (q) => q.eq("authId", authUserId))
-      .first();
-    if (existing) return existing._id;
+    const user = await ctx.db.get(authUserId as any);
+    if (!user) throw new Error("Benutzer nicht gefunden");
 
-    // Find first organization as default
-    const org = await ctx.db
-      .query("organizations")
-      .filter((q) => q.eq(q.field("type"), "organization"))
-      .first();
-    if (!org) throw new Error("Keine Organisation vorhanden — bitte zuerst Seed ausführen");
-
-    const now = Date.now();
-    const id = await ctx.db.insert("users", {
-      email: args.email,
+    // Patch in the profile details
+    await ctx.db.patch(user._id, {
       firstName: args.firstName,
       lastName: args.lastName,
-      role: "employee",
-      organizationId: org._id,
-      status: "active",
-      authId: authUserId,
-      isArchived: false,
-      createdAt: now,
-      updatedAt: now,
-    });
+      email: args.email,
+      updatedAt: Date.now(),
+    } as any);
 
-    return id;
+    return user._id;
   },
 });
 
