@@ -1,0 +1,8 @@
+import { query } from "../_generated/server";
+
+// TODO: Phase 4 — Wareneingang & Stichproben
+export const list = query({
+  handler: async () => {
+    return [];
+  },
+});
