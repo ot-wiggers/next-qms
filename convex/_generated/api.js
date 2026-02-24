@@ -1,15 +1,23 @@
 /* eslint-disable */
-// Stub module — replaced by `npx convex dev`
-// Provides a proxy that returns undefined for any property access
-// so hooks like useQuery(api.users.me) don't crash at build time.
+/**
+ * Generated `api` utility.
+ *
+ * THIS CODE IS AUTOMATICALLY GENERATED.
+ *
+ * To regenerate, run `npx convex dev`.
+ * @module
+ */
 
-const handler = {
-  get(_target, prop) {
-    if (prop === "__esModule") return true;
-    if (prop === "default") return new Proxy({}, handler);
-    return new Proxy({}, handler);
-  },
-};
+import { anyApi, componentsGeneric } from "convex/server";
 
-export const api = new Proxy({}, handler);
-export const internal = new Proxy({}, handler);
+/**
+ * A utility for referencing Convex functions in your app's API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
+export const api = anyApi;
+export const internal = anyApi;
+export const components = componentsGeneric();
