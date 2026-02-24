@@ -12,7 +12,7 @@ import Link from "next/link";
 export function RecentDocumentsWidget() {
   const documents = useQuery(api.documents.list, {});
 
-  const recentDocs = ([...(documents ?? [])] as Array<{ _id: string; title: string; documentType: string; status: string; updatedAt: number }>)
+  const recentDocs = ([...(documents ?? [])] as unknown as Array<{ _id: string; title: string; documentType: string; status: string; updatedAt: number }>)
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 5);
 

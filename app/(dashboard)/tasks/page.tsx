@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,6 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatDate, isOverdue } from "@/lib/utils/dates";
 import {
   TASK_STATUSES,
@@ -22,7 +30,7 @@ import {
 } from "@/lib/types/enums";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useState } from "react";
-import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface TaskRow {
@@ -59,8 +67,19 @@ export default function TasksPage() {
   ) as TaskRow[] | undefined;
 
   const updateStatus = useMutation(api.tasks.updateStatus);
+  const updateTask = useMutation(api.tasks.update);
 
   const tasks = (can("tasks:all") ? allTasks : myTasks) ?? [];
+
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    id: "",
+    title: "",
+    description: "",
+    priority: "",
+    dueDate: "",
+  });
 
   const filteredTasks = tasks.filter((t: TaskRow) => {
     if (statusFilter !== "all" && t.status !== statusFilter) return false;
@@ -73,6 +92,37 @@ export default function TasksPage() {
     try {
       await updateStatus({ id: id as any, status: newStatus });
       toast.success(`Aufgabe als "${STATUS_LABELS[newStatus]}" markiert`);
+    } catch (err: any) {
+      toast.error(err.message ?? "Fehler beim Aktualisieren");
+    }
+  };
+
+  const openEdit = (row: TaskRow) => {
+    setEditForm({
+      id: row._id,
+      title: row.title,
+      description: row.description ?? "",
+      priority: row.priority,
+      dueDate: row.dueDate
+        ? new Date(row.dueDate).toISOString().slice(0, 10)
+        : "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    try {
+      await updateTask({
+        id: editForm.id as any,
+        title: editForm.title,
+        description: editForm.description || undefined,
+        priority: editForm.priority,
+        dueDate: editForm.dueDate
+          ? new Date(editForm.dueDate).getTime()
+          : undefined,
+      });
+      toast.success("Aufgabe aktualisiert");
+      setEditOpen(false);
     } catch (err: any) {
       toast.error(err.message ?? "Fehler beim Aktualisieren");
     }
@@ -121,11 +171,23 @@ export default function TasksPage() {
     {
       key: "actions",
       header: "",
-      className: "w-[80px]",
+      className: "w-[120px]",
       cell: (row) => {
         if (row.status === "DONE" || row.status === "CANCELLED") return null;
         return (
           <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.stopPropagation();
+                openEdit(row);
+              }}
+              title="Bearbeiten"
+            >
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -212,6 +274,68 @@ export default function TasksPage() {
         data={filteredTasks}
         emptyMessage="Keine Aufgaben gefunden"
       />
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aufgabe bearbeiten</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Titel</Label>
+              <Input
+                value={editForm.title}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, title: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Beschreibung</Label>
+              <Input
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, description: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Priorität</Label>
+              <Select
+                value={editForm.priority}
+                onValueChange={(v) =>
+                  setEditForm({ ...editForm, priority: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TASK_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {STATUS_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Fälligkeitsdatum</Label>
+              <Input
+                type="date"
+                value={editForm.dueDate}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, dueDate: e.target.value })
+                }
+              />
+            </div>
+            <Button className="w-full" onClick={handleEdit}>
+              Änderungen speichern
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -176,6 +176,43 @@ export const createSession = mutation({
   },
 });
 
+/** Update session details (only when PLANNED — ISO 13485 compliance) */
+export const updateSession = mutation({
+  args: {
+    id: v.id("trainingSessions"),
+    scheduledDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    location: v.optional(v.string()),
+    trainerId: v.optional(v.id("users")),
+    trainerName: v.optional(v.string()),
+    maxParticipants: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const user = await requirePermission(ctx, "trainings:manage");
+    const session = await ctx.db.get(id);
+    if (!session) throw new Error("Schulungstermin nicht gefunden");
+    if (session.status !== "PLANNED") {
+      throw new Error("Nur geplante Termine können bearbeitet werden");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: now,
+      updatedBy: user._id,
+    });
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "trainingSessions",
+      entityId: id,
+      changes: updates,
+    });
+  },
+});
+
 /** Update session status (PLANNED → HELD → CLOSED, or PLANNED → CANCELLED) */
 export const updateSessionStatus = mutation({
   args: {
