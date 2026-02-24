@@ -15,6 +15,7 @@ import type * as declarations from "../declarations.js";
 import type * as documents from "../documents.js";
 import type * as effectiveness from "../effectiveness.js";
 import type * as featureFlags from "../featureFlags.js";
+import type * as http from "../http.js";
 import type * as lib_auditLog from "../lib/auditLog.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_softDelete from "../lib/softDelete.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   documents: typeof documents;
   effectiveness: typeof effectiveness;
   featureFlags: typeof featureFlags;
+  http: typeof http;
   "lib/auditLog": typeof lib_auditLog;
   "lib/permissions": typeof lib_permissions;
   "lib/softDelete": typeof lib_softDelete;
