@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -7,11 +8,20 @@ import { AuditHistory } from "@/components/shared/audit-history";
 import { ReadConfirmationButton } from "./read-confirmation-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DOCUMENT_TYPE_LABELS, STATUS_LABELS } from "@/lib/types/enums";
 import { formatDate } from "@/lib/utils/dates";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { getAllowedTransitions } from "../../../convex/lib/stateMachine";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface DocumentDetailProps {
@@ -25,7 +35,8 @@ interface DocumentRecord {
   documentType: string;
   version: string;
   status: string;
-  sanityDocumentId: string;
+  content?: string;
+  sanityDocumentId?: string;
   validFrom?: number;
   validUntil?: number;
   createdAt: number;
@@ -50,6 +61,10 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   }) as ReadConfirmation[] | undefined;
 
   const updateStatus = useMutation(api.documents.updateStatus);
+  const updateDocument = useMutation(api.documents.update);
+
+  const [contentEditOpen, setContentEditOpen] = useState(false);
+  const [contentDraft, setContentDraft] = useState("");
 
   if (document === undefined) {
     return <div className="text-sm text-muted-foreground">Lade Dokument...</div>;
@@ -60,6 +75,24 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   }
 
   const allowedTransitions = getAllowedTransitions("documentStatus", document.status);
+
+  const openContentEdit = () => {
+    setContentDraft(document.content ?? "");
+    setContentEditOpen(true);
+  };
+
+  const handleContentSave = async () => {
+    try {
+      await updateDocument({
+        id: documentId as any,
+        content: contentDraft,
+      });
+      toast.success("Inhalt aktualisiert");
+      setContentEditOpen(false);
+    } catch (err: any) {
+      toast.error(err.message ?? "Fehler beim Speichern");
+    }
+  };
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -128,6 +161,36 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
             </div>
           )}
 
+          {/* Document content (Convex-integrated docs) */}
+          {document.content && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-muted-foreground">Inhalt</p>
+                {can("documents:create") && (
+                  <Button variant="outline" size="sm" onClick={openContentEdit}>
+                    <Pencil className="mr-1 h-3 w-3" />
+                    Inhalt bearbeiten
+                  </Button>
+                )}
+              </div>
+              <div className="rounded-md border bg-muted/30 p-4">
+                <pre className="whitespace-pre-wrap text-sm font-mono">
+                  {document.content}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Edit content button when no content yet */}
+          {!document.content && can("documents:create") && (
+            <div className="mt-4">
+              <Button variant="outline" size="sm" onClick={openContentEdit}>
+                <Pencil className="mr-1 h-3 w-3" />
+                Inhalt hinzufügen
+              </Button>
+            </div>
+          )}
+
           {/* Read confirmation button (only for APPROVED docs) */}
           {document.status === "APPROVED" && (
             <div className="mt-4">
@@ -136,6 +199,30 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Content Edit Dialog */}
+      <Dialog open={contentEditOpen} onOpenChange={setContentEditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Dokumentinhalt bearbeiten</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Inhalt (Markdown)</Label>
+              <Textarea
+                value={contentDraft}
+                onChange={(e) => setContentDraft(e.target.value)}
+                rows={16}
+                className="font-mono text-sm"
+                placeholder="Dokumentinhalt hier eingeben..."
+              />
+            </div>
+            <Button className="w-full" onClick={handleContentSave}>
+              Änderungen speichern
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="confirmations">
         <TabsList>

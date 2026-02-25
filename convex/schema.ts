@@ -235,11 +235,12 @@ export default defineSchema({
   // ============================================================
 
   documentRecords: defineTable({
-    sanityDocumentId: v.string(),
+    sanityDocumentId: v.optional(v.string()),
     documentType: documentType,
     documentCode: v.string(),
     version: v.string(),
     status: documentStatus,
+    content: v.optional(v.string()),
     validFrom: v.optional(v.number()),
     validUntil: v.optional(v.number()),
     responsibleUserId: v.id("users"),

@@ -75,31 +75,39 @@ export const create = mutation({
   },
 });
 
-/** Update organization (admin only — name/code only, no structural changes) */
+/** Update organization (admin only) */
 export const update = mutation({
   args: {
     id: v.id("organizations"),
     name: v.optional(v.string()),
     code: v.optional(v.string()),
+    parentId: v.optional(v.id("organizations")),
   },
-  handler: async (ctx, { id, ...updates }) => {
+  handler: async (ctx, { id, parentId, ...updates }) => {
     const user = await requirePermission(ctx, "admin:settings");
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Organisation nicht gefunden");
 
     const now = Date.now();
-    await ctx.db.patch(id, {
+    const patch: Record<string, any> = {
       ...updates,
       updatedAt: now,
       updatedBy: user._id,
-    });
+    };
+
+    // Only set parentId if explicitly provided (avoid overwriting with undefined)
+    if (parentId !== undefined) {
+      patch.parentId = parentId;
+    }
+
+    await ctx.db.patch(id, patch);
 
     await logAuditEvent(ctx, {
       userId: user._id,
       action: "UPDATE",
       entityType: "organizations",
       entityId: id,
-      changes: updates,
+      changes: { ...updates, ...(parentId !== undefined ? { parentId } : {}) },
     });
   },
 });

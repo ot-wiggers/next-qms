@@ -37,6 +37,9 @@ interface UserRow {
   lastName: string;
   role: string;
   status: string;
+  organizationId?: string;
+  locationId?: string;
+  departmentId?: string;
 }
 
 export default function AdminUsersPage() {
@@ -69,6 +72,9 @@ export default function AdminUsersPage() {
     email: "",
     role: "",
     status: "",
+    organizationId: "",
+    locationId: "",
+    departmentId: "",
   });
 
   // Archive state
@@ -77,6 +83,8 @@ export default function AdminUsersPage() {
   const [archiveLoading, setArchiveLoading] = useState(false);
 
   const orgs = (organizations ?? []).filter((o) => o.type === "organization");
+  const locations = (organizations ?? []).filter((o) => o.type === "location");
+  const departments = (organizations ?? []).filter((o) => o.type === "department");
 
   const handleCreate = async () => {
     if (!form.email || !form.firstName || !form.lastName || !form.organizationId) {
@@ -107,6 +115,9 @@ export default function AdminUsersPage() {
       email: row.email,
       role: row.role,
       status: row.status ?? "active",
+      organizationId: row.organizationId ?? "",
+      locationId: row.locationId ?? "",
+      departmentId: row.departmentId ?? "",
     });
     setEditOpen(true);
   };
@@ -120,6 +131,9 @@ export default function AdminUsersPage() {
         email: editForm.email,
         role: editForm.role,
         status: editForm.status,
+        organizationId: editForm.organizationId ? (editForm.organizationId as any) : undefined,
+        locationId: editForm.locationId ? (editForm.locationId as any) : undefined,
+        departmentId: editForm.departmentId ? (editForm.departmentId as any) : undefined,
       });
       toast.success("Benutzer aktualisiert");
       setEditOpen(false);
@@ -382,6 +396,60 @@ export default function AdminUsersPage() {
                 <SelectContent>
                   <SelectItem value="active">Aktiv</SelectItem>
                   <SelectItem value="inactive">Inaktiv</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Organisation</Label>
+              <Select
+                value={editForm.organizationId}
+                onValueChange={(v) => setEditForm({ ...editForm, organizationId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Organisation wählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orgs.map((o) => (
+                    <SelectItem key={o._id} value={o._id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Standort</Label>
+              <Select
+                value={editForm.locationId}
+                onValueChange={(v) => setEditForm({ ...editForm, locationId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Optional" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((o) => (
+                    <SelectItem key={o._id} value={o._id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Abteilung</Label>
+              <Select
+                value={editForm.departmentId}
+                onValueChange={(v) => setEditForm({ ...editForm, departmentId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Optional" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((o) => (
+                    <SelectItem key={o._id} value={o._id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
