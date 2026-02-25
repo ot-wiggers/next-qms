@@ -27,13 +27,19 @@ export const { auth, signIn, signOut, store } = convexAuth({
         .filter((q: any) => q.eq(q.field("type"), "organization"))
         .first();
 
+      if (!org) {
+        throw new Error(
+          "Keine Organisation vorhanden. Bitte zuerst eine Organisation anlegen."
+        );
+      }
+
       const now = Date.now();
       return await ctx.db.insert("users", {
         email: profile.email ?? "",
         firstName: profile.firstName ?? "",
         lastName: profile.lastName ?? "",
         role: "employee",
-        organizationId: org!._id,
+        organizationId: org._id,
         status: "active",
         isArchived: false,
         createdAt: now,
