@@ -47,6 +47,11 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     DONE: [],
     CANCELLED: [],
   },
+  reviewStatus: {
+    PENDING: ["APPROVED", "CHANGES_REQUESTED"],
+    APPROVED: [],
+    CHANGES_REQUESTED: [],
+  },
 };
 
 /**

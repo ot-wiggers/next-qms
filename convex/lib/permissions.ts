@@ -9,7 +9,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
   admin: [], // handled via wildcard check below
   qmb: [
     "documents:read", "documents:create", "documents:review",
-    "documents:approve", "documents:archive",
+    "documents:approve", "documents:archive", "documents:link",
     "trainings:list", "trainings:create", "trainings:manage",
     "trainings:feedback:submit", "trainings:effectiveness:review",
     "trainingRequests:create", "trainingRequests:review",
@@ -17,9 +17,11 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
     "declarations:list", "declarations:upload", "declarations:review",
     "tasks:all",
     "users:list",
+    "notifications:read", "notifications:manage",
+    "dashboard:view", "dashboard:view_all",
   ],
   department_lead: [
-    "documents:read",
+    "documents:read", "documents:review", "documents:link",
     "trainings:list", "trainings:manage",
     "trainings:feedback:submit", "trainings:effectiveness:review",
     "trainingRequests:create", "trainingRequests:review",
@@ -27,6 +29,8 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
     "declarations:list",
     "tasks:team",
     "users:list",
+    "notifications:read", "notifications:manage",
+    "dashboard:view",
   ],
   employee: [
     "documents:read",
@@ -36,6 +40,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
     "products:list",
     "declarations:list",
     "tasks:own",
+    "notifications:read", "notifications:manage",
   ],
   auditor: [
     "documents:read",
@@ -43,6 +48,8 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
     "products:list",
     "declarations:list",
     "tasks:own",
+    "notifications:read",
+    "dashboard:view_all",
   ],
 };
 
