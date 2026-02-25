@@ -40,6 +40,7 @@ const taskType = v.union(
   v.literal("TRAINING_EFFECTIVENESS"),
   v.literal("DOC_EXPIRY_WARNING"),
   v.literal("TRAINING_REQUEST_REVIEW"),
+  v.literal("DOCUMENT_REVIEW_DUE"),
   v.literal("GENERAL"),
   v.literal("FOLLOW_UP")
 );
@@ -235,7 +236,7 @@ export default defineSchema({
   // ============================================================
 
   documentRecords: defineTable({
-    sanityDocumentId: v.optional(v.string()),
+    sanityDocumentId: v.optional(v.string()), // Keep temporarily for migration
     documentType: documentType,
     documentCode: v.string(),
     version: v.string(),
@@ -247,13 +248,38 @@ export default defineSchema({
     reviewerId: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     approvedById: v.optional(v.id("users")),
+
+    // NEW: Rich content fields
+    title: v.optional(v.string()),
+    slug: v.optional(v.string()),
+    richContent: v.optional(v.any()), // Tiptap JSON document tree
+    contentPlaintext: v.optional(v.string()), // Extracted text for search
+    category: v.optional(v.string()), // quality_policy | process | responsibility | resource
+    nextReviewDate: v.optional(v.number()),
+    reviewIntervalDays: v.optional(v.number()), // Default 365
+    departmentId: v.optional(v.id("organizations")),
+    attachments: v.optional(v.array(v.object({
+      fileId: v.id("_storage"),
+      fileName: v.string(),
+      fileSize: v.number(),
+      uploadedAt: v.number(),
+      uploadedBy: v.id("users"),
+    }))),
+    parentDocumentId: v.optional(v.id("documentRecords")),
+    sortOrder: v.optional(v.number()),
+    requiresReconfirmation: v.optional(v.boolean()),
+    reconfirmationType: v.optional(v.string()), // read_only | training_required
+
     ...auditFields,
   })
     .index("by_sanityId", ["sanityDocumentId"])
     .index("by_status", ["status"])
     .index("by_documentCode", ["documentCode"])
     .index("by_responsible", ["responsibleUserId"])
-    .index("by_type", ["documentType"]),
+    .index("by_type", ["documentType"])
+    .index("by_parent", ["parentDocumentId"])
+    .index("by_review_date", ["nextReviewDate"])
+    .index("by_slug", ["slug"]),
 
   readConfirmations: defineTable({
     documentRecordId: v.id("documentRecords"),
@@ -265,6 +291,69 @@ export default defineSchema({
     .index("by_document", ["documentRecordId"])
     .index("by_user", ["userId"])
     .index("by_document_user", ["documentRecordId", "userId"]),
+
+  // Document Versions — snapshots for diff view
+  documentVersions: defineTable({
+    documentId: v.id("documentRecords"),
+    version: v.number(),
+    content: v.any(), // Tiptap JSON snapshot
+    contentPlaintext: v.string(),
+    changedBy: v.id("users"),
+    changedAt: v.number(),
+    changeDescription: v.optional(v.string()),
+    status: v.string(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_document_version", ["documentId", "version"]),
+
+  // Document Reviews — multi-reviewer workflow
+  documentReviews: defineTable({
+    documentId: v.id("documentRecords"),
+    version: v.number(),
+    reviewerId: v.id("users"),
+    status: v.string(), // PENDING | APPROVED | CHANGES_REQUESTED
+    comments: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_reviewer", ["reviewerId"])
+    .index("by_document_status", ["documentId", "status"]),
+
+  // Document Links — relationships between documents
+  documentLinks: defineTable({
+    sourceDocumentId: v.id("documentRecords"),
+    targetDocumentId: v.id("documentRecords"),
+    linkType: v.string(), // references | supersedes | implements | related
+    createdAt: v.number(),
+    createdBy: v.id("users"),
+  })
+    .index("by_source", ["sourceDocumentId"])
+    .index("by_target", ["targetDocumentId"]),
+
+  // Notifications
+  notifications: defineTable({
+    userId: v.id("users"),
+    type: v.string(),
+    title: v.string(),
+    message: v.string(),
+    resourceType: v.optional(v.string()), // document | training | task | training_request
+    resourceId: v.optional(v.string()),
+    isRead: v.boolean(),
+    readAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_unread", ["userId", "isRead"])
+    .index("by_user_created", ["userId", "createdAt"]),
+
+  // Notification Preferences
+  notificationPreferences: defineTable({
+    userId: v.id("users"),
+    emailEnabled: v.boolean(),
+    digestFrequency: v.string(), // daily | weekly | none
+    mutedEventTypes: v.array(v.string()),
+  }).index("by_user", ["userId"]),
 
   // ============================================================
   // PHASE 2: Training Management

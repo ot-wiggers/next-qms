@@ -29,6 +29,7 @@ export const TASK_TYPES = [
   "TRAINING_EFFECTIVENESS",
   "DOC_EXPIRY_WARNING",
   "TRAINING_REQUEST_REVIEW",
+  "DOCUMENT_REVIEW_DUE",
   "GENERAL",
   "FOLLOW_UP",
 ] as const;
@@ -134,6 +135,74 @@ export const AUDIT_ACTIONS = [
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 // ============================================================
+// Notification types
+// ============================================================
+export const NOTIFICATION_TYPES = [
+  "DOCUMENT_REVIEW_REQUESTED",
+  "DOCUMENT_APPROVED",
+  "DOCUMENT_REJECTED",
+  "DOCUMENT_PUBLISHED",
+  "DOCUMENT_REVIEW_DUE",
+  "DOCUMENT_LINKED_CHANGED",
+  "TRAINING_REQUEST_SUBMITTED",
+  "TRAINING_REQUEST_APPROVED",
+  "TRAINING_REQUEST_REJECTED",
+  "TRAINING_ASSIGNED",
+  "TRAINING_FEEDBACK_DUE",
+  "TRAINING_EFFECTIVENESS_DUE",
+  "TRAINING_INEFFECTIVE",
+  "TASK_ASSIGNED",
+  "TASK_OVERDUE",
+  "TASK_COMPLETED",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  DOCUMENT_REVIEW_REQUESTED: "Dokument zur Prüfung",
+  DOCUMENT_APPROVED: "Dokument freigegeben",
+  DOCUMENT_REJECTED: "Dokument abgelehnt",
+  DOCUMENT_PUBLISHED: "Neues Dokument veröffentlicht",
+  DOCUMENT_REVIEW_DUE: "Dokumentenüberprüfung fällig",
+  DOCUMENT_LINKED_CHANGED: "Verlinktes Dokument geändert",
+  TRAINING_REQUEST_SUBMITTED: "Schulungswunsch eingereicht",
+  TRAINING_REQUEST_APPROVED: "Schulungswunsch genehmigt",
+  TRAINING_REQUEST_REJECTED: "Schulungswunsch abgelehnt",
+  TRAINING_ASSIGNED: "Schulung zugeteilt",
+  TRAINING_FEEDBACK_DUE: "Feedback fällig",
+  TRAINING_EFFECTIVENESS_DUE: "Wirksamkeitsprüfung fällig",
+  TRAINING_INEFFECTIVE: "Schulung unwirksam",
+  TASK_ASSIGNED: "Aufgabe zugewiesen",
+  TASK_OVERDUE: "Aufgabe überfällig",
+  TASK_COMPLETED: "Aufgabe abgeschlossen",
+};
+
+// Review statuses
+export const REVIEW_STATUSES = ["PENDING", "APPROVED", "CHANGES_REQUESTED"] as const;
+export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+
+// Document link types
+export const DOCUMENT_LINK_TYPES = ["references", "supersedes", "implements", "related"] as const;
+export type DocumentLinkType = (typeof DOCUMENT_LINK_TYPES)[number];
+
+// Document categories
+export const DOCUMENT_CATEGORIES = ["quality_policy", "process", "responsibility", "resource"] as const;
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
+  quality_policy: "Qualitätspolitik",
+  process: "Prozess",
+  responsibility: "Verantwortlichkeit",
+  resource: "Ressource",
+};
+
+// Digest frequencies
+export const DIGEST_FREQUENCIES = ["daily", "weekly", "none"] as const;
+export type DigestFrequency = (typeof DIGEST_FREQUENCIES)[number];
+
+// Reconfirmation types
+export const RECONFIRMATION_TYPES = ["read_only", "training_required"] as const;
+export type ReconfirmationType = (typeof RECONFIRMATION_TYPES)[number];
+
+// ============================================================
 // Status badge colors for UI
 // ============================================================
 export const STATUS_COLORS: Record<string, string> = {
@@ -182,6 +251,8 @@ export const STATUS_COLORS: Record<string, string> = {
   MEDIUM: "bg-blue-100 text-blue-800",
   HIGH: "bg-orange-100 text-orange-800",
   URGENT: "bg-red-100 text-red-800",
+  // Review
+  CHANGES_REQUESTED: "bg-orange-100 text-orange-800",
   // Placeholder
   PLACEHOLDER: "bg-gray-100 text-gray-500",
 };
@@ -219,6 +290,7 @@ export const STATUS_LABELS: Record<string, string> = {
   EXPIRING: "Läuft bald ab",
   EXPIRED: "Abgelaufen",
   PENDING: "Ausstehend",
+  CHANGES_REQUESTED: "Änderungen angefordert",
   PLACEHOLDER: "In Planung",
   LOW: "Niedrig",
   MEDIUM: "Mittel",
