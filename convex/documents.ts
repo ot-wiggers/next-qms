@@ -34,22 +34,9 @@ export const getById = query({
   },
 });
 
-/** Get document record by Sanity document ID */
-export const getBySanityId = query({
-  args: { sanityDocumentId: v.string() },
-  handler: async (ctx, args) => {
-    await requirePermission(ctx, "documents:read");
-    return await ctx.db
-      .query("documentRecords")
-      .withIndex("by_sanityId", (q) => q.eq("sanityDocumentId", args.sanityDocumentId))
-      .first();
-  },
-});
-
 /** Create a new document record */
 export const create = mutation({
   args: {
-    sanityDocumentId: v.optional(v.string()),
     documentType: v.string(),
     documentCode: v.string(),
     version: v.string(),

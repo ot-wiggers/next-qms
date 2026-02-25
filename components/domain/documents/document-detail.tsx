@@ -36,7 +36,6 @@ interface DocumentRecord {
   version: string;
   status: string;
   content?: string;
-  sanityDocumentId?: string;
   validFrom?: number;
   validUntil?: number;
   createdAt: number;

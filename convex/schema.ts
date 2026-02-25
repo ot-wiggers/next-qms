@@ -236,7 +236,6 @@ export default defineSchema({
   // ============================================================
 
   documentRecords: defineTable({
-    sanityDocumentId: v.optional(v.string()), // Keep temporarily for migration
     documentType: documentType,
     documentCode: v.string(),
     version: v.string(),
@@ -272,7 +271,6 @@ export default defineSchema({
 
     ...auditFields,
   })
-    .index("by_sanityId", ["sanityDocumentId"])
     .index("by_status", ["status"])
     .index("by_documentCode", ["documentCode"])
     .index("by_responsible", ["responsibleUserId"])

@@ -559,7 +559,6 @@ export const run = mutation({
     // ============================================================
 
     await ctx.db.insert("documentRecords", {
-      sanityDocumentId: "qm-handbook-ch1",
       documentType: "qm_handbook",
       documentCode: "QMH-001",
       version: "3.0",
@@ -575,7 +574,6 @@ export const run = mutation({
     });
 
     await ctx.db.insert("documentRecords", {
-      sanityDocumentId: "work-instruction-aa003",
       documentType: "work_instruction",
       documentCode: "AA-003",
       version: "2.1",
@@ -590,7 +588,6 @@ export const run = mutation({
     });
 
     await ctx.db.insert("documentRecords", {
-      sanityDocumentId: "form-template-fb001",
       documentType: "form_template",
       documentCode: "FB-001",
       version: "1.0",
