@@ -116,6 +116,39 @@ export const archive = mutation({
 // Training Sessions
 // ============================================================
 
+/** List upcoming planned sessions (for calendar integration) */
+export const listUpcomingSessions = query({
+  handler: async (ctx) => {
+    await requirePermission(ctx, "trainings:list");
+    const now = Date.now();
+
+    const sessions = await ctx.db
+      .query("trainingSessions")
+      .withIndex("by_scheduledDate")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "PLANNED"),
+          q.gte(q.field("scheduledDate"), now),
+          q.eq(q.field("isArchived"), false)
+        )
+      )
+      .collect();
+
+    // Join with training to get title
+    const results = await Promise.all(
+      sessions.map(async (session) => {
+        const training = await ctx.db.get(session.trainingId);
+        return {
+          ...session,
+          trainingTitle: training?.title ?? "Unbekannte Schulung",
+        };
+      })
+    );
+
+    return results;
+  },
+});
+
 /** List sessions for a training */
 export const listSessions = query({
   args: { trainingId: v.id("trainings") },

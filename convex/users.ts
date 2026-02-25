@@ -48,6 +48,41 @@ export const createProfile = mutation({
   },
 });
 
+/** Update own profile (any authenticated user — name + email only) */
+export const updateSelf = mutation({
+  args: {
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+
+    const updates: Record<string, any> = {};
+    if (args.firstName !== undefined) updates.firstName = args.firstName;
+    if (args.lastName !== undefined) updates.lastName = args.lastName;
+    if (args.email !== undefined) updates.email = args.email;
+
+    if (Object.keys(updates).length === 0) return;
+
+    const now = Date.now();
+    await ctx.db.patch(user._id, {
+      ...updates,
+      updatedAt: now,
+      updatedBy: user._id,
+    } as any);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "users",
+      entityId: user._id,
+      changes: updates,
+      metadata: { selfEdit: true },
+    });
+  },
+});
+
 /** List all active users (requires users:list) */
 export const list = query({
   handler: async (ctx) => {

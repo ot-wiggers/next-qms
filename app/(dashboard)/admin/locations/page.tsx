@@ -47,7 +47,7 @@ export default function AdminLocationsPage() {
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ id: "", name: "", code: "" });
+  const [editForm, setEditForm] = useState({ id: "", name: "", code: "", parentId: "" });
 
   // Archive state
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -78,7 +78,7 @@ export default function AdminLocationsPage() {
   };
 
   const openEdit = (row: OrgRow) => {
-    setEditForm({ id: row._id, name: row.name, code: row.code });
+    setEditForm({ id: row._id, name: row.name, code: row.code, parentId: row.parentId ?? "" });
     setEditOpen(true);
   };
 
@@ -88,6 +88,7 @@ export default function AdminLocationsPage() {
         id: editForm.id as any,
         name: editForm.name,
         code: editForm.code,
+        parentId: editForm.parentId ? (editForm.parentId as any) : undefined,
       });
       toast.success("Standort aktualisiert");
       setEditOpen(false);
@@ -265,6 +266,24 @@ export default function AdminLocationsPage() {
                   setEditForm({ ...editForm, code: e.target.value })
                 }
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Übergeordnete Organisation</Label>
+              <Select
+                value={editForm.parentId}
+                onValueChange={(v) => setEditForm({ ...editForm, parentId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Optional" />
+                </SelectTrigger>
+                <SelectContent>
+                  {parentOrgs.map((o) => (
+                    <SelectItem key={o._id} value={o._id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button className="w-full" onClick={handleEdit}>
               Änderungen speichern

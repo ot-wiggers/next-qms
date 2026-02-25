@@ -18,6 +18,7 @@ import {
   Wrench,
   BarChart3,
   MessageSquarePlus,
+  Building2,
   Menu,
   X,
 } from "lucide-react";
@@ -83,6 +84,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     title: "Administration",
     items: [
       { label: "Benutzer", href: "/admin/users", icon: Users, permission: "users:list" },
+      { label: "Organisationen", href: "/admin/organizations", icon: Building2, permission: "admin:settings" },
       { label: "Standorte", href: "/admin/locations", icon: Settings, permission: "admin:settings" },
       { label: "Abteilungen", href: "/admin/departments", icon: Settings, permission: "admin:settings" },
       { label: "Einstellungen", href: "/admin/settings", icon: Settings, permission: "admin:settings" },

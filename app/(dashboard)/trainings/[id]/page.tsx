@@ -22,7 +22,7 @@ import {
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
 import { getAllowedTransitions } from "../../../../convex/lib/stateMachine";
-import { ArrowLeft, Calendar, Plus, Pencil, Archive } from "lucide-react";
+import { ArrowLeft, Calendar, Plus, Pencil, Archive, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -335,7 +335,7 @@ export default function TrainingDetailPage() {
                             </Button>
                           ))}
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() =>
                             router.push(
@@ -343,7 +343,8 @@ export default function TrainingDetailPage() {
                             )
                           }
                         >
-                          Details
+                          <Users className="mr-1 h-3.5 w-3.5" />
+                          Teilnehmer & Details
                         </Button>
                       </div>
                     </CardContent>

@@ -49,10 +49,11 @@ export const getBySanityId = query({
 /** Create a new document record */
 export const create = mutation({
   args: {
-    sanityDocumentId: v.string(),
+    sanityDocumentId: v.optional(v.string()),
     documentType: v.string(),
     documentCode: v.string(),
     version: v.string(),
+    content: v.optional(v.string()),
     validFrom: v.optional(v.number()),
     validUntil: v.optional(v.number()),
     responsibleUserId: v.id("users"),
@@ -82,6 +83,45 @@ export const create = mutation({
     });
 
     return id;
+  },
+});
+
+/** Update document record fields */
+export const update = mutation({
+  args: {
+    id: v.id("documentRecords"),
+    documentCode: v.optional(v.string()),
+    version: v.optional(v.string()),
+    content: v.optional(v.string()),
+    validFrom: v.optional(v.number()),
+    validUntil: v.optional(v.number()),
+    responsibleUserId: v.optional(v.id("users")),
+    reviewerId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const user = await requirePermission(ctx, "documents:create");
+    const existing = await ctx.db.get(id);
+    if (!existing) throw new Error("Dokument nicht gefunden");
+
+    const now = Date.now();
+    const patch: Record<string, any> = { updatedAt: now, updatedBy: user._id };
+    if (updates.documentCode !== undefined) patch.documentCode = updates.documentCode;
+    if (updates.version !== undefined) patch.version = updates.version;
+    if (updates.content !== undefined) patch.content = updates.content;
+    if (updates.validFrom !== undefined) patch.validFrom = updates.validFrom;
+    if (updates.validUntil !== undefined) patch.validUntil = updates.validUntil;
+    if (updates.responsibleUserId !== undefined) patch.responsibleUserId = updates.responsibleUserId;
+    if (updates.reviewerId !== undefined) patch.reviewerId = updates.reviewerId;
+
+    await ctx.db.patch(id, patch as any);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "documentRecords",
+      entityId: id,
+      changes: updates,
+    });
   },
 });
 

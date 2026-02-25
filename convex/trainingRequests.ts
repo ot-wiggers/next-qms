@@ -3,6 +3,8 @@ import { query, mutation } from "./_generated/server";
 import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
+import { hasPermission } from "./lib/permissions";
+import type { UserRole } from "../lib/types/enums";
 
 /** List training requests (filtered by role) */
 export const list = query({
@@ -136,6 +138,55 @@ export const create = mutation({
     });
 
     return id;
+  },
+});
+
+/** Update a training request (creator when REQUESTED, or reviewer) */
+export const update = mutation({
+  args: {
+    id: v.id("trainingRequests"),
+    topic: v.optional(v.string()),
+    justification: v.optional(v.string()),
+    urgency: v.optional(v.string()),
+    externalLink: v.optional(v.string()),
+    estimatedCost: v.optional(v.number()),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const user = await getAuthenticatedUser(ctx);
+    const request = await ctx.db.get(id);
+    if (!request) throw new Error("Schulungsantrag nicht gefunden");
+
+    // Permission logic:
+    // - Creator can edit when status === "REQUESTED"
+    // - Reviewer (trainingRequests:review) can edit unless COMPLETED/REJECTED
+    const isCreator = request.requesterId === user._id;
+    const isReviewer = hasPermission(user.role as UserRole, "trainingRequests:review");
+
+    if (isCreator && request.status === "REQUESTED") {
+      // OK — creator can edit their own request while it's still requested
+    } else if (isReviewer && request.status !== "COMPLETED" && request.status !== "REJECTED") {
+      // OK — reviewer can edit unless completed/rejected
+    } else {
+      throw new Error("Keine Berechtigung zum Bearbeiten dieses Antrags");
+    }
+
+    const now = Date.now();
+    const patch: Record<string, any> = { updatedAt: now, updatedBy: user._id };
+    if (updates.topic !== undefined) patch.topic = updates.topic;
+    if (updates.justification !== undefined) patch.justification = updates.justification;
+    if (updates.urgency !== undefined) patch.urgency = updates.urgency;
+    if (updates.externalLink !== undefined) patch.externalLink = updates.externalLink;
+    if (updates.estimatedCost !== undefined) patch.estimatedCost = updates.estimatedCost;
+
+    await ctx.db.patch(id, patch as any);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "trainingRequests",
+      entityId: id,
+      changes: updates,
+    });
   },
 });
 
