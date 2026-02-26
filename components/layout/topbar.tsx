@@ -28,6 +28,7 @@ import { initials, fullName } from "@/lib/utils/formatting";
 import { USER_ROLE_LABELS } from "@/lib/types/enums";
 import type { UserRole } from "@/lib/types/enums";
 import { MobileSidebar } from "./sidebar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { toast } from "sonner";
 
 export function Topbar() {
@@ -74,6 +75,7 @@ export function Topbar() {
 
       {user && (
         <>
+          <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">

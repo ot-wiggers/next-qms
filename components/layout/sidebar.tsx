@@ -13,6 +13,7 @@ import {
   Settings,
   Shield,
   AlertTriangle,
+  Bell,
   ClipboardCheck,
   Truck,
   Wrench,
@@ -78,6 +79,12 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Wareneingang", href: "/incoming-goods", icon: Truck, featureFlag: "INCOMING_GOODS", badge: "IN PLANUNG" },
       { label: "Prüfmittel", href: "/devices", icon: Wrench, featureFlag: "DEVICES", badge: "IN PLANUNG" },
       { label: "Berichte", href: "/reports", icon: BarChart3, featureFlag: "REPORTS", badge: "IN PLANUNG" },
+    ],
+  },
+  {
+    title: "Einstellungen",
+    items: [
+      { label: "Benachrichtigungen", href: "/settings/notifications", icon: Bell },
     ],
   },
   {

@@ -197,6 +197,11 @@ export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
 // Digest frequencies
 export const DIGEST_FREQUENCIES = ["daily", "weekly", "none"] as const;
 export type DigestFrequency = (typeof DIGEST_FREQUENCIES)[number];
+export const DIGEST_FREQUENCY_LABELS: Record<DigestFrequency, string> = {
+  daily: "Täglich",
+  weekly: "Wöchentlich",
+  none: "Keine",
+};
 
 // Reconfirmation types
 export const RECONFIRMATION_TYPES = ["read_only", "training_required"] as const;
