@@ -179,7 +179,9 @@ export function DocumentEditor({
   return (
     <div className="border rounded-lg overflow-hidden">
       {editable && <Toolbar editor={editor} />}
-      <EditorContent editor={editor} className="p-4 min-h-[400px]" />
+      <div className="overflow-y-auto max-h-[70vh]">
+        <EditorContent editor={editor} className="p-4 min-h-[400px]" />
+      </div>
       {editable && (
         <DocumentPickerDialog
           open={pickerOpen}

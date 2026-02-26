@@ -91,7 +91,7 @@ export function Toolbar({ editor }: ToolbarProps) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/30 px-2 py-1">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b bg-background px-2 py-1">
         {/* Undo/Redo */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}

@@ -136,8 +136,34 @@
   h3 { font-size: 1.25rem; font-weight: 600; line-height: 1.4; }
   h4 { font-size: 1.125rem; font-weight: 500; line-height: 1.4; }
 
-  ul, ol {
+  ul:not([data-type="taskList"]) {
     padding-left: 1.5rem;
+    list-style-type: disc;
+  }
+
+  ul:not([data-type="taskList"]) ul {
+    list-style-type: circle;
+  }
+
+  ul:not([data-type="taskList"]) ul ul {
+    list-style-type: square;
+  }
+
+  ol {
+    padding-left: 1.5rem;
+    list-style-type: decimal;
+  }
+
+  ol ol {
+    list-style-type: lower-alpha;
+  }
+
+  li {
+    margin-top: 0.25em;
+  }
+
+  li p {
+    margin: 0;
   }
 
   ul[data-type="taskList"] {
@@ -166,10 +192,13 @@
     margin: 1rem 0;
     overflow: hidden;
     border-radius: var(--radius-sm);
+    border: 1px solid hsl(var(--border));
   }
 
   th, td {
-    border: 1px solid hsl(var(--border));
+    border-width: 1px;
+    border-style: solid;
+    border-color: hsl(var(--border));
     padding: 0.5rem 0.75rem;
     min-width: 100px;
     vertical-align: top;
