@@ -124,3 +124,216 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Tiptap Editor Styles */
+.tiptap {
+  > * + * {
+    margin-top: 0.75em;
+  }
+
+  h1 { font-size: 1.875rem; font-weight: 700; line-height: 1.2; }
+  h2 { font-size: 1.5rem; font-weight: 600; line-height: 1.3; }
+  h3 { font-size: 1.25rem; font-weight: 600; line-height: 1.4; }
+  h4 { font-size: 1.125rem; font-weight: 500; line-height: 1.4; }
+
+  ul, ol {
+    padding-left: 1.5rem;
+  }
+
+  ul[data-type="taskList"] {
+    list-style: none;
+    padding: 0;
+
+    li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+
+      > label {
+        flex-shrink: 0;
+        margin-top: 0.25rem;
+      }
+
+      > div {
+        flex: 1;
+      }
+    }
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+  }
+
+  th, td {
+    border: 1px solid hsl(var(--border));
+    padding: 0.5rem 0.75rem;
+    min-width: 100px;
+    vertical-align: top;
+    position: relative;
+  }
+
+  th {
+    background: hsl(var(--muted));
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .selectedCell {
+    background: hsl(var(--accent));
+  }
+
+  blockquote {
+    border-left: 3px solid hsl(var(--border));
+    padding-left: 1rem;
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid hsl(var(--border));
+    margin: 1.5rem 0;
+  }
+
+  code {
+    background: hsl(var(--muted));
+    border-radius: var(--radius-sm);
+    padding: 0.15rem 0.3rem;
+    font-size: 0.875em;
+  }
+
+  pre {
+    background: hsl(var(--muted));
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+
+    code {
+      background: none;
+      padding: 0;
+    }
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+  }
+
+  a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  mark {
+    background-color: #fef08a;
+    border-radius: 2px;
+    padding: 0.1rem 0.15rem;
+  }
+
+  .is-empty::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+    height: 0;
+  }
+}
+
+/* Callout block styles */
+.callout-block {
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  border-left: 4px solid;
+
+  &[data-type="info"] {
+    background: oklch(0.93 0.03 240);
+    border-left-color: oklch(0.55 0.15 240);
+  }
+  &[data-type="warning"] {
+    background: oklch(0.95 0.04 85);
+    border-left-color: oklch(0.75 0.15 85);
+  }
+  &[data-type="danger"] {
+    background: oklch(0.93 0.04 25);
+    border-left-color: oklch(0.55 0.2 25);
+  }
+  &[data-type="tip"] {
+    background: oklch(0.93 0.04 155);
+    border-left-color: oklch(0.55 0.15 155);
+  }
+}
+
+.dark .callout-block {
+  &[data-type="info"] {
+    background: oklch(0.25 0.03 240);
+  }
+  &[data-type="warning"] {
+    background: oklch(0.25 0.03 85);
+  }
+  &[data-type="danger"] {
+    background: oklch(0.25 0.03 25);
+  }
+  &[data-type="tip"] {
+    background: oklch(0.25 0.03 155);
+  }
+}
+
+/* Document reference chip */
+.document-reference-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 0.8; }
+
+  &[data-status="APPROVED"] { background: oklch(0.9 0.07 155); color: oklch(0.35 0.1 155); }
+  &[data-status="IN_REVIEW"] { background: oklch(0.93 0.06 85); color: oklch(0.4 0.12 85); }
+  &[data-status="DRAFT"] { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+  &[data-status="ARCHIVED"] { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); opacity: 0.7; }
+}
+
+/* Process diagram container */
+.process-diagram-container {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin: 0.75rem 0;
+  background: hsl(var(--card));
+}
+
+/* Table of contents */
+.toc-container {
+  background: hsl(var(--muted));
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+}
+
+/* Attachment block */
+.attachment-block {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: hsl(var(--card));
+  transition: background 0.15s;
+
+  &:hover { background: hsl(var(--accent)); }
+}
