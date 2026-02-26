@@ -21,7 +21,7 @@ import { DOCUMENT_TYPE_LABELS, STATUS_LABELS } from "@/lib/types/enums";
 import { formatDate } from "@/lib/utils/dates";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { getAllowedTransitions } from "../../../convex/lib/stateMachine";
-import { Pencil, SquarePen } from "lucide-react";
+import { Pencil, SquarePen, History, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
@@ -42,6 +42,8 @@ interface DocumentRecord {
   richContent?: any;
   validFrom?: number;
   validUntil?: number;
+  nextReviewDate?: number;
+  reviewIntervalDays?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -65,6 +67,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
 
   const updateStatus = useMutation(api.documents.updateStatus);
   const updateDocument = useMutation(api.documents.update);
+  const confirmReview = useMutation(api.documents.confirmReview);
 
   const [contentEditOpen, setContentEditOpen] = useState(false);
   const [contentDraft, setContentDraft] = useState("");
@@ -146,6 +149,12 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                 <p className="text-sm">{formatDate(document.validUntil)}</p>
               </div>
             )}
+            {document.nextReviewDate && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Nächste Überprüfung</p>
+                <ReviewDateDisplay date={document.nextReviewDate} />
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}
@@ -159,6 +168,35 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                 </Link>
               </Button>
             )}
+
+            {/* Versions link */}
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/documents/${document._id}/versions`}>
+                <History className="mr-1 h-3.5 w-3.5" />
+                Versionen
+              </Link>
+            </Button>
+
+            {/* Confirm review button */}
+            {document.status === "APPROVED" &&
+              document.nextReviewDate &&
+              can("documents:review") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await confirmReview({ id: documentId as any });
+                      toast.success("Überprüfung bestätigt");
+                    } catch (err: any) {
+                      toast.error(err.message ?? "Fehler");
+                    }
+                  }}
+                >
+                  <CalendarCheck className="mr-1 h-3.5 w-3.5" />
+                  Überprüfung bestätigen
+                </Button>
+              )}
 
             {/* Status transition buttons */}
             {allowedTransitions.map((target) => (
@@ -293,4 +331,23 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
       </Tabs>
     </div>
   );
+}
+
+function ReviewDateDisplay({ date }: { date: number }) {
+  const daysUntil = Math.floor((date - Date.now()) / (24 * 60 * 60 * 1000));
+  const color =
+    daysUntil <= 0
+      ? "text-red-600"
+      : daysUntil <= 30
+        ? "text-red-600"
+        : daysUntil <= 60
+          ? "text-yellow-600"
+          : "text-green-600";
+
+  const label =
+    daysUntil <= 0
+      ? `Überfällig (${Math.abs(daysUntil)} Tage)`
+      : `${formatDate(date)} (${daysUntil} Tage)`;
+
+  return <p className={`text-sm font-medium ${color}`}>{label}</p>;
 }

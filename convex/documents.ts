@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
@@ -209,9 +210,64 @@ export const updateStatus = mutation({
     if (args.status === "APPROVED") {
       patch.approvedAt = now;
       patch.approvedById = user._id;
+
+      // Task 17: Auto-calculate nextReviewDate
+      const reviewIntervalDays = doc.reviewIntervalDays ?? 365;
+      const effectiveDate = doc.validFrom ?? now;
+      patch.nextReviewDate = effectiveDate + reviewIntervalDays * 24 * 60 * 60 * 1000;
     }
 
     await ctx.db.patch(args.id, patch as any);
+
+    // Task 14: Create version snapshot on approval
+    if (args.status === "APPROVED") {
+      await ctx.runMutation(internal.documentVersions.createSnapshot, {
+        documentId: args.id,
+        userId: user._id,
+      });
+
+      // Task 15: Auto-reconfirmation — create tasks for users who previously confirmed
+      if (doc.requiresReconfirmation !== false) {
+        const existingConfirmations = await ctx.db
+          .query("readConfirmations")
+          .withIndex("by_document", (q) => q.eq("documentRecordId", args.id))
+          .collect();
+
+        const confirmedUserIds = [...new Set(existingConfirmations.map((c) => c.userId))];
+
+        for (const userId of confirmedUserIds) {
+          const taskType = doc.reconfirmationType === "training_required"
+            ? "TRAINING_FEEDBACK"
+            : "READ_DOCUMENT";
+
+          await ctx.db.insert("tasks", {
+            type: taskType as any,
+            title: `Dokument „${doc.documentCode}" aktualisiert — bitte erneut bestätigen`,
+            description: `Eine neue Version wurde freigegeben. Bitte lesen und bestätigen Sie das aktualisierte Dokument.`,
+            status: "OPEN" as any,
+            priority: "MEDIUM" as any,
+            assigneeId: userId,
+            resourceType: "documentRecords",
+            resourceId: args.id as string,
+            dueDate: now + 14 * 24 * 60 * 60 * 1000,
+            isArchived: false,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: user._id,
+            updatedBy: user._id,
+          });
+
+          await createNotification(ctx, {
+            userId,
+            type: "READ_CONFIRMATION_DUE",
+            title: "Aktualisiertes Dokument",
+            message: `„${doc.documentCode}" wurde in einer neuen Version veröffentlicht. Bitte erneut bestätigen.`,
+            resourceType: "documentRecords",
+            resourceId: args.id as string,
+          });
+        }
+      }
+    }
 
     await logAuditEvent(ctx, {
       userId: user._id,
@@ -275,6 +331,58 @@ export const archive = mutation({
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "documents:archive");
     await archiveRecord(ctx, "documentRecords", args.id, user._id);
+  },
+});
+
+/** Confirm document review (resets nextReviewDate) */
+export const confirmReview = mutation({
+  args: { id: v.id("documentRecords") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "documents:review");
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Dokument nicht gefunden");
+    if (doc.status !== "APPROVED") throw new Error("Nur freigegebene Dokumente können überprüft werden");
+
+    const now = Date.now();
+    const reviewIntervalDays = doc.reviewIntervalDays ?? 365;
+    const nextReviewDate = now + reviewIntervalDays * 24 * 60 * 60 * 1000;
+
+    await ctx.db.patch(args.id, {
+      nextReviewDate,
+      updatedAt: now,
+      updatedBy: user._id,
+    } as any);
+
+    // Close any open DOCUMENT_REVIEW_DUE tasks
+    const reviewTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_resource", (q) =>
+        q.eq("resourceType", "documentRecords").eq("resourceId", args.id as string)
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("type"), "DOCUMENT_REVIEW_DUE"),
+          q.neq(q.field("status"), "DONE"),
+          q.neq(q.field("status"), "CANCELLED")
+        )
+      )
+      .collect();
+
+    for (const task of reviewTasks) {
+      await ctx.db.patch(task._id, {
+        status: "DONE" as any,
+        updatedAt: now,
+        updatedBy: user._id,
+      });
+    }
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "documentRecords",
+      entityId: args.id,
+      metadata: { action: "confirm_review", nextReviewDate },
+    });
   },
 });
 
