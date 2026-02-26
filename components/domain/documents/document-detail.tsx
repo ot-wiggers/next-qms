@@ -21,11 +21,13 @@ import { DOCUMENT_TYPE_LABELS, STATUS_LABELS } from "@/lib/types/enums";
 import { formatDate } from "@/lib/utils/dates";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { getAllowedTransitions } from "../../../convex/lib/stateMachine";
-import { Pencil, SquarePen, History, CalendarCheck } from "lucide-react";
+import { Pencil, SquarePen, History, CalendarCheck, FileText, FileDown, Archive, RotateCcw, Trash2 } from "lucide-react";
+import { exportToWord, exportToPDF } from "@/lib/export/document-exporter";
 import { toast } from "sonner";
 import Link from "next/link";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import { ReviewPanel } from "./review-panel";
+import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 
 interface DocumentDetailProps {
   documentId: string;
@@ -44,6 +46,7 @@ interface DocumentRecord {
   validUntil?: number;
   nextReviewDate?: number;
   reviewIntervalDays?: number;
+  isArchived?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -176,6 +179,50 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                 Versionen
               </Link>
             </Button>
+
+            {/* Export buttons */}
+            {document.richContent && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    exportToWord(
+                      {
+                        title: document.title,
+                        documentCode: document.documentCode,
+                        documentType: document.documentType,
+                        version: document.version,
+                        richContent: document.richContent,
+                      },
+                      { primaryColor: "#0066CC" }
+                    )
+                  }
+                >
+                  <FileText className="mr-1 h-3.5 w-3.5" />
+                  Word
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    exportToPDF(
+                      {
+                        title: document.title,
+                        documentCode: document.documentCode,
+                        documentType: document.documentType,
+                        version: document.version,
+                        richContent: document.richContent,
+                      },
+                      { primaryColor: "#0066CC" }
+                    )
+                  }
+                >
+                  <FileDown className="mr-1 h-3.5 w-3.5" />
+                  PDF
+                </Button>
+              </>
+            )}
 
             {/* Confirm review button */}
             {document.status === "APPROVED" &&

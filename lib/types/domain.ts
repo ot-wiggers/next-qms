@@ -20,7 +20,7 @@ export interface AppUser {
 export type PermissionAction =
   | "users:list" | "users:create" | "users:update" | "users:archive"
   | "documents:read" | "documents:create" | "documents:review"
-  | "documents:approve" | "documents:archive" | "documents:link"
+  | "documents:approve" | "documents:archive" | "documents:delete" | "documents:link"
   | "trainings:list" | "trainings:create" | "trainings:manage"
   | "trainings:feedback:submit" | "trainings:effectiveness:review"
   | "trainingRequests:create" | "trainingRequests:review"

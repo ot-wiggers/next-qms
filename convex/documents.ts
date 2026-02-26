@@ -334,6 +334,94 @@ export const archive = mutation({
   },
 });
 
+/** Restore an archived document */
+export const restore = mutation({
+  args: { id: v.id("documentRecords") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "documents:archive");
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Dokument nicht gefunden");
+    if (!doc.isArchived) throw new Error("Dokument ist nicht archiviert");
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      isArchived: false,
+      archivedAt: undefined,
+      archivedBy: undefined,
+      updatedAt: now,
+      updatedBy: user._id,
+    } as any);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "RESTORE",
+      entityType: "documentRecords",
+      entityId: args.id,
+    });
+  },
+});
+
+/** List archived documents */
+export const listArchived = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "documents:archive");
+    return await ctx.db
+      .query("documentRecords")
+      .filter((q) => q.eq(q.field("isArchived"), true))
+      .collect();
+  },
+});
+
+/** Permanently delete an archived document (QMB/Admin only) */
+export const permanentDelete = mutation({
+  args: { id: v.id("documentRecords") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "documents:delete");
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Dokument nicht gefunden");
+    if (!doc.isArchived) throw new Error("Nur archivierte Dokumente können endgültig gelöscht werden");
+
+    // Cascade: delete read confirmations
+    const confirmations = await ctx.db
+      .query("readConfirmations")
+      .withIndex("by_document", (q) => q.eq("documentRecordId", args.id))
+      .collect();
+    for (const c of confirmations) {
+      await ctx.db.delete(c._id);
+    }
+
+    // Cascade: delete version snapshots
+    const versions = await ctx.db
+      .query("documentVersions")
+      .withIndex("by_document", (q) => q.eq("documentId", args.id))
+      .collect();
+    for (const ver of versions) {
+      await ctx.db.delete(ver._id);
+    }
+
+    // Cascade: delete reviews
+    const reviews = await ctx.db
+      .query("documentReviews")
+      .withIndex("by_document_status", (q) => q.eq("documentId", args.id))
+      .collect();
+    for (const r of reviews) {
+      await ctx.db.delete(r._id);
+    }
+
+    // Audit before delete
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "PERMANENT_DELETE",
+      entityType: "documentRecords",
+      entityId: args.id,
+      metadata: { documentCode: doc.documentCode, title: doc.title },
+    });
+
+    await ctx.db.delete(args.id);
+  },
+});
+
 /** Confirm document review (resets nextReviewDate) */
 export const confirmReview = mutation({
   args: { id: v.id("documentRecords") },

@@ -9,7 +9,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
   admin: [], // handled via wildcard check below
   qmb: [
     "documents:read", "documents:create", "documents:review",
-    "documents:approve", "documents:archive", "documents:link",
+    "documents:approve", "documents:archive", "documents:delete", "documents:link",
     "trainings:list", "trainings:create", "trainings:manage",
     "trainings:feedback:submit", "trainings:effectiveness:review",
     "trainingRequests:create", "trainingRequests:review",

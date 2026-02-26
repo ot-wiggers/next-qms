@@ -143,6 +143,8 @@ const auditAction = v.union(
   v.literal("UPDATE"),
   v.literal("STATUS_CHANGE"),
   v.literal("ARCHIVE"),
+  v.literal("RESTORE"),
+  v.literal("PERMANENT_DELETE"),
   v.literal("FILE_UPLOAD"),
   v.literal("PERMISSION_CHANGE"),
   v.literal("LOGIN"),
@@ -597,6 +599,16 @@ export default defineSchema({
     status: v.literal("PLACEHOLDER"),
     ...auditFields,
   }),
+
+  // Organization-specific settings (branding, logo, etc.)
+  organizationSettings: defineTable({
+    organizationId: v.id("organizations"),
+    logoFileId: v.optional(v.id("_storage")),
+    logoFileName: v.optional(v.string()),
+    primaryColor: v.optional(v.string()),
+    secondaryColor: v.optional(v.string()),
+    ...auditFields,
+  }).index("by_organization", ["organizationId"]),
 
   // TODO: Phase 4 — CAPA (Corrective & Preventive Actions)
   capaActions: defineTable({

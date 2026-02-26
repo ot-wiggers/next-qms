@@ -3,7 +3,7 @@ import { Id } from "../_generated/dataModel";
 
 interface AuditLogEntry {
   userId?: Id<"users">;
-  action: "CREATE" | "UPDATE" | "STATUS_CHANGE" | "ARCHIVE" | "FILE_UPLOAD" | "PERMISSION_CHANGE" | "LOGIN" | "LOGOUT";
+  action: "CREATE" | "UPDATE" | "STATUS_CHANGE" | "ARCHIVE" | "RESTORE" | "PERMANENT_DELETE" | "FILE_UPLOAD" | "PERMISSION_CHANGE" | "LOGIN" | "LOGOUT";
   entityType: string;
   entityId: string;
   changes?: Record<string, unknown>;

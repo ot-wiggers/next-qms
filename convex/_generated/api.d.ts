@@ -29,6 +29,7 @@ import type * as lib_softDelete from "../lib/softDelete.js";
 import type * as lib_stateMachine from "../lib/stateMachine.js";
 import type * as lib_withAuth from "../lib/withAuth.js";
 import type * as notifications from "../notifications.js";
+import type * as organizationSettings from "../organizationSettings.js";
 import type * as organizations from "../organizations.js";
 import type * as placeholders_audits from "../placeholders/audits.js";
 import type * as placeholders_capa from "../placeholders/capa.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   "lib/stateMachine": typeof lib_stateMachine;
   "lib/withAuth": typeof lib_withAuth;
   notifications: typeof notifications;
+  organizationSettings: typeof organizationSettings;
   organizations: typeof organizations;
   "placeholders/audits": typeof placeholders_audits;
   "placeholders/capa": typeof placeholders_capa;
