@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Bell,
   ClipboardCheck,
+  GitBranch,
   Truck,
   Wrench,
   BarChart3,
@@ -54,6 +55,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     title: "QM-Dokumente",
     items: [
       { label: "Dokumente", href: "/documents", icon: FileText, permission: "documents:read" },
+      { label: "Dokumenten-Graph", href: "/documents/graph", icon: GitBranch, permission: "documents:read" },
     ],
   },
   {
