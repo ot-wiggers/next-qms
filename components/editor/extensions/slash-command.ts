@@ -104,6 +104,16 @@ export const defaultSlashItems: SlashCommandItem[] = [
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
     },
   },
+  {
+    title: "Bild hochladen",
+    description: "Bild von Computer hochladen",
+    icon: "ImageUp",
+    category: "Medien",
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      document.dispatchEvent(new CustomEvent("editor:triggerImageUpload"));
+    },
+  },
   // QMS
   {
     title: "Hinweisbox (Info)",

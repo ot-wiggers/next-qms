@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useEditor, EditorContent, type Editor as TiptapEditor, ReactRenderer } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Table } from "@tiptap/extension-table";
@@ -26,6 +26,7 @@ import { CalloutBlock } from "./extensions/callout-block";
 import { ProcessDiagram } from "./extensions/process-diagram";
 import { TableOfContents } from "./extensions/table-of-contents";
 import { DocumentPickerDialog } from "./DocumentPickerDialog";
+import { useEditorImageUpload } from "./hooks/useEditorImageUpload";
 
 interface DocumentEditorProps {
   content?: any; // Tiptap JSON
@@ -41,6 +42,7 @@ export function DocumentEditor({
   extraSlashItems = [],
 }: DocumentEditorProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const { triggerUpload, FileInput } = useEditorImageUpload();
 
   const allSlashItems: SlashCommandItem[] = [
     ...defaultSlashItems,
@@ -174,11 +176,19 @@ export function DocumentEditor({
     [editor],
   );
 
+  useEffect(() => {
+    const handler = () => {
+      if (editor) triggerUpload(editor);
+    };
+    document.addEventListener("editor:triggerImageUpload", handler);
+    return () => document.removeEventListener("editor:triggerImageUpload", handler);
+  }, [editor, triggerUpload]);
+
   if (!editor) return null;
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      {editable && <Toolbar editor={editor} />}
+      {editable && <Toolbar editor={editor} onImageUpload={() => triggerUpload(editor)} />}
       <div className="overflow-y-auto max-h-[70vh]">
         <EditorContent editor={editor} className="p-4 min-h-[400px]" />
       </div>
@@ -189,6 +199,7 @@ export function DocumentEditor({
           onSelect={handleDocumentSelect}
         />
       )}
+      {editable && FileInput}
     </div>
   );
 }

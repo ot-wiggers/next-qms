@@ -16,6 +16,7 @@ import {
   Table,
   Link,
   Image,
+  ImageUp,
   Heading1,
   Heading2,
   Heading3,
@@ -35,6 +36,7 @@ import { useCallback } from "react";
 
 interface ToolbarProps {
   editor: Editor;
+  onImageUpload?: () => void;
 }
 
 interface ToolbarButtonProps {
@@ -70,7 +72,7 @@ function ToolbarButton({ onClick, isActive, disabled, tooltip, children }: Toolb
   );
 }
 
-export function Toolbar({ editor }: ToolbarProps) {
+export function Toolbar({ editor, onImageUpload }: ToolbarProps) {
   const setLink = useCallback(() => {
     const previousUrl = editor.getAttributes("link").href;
     const url = window.prompt("URL eingeben:", previousUrl);
@@ -246,6 +248,11 @@ export function Toolbar({ editor }: ToolbarProps) {
         <ToolbarButton onClick={addImage} tooltip="Bild">
           <Image className="size-4" />
         </ToolbarButton>
+        {onImageUpload && (
+          <ToolbarButton onClick={onImageUpload} tooltip="Bild hochladen">
+            <ImageUp className="size-4" />
+          </ToolbarButton>
+        )}
       </div>
     </TooltipProvider>
   );

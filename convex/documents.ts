@@ -638,3 +638,20 @@ export const checkReviewDates = internalMutation({
     }
   },
 });
+
+/** Generate a signed upload URL for document images */
+export const generateUploadUrl = mutation({
+  handler: async (ctx) => {
+    await requirePermission(ctx, "documents:create");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Get a public URL for a stored file */
+export const getFileUrl = query({
+  args: { fileId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "documents:read");
+    return await ctx.storage.getUrl(args.fileId);
+  },
+});
