@@ -248,6 +248,9 @@ export default defineSchema({
     approvedAt: v.optional(v.number()),
     approvedById: v.optional(v.id("users")),
 
+    // DEPRECATED: kept for backwards-compat with existing data, remove after migration
+    sanityDocumentId: v.optional(v.string()),
+
     // NEW: Rich content fields
     title: v.optional(v.string()),
     slug: v.optional(v.string()),
