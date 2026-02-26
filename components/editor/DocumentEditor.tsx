@@ -124,6 +124,7 @@ export function DocumentEditor({
     onUpdate: ({ editor: e }) => {
       onChange?.(e.getJSON());
     },
+    immediatelyRender: false,
     editorProps: {
       attributes: {
         class: "tiptap prose prose-sm max-w-none focus:outline-none",
