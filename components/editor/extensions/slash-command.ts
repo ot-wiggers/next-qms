@@ -104,7 +104,81 @@ export const defaultSlashItems: SlashCommandItem[] = [
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
     },
   },
-  // QMS items are added by custom extensions
+  // QMS
+  {
+    title: "Hinweisbox (Info)",
+    description: "Blaue Infobox",
+    icon: "Info",
+    category: "QMS",
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent({
+        type: "calloutBlock",
+        attrs: { type: "info" },
+        content: [{ type: "paragraph" }],
+      }).run();
+    },
+  },
+  {
+    title: "Hinweisbox (Warnung)",
+    description: "Gelbe Warnbox",
+    icon: "Info",
+    category: "QMS",
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent({
+        type: "calloutBlock",
+        attrs: { type: "warning" },
+        content: [{ type: "paragraph" }],
+      }).run();
+    },
+  },
+  {
+    title: "Hinweisbox (Gefahr)",
+    description: "Rote Gefahrenbox",
+    icon: "Info",
+    category: "QMS",
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent({
+        type: "calloutBlock",
+        attrs: { type: "danger" },
+        content: [{ type: "paragraph" }],
+      }).run();
+    },
+  },
+  {
+    title: "Hinweisbox (Tipp)",
+    description: "Grüne Tippbox",
+    icon: "Info",
+    category: "QMS",
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent({
+        type: "calloutBlock",
+        attrs: { type: "tip" },
+        content: [{ type: "paragraph" }],
+      }).run();
+    },
+  },
+  {
+    title: "Prozessdiagramm",
+    description: "Mermaid-Flowchart einfügen",
+    icon: "GitBranch",
+    category: "QMS",
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent({
+        type: "processDiagram",
+      }).run();
+    },
+  },
+  {
+    title: "Inhaltsverzeichnis",
+    description: "Automatisches Inhaltsverzeichnis",
+    icon: "TableOfContents",
+    category: "QMS",
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent({
+        type: "tableOfContents",
+      }).run();
+    },
+  },
 ];
 
 const SlashCommand = Extension.create({

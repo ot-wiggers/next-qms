@@ -19,6 +19,11 @@ import tippy, { type Instance as TippyInstance } from "tippy.js";
 import { Toolbar } from "./Toolbar";
 import SlashCommand, { defaultSlashItems, type SlashCommandItem } from "./extensions/slash-command";
 import { SlashMenu } from "./SlashMenu";
+import { DocumentReference } from "./extensions/document-reference";
+import { AttachmentBlock } from "./extensions/attachment-block";
+import { CalloutBlock } from "./extensions/callout-block";
+import { ProcessDiagram } from "./extensions/process-diagram";
+import { TableOfContents } from "./extensions/table-of-contents";
 
 interface DocumentEditorProps {
   content?: any; // Tiptap JSON
@@ -55,6 +60,11 @@ export function DocumentEditor({
       Highlight,
       Underline,
       Typography,
+      DocumentReference,
+      AttachmentBlock,
+      CalloutBlock,
+      ProcessDiagram,
+      TableOfContents,
       SlashCommand.configure({
         suggestion: {
           items: ({ query }: { query: string }) => {
