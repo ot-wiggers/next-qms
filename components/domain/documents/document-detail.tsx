@@ -25,6 +25,7 @@ import { Pencil, SquarePen } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
+import { ReviewPanel } from "./review-panel";
 
 interface DocumentDetailProps {
   documentId: string;
@@ -246,6 +247,14 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Review Panel — visible when IN_REVIEW or when reviews exist */}
+      {(document.status === "IN_REVIEW" || document.status === "DRAFT") && (
+        <ReviewPanel
+          documentId={document._id}
+          documentStatus={document.status}
+        />
+      )}
 
       <Tabs defaultValue="confirmations">
         <TabsList>
