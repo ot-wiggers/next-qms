@@ -206,7 +206,11 @@ export default defineSchema({
     .index("by_assignee_status", ["assigneeId", "status"])
     .index("by_type", ["type"])
     .index("by_dueDate", ["dueDate"])
-    .index("by_resource", ["resourceType", "resourceId"]),
+    .index("by_resource", ["resourceType", "resourceId"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["status", "isArchived"],
+    }),
 
   auditLog: defineTable({
     userId: v.optional(v.id("users")),
@@ -280,7 +284,15 @@ export default defineSchema({
     .index("by_type", ["documentType"])
     .index("by_parent", ["parentDocumentId"])
     .index("by_review_date", ["nextReviewDate"])
-    .index("by_slug", ["slug"]),
+    .index("by_slug", ["slug"])
+    .searchIndex("search_content", {
+      searchField: "contentPlaintext",
+      filterFields: ["status", "documentType", "isArchived"],
+    })
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["status", "documentType", "isArchived"],
+    }),
 
   readConfirmations: defineTable({
     documentRecordId: v.id("documentRecords"),
@@ -371,7 +383,11 @@ export default defineSchema({
     ...auditFields,
   })
     .index("by_status", ["status"])
-    .index("by_category", ["category"]),
+    .index("by_category", ["category"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["status", "isArchived"],
+    }),
 
   trainingSessions: defineTable({
     trainingId: v.id("trainings"),
