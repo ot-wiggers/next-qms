@@ -5,6 +5,24 @@ import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { archiveRecord } from "./lib/softDelete";
 
+/** Recursively extract plaintext from a Tiptap JSON document tree */
+function extractPlaintext(node: any): string {
+  if (!node) return "";
+  if (typeof node === "string") return node;
+  let text = "";
+  if (node.text) text += node.text;
+  if (node.content && Array.isArray(node.content)) {
+    for (const child of node.content) {
+      const childText = extractPlaintext(child);
+      if (childText) {
+        if (text && !text.endsWith("\n")) text += " ";
+        text += childText;
+      }
+    }
+  }
+  return text;
+}
+
 /** List all document records (with optional status filter) */
 export const list = query({
   args: { status: v.optional(v.string()), documentType: v.optional(v.string()) },
@@ -45,14 +63,41 @@ export const create = mutation({
     validUntil: v.optional(v.number()),
     responsibleUserId: v.id("users"),
     reviewerId: v.optional(v.id("users")),
+    // New rich content fields
+    title: v.optional(v.string()),
+    richContent: v.optional(v.any()),
+    category: v.optional(v.string()),
+    parentDocumentId: v.optional(v.id("documentRecords")),
+    sortOrder: v.optional(v.number()),
+    reviewIntervalDays: v.optional(v.number()),
+    requiresReconfirmation: v.optional(v.boolean()),
+    reconfirmationType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "documents:create");
     const now = Date.now();
 
+    // Extract plaintext from rich content for search
+    const contentPlaintext = args.richContent ? extractPlaintext(args.richContent) : undefined;
+
     const id = await ctx.db.insert("documentRecords", {
-      ...args,
       documentType: args.documentType as any,
+      documentCode: args.documentCode,
+      version: args.version,
+      content: args.content,
+      validFrom: args.validFrom,
+      validUntil: args.validUntil,
+      responsibleUserId: args.responsibleUserId,
+      reviewerId: args.reviewerId,
+      title: args.title,
+      richContent: args.richContent,
+      contentPlaintext,
+      category: args.category,
+      parentDocumentId: args.parentDocumentId,
+      sortOrder: args.sortOrder,
+      reviewIntervalDays: args.reviewIntervalDays ?? 365,
+      requiresReconfirmation: args.requiresReconfirmation ?? true,
+      reconfirmationType: args.reconfirmationType,
       status: "DRAFT",
       isArchived: false,
       createdAt: now,
@@ -77,6 +122,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("documentRecords"),
+    documentType: v.optional(v.string()),
     documentCode: v.optional(v.string()),
     version: v.optional(v.string()),
     content: v.optional(v.string()),
@@ -84,6 +130,15 @@ export const update = mutation({
     validUntil: v.optional(v.number()),
     responsibleUserId: v.optional(v.id("users")),
     reviewerId: v.optional(v.id("users")),
+    // New rich content fields
+    title: v.optional(v.string()),
+    richContent: v.optional(v.any()),
+    category: v.optional(v.string()),
+    parentDocumentId: v.optional(v.id("documentRecords")),
+    sortOrder: v.optional(v.number()),
+    reviewIntervalDays: v.optional(v.number()),
+    requiresReconfirmation: v.optional(v.boolean()),
+    reconfirmationType: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
     const user = await requirePermission(ctx, "documents:create");
@@ -92,6 +147,7 @@ export const update = mutation({
 
     const now = Date.now();
     const patch: Record<string, any> = { updatedAt: now, updatedBy: user._id };
+    if (updates.documentType !== undefined) patch.documentType = updates.documentType;
     if (updates.documentCode !== undefined) patch.documentCode = updates.documentCode;
     if (updates.version !== undefined) patch.version = updates.version;
     if (updates.content !== undefined) patch.content = updates.content;
@@ -99,6 +155,17 @@ export const update = mutation({
     if (updates.validUntil !== undefined) patch.validUntil = updates.validUntil;
     if (updates.responsibleUserId !== undefined) patch.responsibleUserId = updates.responsibleUserId;
     if (updates.reviewerId !== undefined) patch.reviewerId = updates.reviewerId;
+    if (updates.title !== undefined) patch.title = updates.title;
+    if (updates.richContent !== undefined) {
+      patch.richContent = updates.richContent;
+      patch.contentPlaintext = extractPlaintext(updates.richContent);
+    }
+    if (updates.category !== undefined) patch.category = updates.category;
+    if (updates.parentDocumentId !== undefined) patch.parentDocumentId = updates.parentDocumentId;
+    if (updates.sortOrder !== undefined) patch.sortOrder = updates.sortOrder;
+    if (updates.reviewIntervalDays !== undefined) patch.reviewIntervalDays = updates.reviewIntervalDays;
+    if (updates.requiresReconfirmation !== undefined) patch.requiresReconfirmation = updates.requiresReconfirmation;
+    if (updates.reconfirmationType !== undefined) patch.reconfirmationType = updates.reconfirmationType;
 
     await ctx.db.patch(id, patch as any);
 

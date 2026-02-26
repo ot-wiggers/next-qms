@@ -21,8 +21,10 @@ import { DOCUMENT_TYPE_LABELS, STATUS_LABELS } from "@/lib/types/enums";
 import { formatDate } from "@/lib/utils/dates";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { getAllowedTransitions } from "../../../convex/lib/stateMachine";
-import { Pencil } from "lucide-react";
+import { Pencil, SquarePen } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
+import { DocumentEditor } from "@/components/editor/DocumentEditor";
 
 interface DocumentDetailProps {
   documentId: string;
@@ -36,6 +38,7 @@ interface DocumentRecord {
   version: string;
   status: string;
   content?: string;
+  richContent?: any;
   validFrom?: number;
   validUntil?: number;
   createdAt: number;
@@ -144,10 +147,21 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
             )}
           </div>
 
-          {/* Status transition buttons */}
-          {allowedTransitions.length > 0 && (can("documents:review") || can("documents:approve")) && (
-            <div className="mt-4 flex gap-2">
-              {allowedTransitions.map((target) => (
+          {/* Action buttons */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {/* Edit button */}
+            {can("documents:create") && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/documents/${document._id}/edit`}>
+                  <SquarePen className="mr-1 h-3.5 w-3.5" />
+                  Bearbeiten
+                </Link>
+              </Button>
+            )}
+
+            {/* Status transition buttons */}
+            {allowedTransitions.map((target) => (
+              (can("documents:review") || can("documents:approve")) && (
                 <Button
                   key={target}
                   variant="outline"
@@ -156,12 +170,20 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                 >
                   → {STATUS_LABELS[target] ?? target}
                 </Button>
-              ))}
+              )
+            ))}
+          </div>
+
+          {/* Rich content (Tiptap editor, read-only) */}
+          {document.richContent && (
+            <div className="mt-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Inhalt</p>
+              <DocumentEditor content={document.richContent} editable={false} />
             </div>
           )}
 
-          {/* Document content (Convex-integrated docs) */}
-          {document.content && (
+          {/* Fallback: plain text content */}
+          {!document.richContent && document.content && (
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-muted-foreground">Inhalt</p>
@@ -180,12 +202,14 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
             </div>
           )}
 
-          {/* Edit content button when no content yet */}
-          {!document.content && can("documents:create") && (
+          {/* No content yet */}
+          {!document.richContent && !document.content && can("documents:create") && (
             <div className="mt-4">
-              <Button variant="outline" size="sm" onClick={openContentEdit}>
-                <Pencil className="mr-1 h-3 w-3" />
-                Inhalt hinzufügen
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/documents/${document._id}/edit`}>
+                  <Pencil className="mr-1 h-3 w-3" />
+                  Inhalt hinzufügen
+                </Link>
               </Button>
             </div>
           )}

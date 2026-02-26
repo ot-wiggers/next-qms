@@ -3,10 +3,10 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { PageHeader } from "@/components/layout/page-header";
+import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -15,7 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from "@/lib/types/enums";
+import {
+  DOCUMENT_TYPES,
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_CATEGORIES,
+  DOCUMENT_CATEGORY_LABELS,
+} from "@/lib/types/enums";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,15 +37,19 @@ export default function NewDocumentPage() {
   }> | undefined;
 
   const [form, setForm] = useState({
+    title: "",
     documentType: "" as string,
     documentCode: "",
     version: "1.0",
-    content: "",
+    category: "",
     validFrom: "",
     validUntil: "",
     responsibleUserId: "",
     reviewerId: "",
+    reviewIntervalDays: "365",
   });
+
+  const [richContent, setRichContent] = useState<any>(null);
 
   const handleCreate = async () => {
     if (!form.documentType || !form.documentCode || !form.responsibleUserId) {
@@ -49,14 +58,19 @@ export default function NewDocumentPage() {
     }
     try {
       const id = await createDocument({
+        title: form.title || undefined,
         documentType: form.documentType,
         documentCode: form.documentCode,
         version: form.version,
-        content: form.content || undefined,
+        category: form.category || undefined,
+        richContent: richContent || undefined,
         validFrom: form.validFrom ? new Date(form.validFrom).getTime() : undefined,
         validUntil: form.validUntil ? new Date(form.validUntil).getTime() : undefined,
         responsibleUserId: form.responsibleUserId as any,
         reviewerId: form.reviewerId ? (form.reviewerId as any) : undefined,
+        reviewIntervalDays: form.reviewIntervalDays
+          ? parseInt(form.reviewIntervalDays)
+          : undefined,
       });
       toast.success("Dokument erstellt");
       router.push(`/documents/${id}`);
@@ -83,6 +97,25 @@ export default function NewDocumentPage() {
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
+              <Label>Titel</Label>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Dokumenttitel"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Dokumentcode *</Label>
+              <Input
+                value={form.documentCode}
+                onChange={(e) => setForm({ ...form, documentCode: e.target.value })}
+                placeholder="z.B. QMH-001"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
               <Label>Dokumenttyp *</Label>
               <Select
                 value={form.documentType}
@@ -101,16 +134,23 @@ export default function NewDocumentPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Dokumentcode *</Label>
-              <Input
-                value={form.documentCode}
-                onChange={(e) => setForm({ ...form, documentCode: e.target.value })}
-                placeholder="z.B. QMH-001"
-              />
+              <Label>Kategorie</Label>
+              <Select
+                value={form.category}
+                onValueChange={(v) => setForm({ ...form, category: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Kategorie wählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {DOCUMENT_CATEGORY_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Version</Label>
               <Input
@@ -159,7 +199,7 @@ export default function NewDocumentPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Gültig ab</Label>
               <Input
@@ -176,24 +216,27 @@ export default function NewDocumentPage() {
                 onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Überprüfungsintervall (Tage)</Label>
+              <Input
+                type="number"
+                value={form.reviewIntervalDays}
+                onChange={(e) => setForm({ ...form, reviewIntervalDays: e.target.value })}
+                min={1}
+              />
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <Label>Inhalt (Markdown)</Label>
-            <Textarea
-              value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
-              rows={12}
-              placeholder="Dokumentinhalt hier eingeben (Markdown-Format)..."
-              className="font-mono text-sm"
-            />
-          </div>
-
-          <Button className="w-full" onClick={handleCreate}>
-            Dokument erstellen
-          </Button>
         </CardContent>
       </Card>
+
+      <div className="space-y-2">
+        <Label className="text-base font-medium">Inhalt</Label>
+        <DocumentEditor content={richContent} onChange={setRichContent} editable={true} />
+      </div>
+
+      <Button className="w-full" size="lg" onClick={handleCreate}>
+        Dokument erstellen
+      </Button>
     </div>
   );
 }

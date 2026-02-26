@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/types/enums";
 import { formatDate } from "@/lib/utils/dates";
 import { useRouter } from "next/navigation";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import { SquarePen } from "lucide-react";
 
 interface DocumentRow {
   _id: string;
@@ -15,6 +17,7 @@ interface DocumentRow {
   documentCode: string;
   version: string;
   status: string;
+  category?: string;
   updatedAt: number;
 }
 
@@ -25,6 +28,7 @@ interface DocumentListProps {
 
 export function DocumentList({ statusFilter, typeFilter }: DocumentListProps) {
   const router = useRouter();
+  const { can } = usePermissions();
   const documents = useQuery(api.documents.list, {
     status: statusFilter && statusFilter !== "all" ? statusFilter : undefined,
     documentType: typeFilter && typeFilter !== "all" ? typeFilter : undefined,
@@ -67,6 +71,26 @@ export function DocumentList({ statusFilter, typeFilter }: DocumentListProps) {
         </span>
       ),
     },
+    ...(can("documents:create")
+      ? [
+          {
+            key: "actions" as const,
+            header: "",
+            className: "w-[50px]",
+            cell: (row: DocumentRow) => (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/documents/${row._id}/edit`);
+                }}
+                className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              >
+                <SquarePen className="size-4" />
+              </button>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
