@@ -4,6 +4,7 @@ import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { hasPermission } from "./lib/permissions";
+import { createNotification } from "./lib/notificationHelpers";
 
 /** List tasks for current user */
 export const myTasks = query({
@@ -87,6 +88,18 @@ export const create = mutation({
       entityId: id,
       metadata: { type: args.type, title: args.title, assigneeId: args.assigneeId },
     });
+
+    // Notify assignee (skip if self-assigned)
+    if (args.assigneeId !== user._id) {
+      await createNotification(ctx, {
+        userId: args.assigneeId,
+        type: "TASK_ASSIGNED",
+        title: "Neue Aufgabe zugewiesen",
+        message: args.title,
+        resourceType: "tasks",
+        resourceId: id as string,
+      });
+    }
 
     return id;
   },
@@ -188,6 +201,15 @@ export const checkOverdue = internalMutation({
         await ctx.db.patch(task._id, {
           isOverdue: true,
           updatedAt: now,
+        });
+
+        await createNotification(ctx, {
+          userId: task.assigneeId,
+          type: "TASK_OVERDUE",
+          title: "Aufgabe überfällig",
+          message: task.title,
+          resourceType: "tasks",
+          resourceId: task._id as string,
         });
       }
     }

@@ -4,6 +4,7 @@ import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { archiveRecord } from "./lib/softDelete";
+import { createNotification } from "./lib/notificationHelpers";
 
 // ============================================================
 // Trainings
@@ -323,6 +324,16 @@ export const updateSessionStatus = mutation({
           createdBy: user._id,
           updatedBy: user._id,
         });
+
+        // Notify participant about feedback
+        await createNotification(ctx, {
+          userId: p.userId,
+          type: "TRAINING_FEEDBACK_DUE",
+          title: "Schulungsfeedback erforderlich",
+          message: "Bitte geben Sie Ihr Feedback zur durchgeführten Schulung ab.",
+          resourceType: "trainings",
+          resourceId: session.trainingId as string,
+        });
       }
     }
   },
@@ -393,6 +404,17 @@ export const addParticipant = mutation({
       entityType: "trainingParticipants",
       entityId: id,
       metadata: { sessionId: args.sessionId, participantUserId: args.userId },
+    });
+
+    // Notify the participant
+    const training = await ctx.db.get(session.trainingId);
+    await createNotification(ctx, {
+      userId: args.userId,
+      type: "TRAINING_ASSIGNED",
+      title: "Schulung zugewiesen",
+      message: `Sie wurden zur Schulung „${training?.title ?? "Unbekannt"}" eingeladen.`,
+      resourceType: "trainings",
+      resourceId: session.trainingId as string,
     });
 
     return id;

@@ -4,6 +4,7 @@ import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { hasPermission } from "./lib/permissions";
+import { createNotification } from "./lib/notificationHelpers";
 import type { UserRole } from "../lib/types/enums";
 
 /** List training requests (filtered by role) */
@@ -127,6 +128,15 @@ export const create = mutation({
         createdBy: user._id,
         updatedBy: user._id,
       });
+
+      await createNotification(ctx, {
+        userId: reviewerId,
+        type: "TRAINING_REQUEST_SUBMITTED",
+        title: "Neuer Schulungsantrag",
+        message: `${user.firstName} ${user.lastName} hat einen Antrag eingereicht: „${args.topic}"`,
+        resourceType: "trainingRequests",
+        resourceId: id as string,
+      });
     }
 
     await logAuditEvent(ctx, {
@@ -240,6 +250,16 @@ export const approve = mutation({
       previousStatus: request.status,
       newStatus: "APPROVED",
     });
+
+    // Notify requester
+    await createNotification(ctx, {
+      userId: request.requesterId,
+      type: "TRAINING_REQUEST_APPROVED",
+      title: "Schulungsantrag genehmigt",
+      message: `Ihr Antrag „${request.topic}" wurde genehmigt.`,
+      resourceType: "trainingRequests",
+      resourceId: args.id as string,
+    });
   },
 });
 
@@ -297,6 +317,16 @@ export const reject = mutation({
       previousStatus: request.status,
       newStatus: "REJECTED",
       metadata: { rejectionReason: args.rejectionReason },
+    });
+
+    // Notify requester
+    await createNotification(ctx, {
+      userId: request.requesterId,
+      type: "TRAINING_REQUEST_REJECTED",
+      title: "Schulungsantrag abgelehnt",
+      message: `Ihr Antrag „${request.topic}" wurde abgelehnt: ${args.rejectionReason}`,
+      resourceType: "trainingRequests",
+      resourceId: args.id as string,
     });
   },
 });

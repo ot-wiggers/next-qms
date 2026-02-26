@@ -1,9 +1,10 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { archiveRecord } from "./lib/softDelete";
+import { createNotification } from "./lib/notificationHelpers";
 
 /** Recursively extract plaintext from a Tiptap JSON document tree */
 function extractPlaintext(node: any): string {
@@ -220,6 +221,51 @@ export const updateStatus = mutation({
       previousStatus: doc.status,
       newStatus: args.status,
     });
+
+    // --- Notification triggers ---
+
+    if (args.status === "IN_REVIEW") {
+      // Notify assigned reviewers
+      const reviews = await ctx.db
+        .query("documentReviews")
+        .withIndex("by_document_status", (q) =>
+          q.eq("documentId", args.id).eq("status", "PENDING")
+        )
+        .collect();
+      for (const review of reviews) {
+        await createNotification(ctx, {
+          userId: review.reviewerId,
+          type: "DOCUMENT_REVIEW_REQUESTED",
+          title: "Dokument zur Prüfung",
+          message: `„${doc.documentCode}" wurde zur Prüfung eingereicht.`,
+          resourceType: "documentRecords",
+          resourceId: args.id as string,
+        });
+      }
+      // Also notify reviewer if set directly on document
+      if (doc.reviewerId && !reviews.some((r) => r.reviewerId === doc.reviewerId)) {
+        await createNotification(ctx, {
+          userId: doc.reviewerId,
+          type: "DOCUMENT_REVIEW_REQUESTED",
+          title: "Dokument zur Prüfung",
+          message: `„${doc.documentCode}" wurde zur Prüfung eingereicht.`,
+          resourceType: "documentRecords",
+          resourceId: args.id as string,
+        });
+      }
+    }
+
+    if (args.status === "APPROVED" && doc.createdBy) {
+      // Notify document author
+      await createNotification(ctx, {
+        userId: doc.createdBy,
+        type: "DOCUMENT_APPROVED",
+        title: "Dokument freigegeben",
+        message: `„${doc.documentCode}" wurde freigegeben.`,
+        resourceType: "documentRecords",
+        resourceId: args.id as string,
+      });
+    }
   },
 });
 
@@ -334,5 +380,65 @@ export const confirmRead = mutation({
     }
 
     return id;
+  },
+});
+
+// ============================================================
+// Internal: Review Date Checks (called by cron)
+// ============================================================
+
+/** Check documents approaching their review date and notify responsible users */
+export const checkReviewDates = internalMutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+    const sixtyDaysFromNow = now + 60 * 24 * 60 * 60 * 1000;
+
+    const documents = await ctx.db
+      .query("documentRecords")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("isArchived"), false),
+          q.eq(q.field("status"), "APPROVED")
+        )
+      )
+      .collect();
+
+    for (const doc of documents) {
+      if (!doc.nextReviewDate || !doc.responsibleUserId) continue;
+      if (doc.nextReviewDate > sixtyDaysFromNow) continue;
+
+      const daysUntilDue = Math.floor(
+        (doc.nextReviewDate - now) / (24 * 60 * 60 * 1000)
+      );
+
+      if (daysUntilDue <= 0) {
+        await createNotification(ctx, {
+          userId: doc.responsibleUserId,
+          type: "DOCUMENT_REVIEW_DUE",
+          title: "Dokumentenprüfung überfällig",
+          message: `„${doc.documentCode}" ist seit ${Math.abs(daysUntilDue)} Tag(en) überfällig.`,
+          resourceType: "documentRecords",
+          resourceId: doc._id as string,
+        });
+      } else if (daysUntilDue <= 30) {
+        await createNotification(ctx, {
+          userId: doc.responsibleUserId,
+          type: "DOCUMENT_REVIEW_DUE",
+          title: "Dokumentenprüfung fällig",
+          message: `„${doc.documentCode}" muss innerhalb von ${daysUntilDue} Tag(en) geprüft werden.`,
+          resourceType: "documentRecords",
+          resourceId: doc._id as string,
+        });
+      } else {
+        await createNotification(ctx, {
+          userId: doc.responsibleUserId,
+          type: "DOCUMENT_EXPIRING",
+          title: "Dokumentenprüfung anstehend",
+          message: `„${doc.documentCode}" muss in ${daysUntilDue} Tagen geprüft werden.`,
+          resourceType: "documentRecords",
+          resourceId: doc._id as string,
+        });
+      }
+    }
   },
 });
