@@ -377,6 +377,7 @@ export default defineSchema({
     isRequired: v.boolean(),
     effectivenessCheckAfterDays: v.number(), // default: 30
     targetOrganizationIds: v.optional(v.array(v.id("organizations"))),
+    externalLink: v.optional(v.string()), // URL to external training provider/platform
     status: trainingStatus,
     ...auditFields,
   })
@@ -390,6 +391,7 @@ export default defineSchema({
     location: v.optional(v.string()),
     trainerId: v.optional(v.id("users")),
     trainerName: v.optional(v.string()),
+    externalLink: v.optional(v.string()), // URL to external session/webinar (inherited from training or overridden)
     maxParticipants: v.optional(v.number()),
     status: sessionStatus,
     notes: v.optional(v.string()),
@@ -411,21 +413,31 @@ export default defineSchema({
     .index("by_session_user", ["sessionId", "userId"])
     .index("by_status", ["status"]),
 
+  // Schulungsbewertungsbogen (6.2.0) — matches the paper form exactly
   trainingFeedback: defineTable({
     participantId: v.id("trainingParticipants"),
     sessionId: v.id("trainingSessions"),
     userId: v.id("users"),
-    ratings: v.object({
-      contentRelevance: v.number(),
-      trainerCompetence: v.number(),
-      methodology: v.number(),
-      practicalApplicability: v.number(),
-      organizationQuality: v.number(),
-      overallSatisfaction: v.number(),
+    shortReport: v.string(), // Kurzbericht — min 30 characters
+    organizationRatings: v.object({
+      venueAccessibility: v.number(), // Erreichbarkeit des Tagungsortes (1-6)
+      conferenceRooms: v.number(),    // Tagungsräume (1-6)
+      catering: v.number(),           // Verpflegung (1-6)
+      staffSupport: v.number(),       // Betreuung durch das Personal (1-6)
     }),
-    comments: v.optional(v.string()),
-    improvementSuggestions: v.optional(v.string()),
-    wouldRecommend: v.boolean(),
+    eventRatings: v.object({
+      overallEvent: v.number(),              // Die Veranstaltung war insgesamt (1-6)
+      knowledgeUsefulness: v.number(),       // Nutzen der erworbenen Kenntnisse (1-6)
+      structureAndPresentation: v.number(),  // Aufbau und Präsentation (1-6)
+      seminarContent: v.number(),            // Die Inhalte des Seminars (1-6)
+      questionOpportunity: v.number(),       // Möglichkeit, Fragen zu stellen (1-6)
+      seminarMaterials: v.number(),          // Die Seminarunterlagen (1-6)
+      speakerExpertise: v.number(),          // Sachkunde des Referenten (1-6)
+      presentationQuality: v.number(),       // Qualität des Vortrags (1-6)
+    }),
+    badRatingReason: v.optional(v.string()), // "Ich habe eine 5/6 vergeben weil:" — required if any rating is 5 or 6
+    certificateFileId: v.optional(v.id("_storage")), // uploaded certificate or Teilnehmerliste
+    certificateFileName: v.optional(v.string()),
     ...auditFields,
   })
     .index("by_participant", ["participantId"])
@@ -489,6 +501,7 @@ export default defineSchema({
     udi: v.optional(v.string()),
     productGroup: v.optional(v.string()),
     manufacturerId: v.optional(v.id("manufacturers")),
+    departmentId: v.optional(v.id("organizations")), // department assignment for grouping
     riskClass: riskClass,
     status: productStatus,
     notes: v.optional(v.string()),
@@ -498,7 +511,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_manufacturer", ["manufacturerId"])
     .index("by_riskClass", ["riskClass"])
-    .index("by_productGroup", ["productGroup"]),
+    .index("by_productGroup", ["productGroup"])
+    .index("by_department", ["departmentId"]),
 
   declarationsOfConformity: defineTable({
     productId: v.id("products"),
@@ -518,6 +532,24 @@ export default defineSchema({
     .index("by_product", ["productId"])
     .index("by_status", ["status"])
     .index("by_validUntil", ["validUntil"]),
+
+  // ============================================================
+  // Calendar Events (user-created appointments)
+  // ============================================================
+
+  calendarEvents: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    startDate: v.number(),
+    endDate: v.optional(v.number()),
+    allDay: v.boolean(),
+    location: v.optional(v.string()),
+    createdByUserId: v.id("users"),
+    isPrivate: v.boolean(), // private = only visible to creator
+    ...auditFields,
+  })
+    .index("by_user", ["createdByUserId"])
+    .index("by_startDate", ["startDate"]),
 
   // ============================================================
   // PHASE 4: Placeholders (IN PLANUNG)
@@ -923,6 +955,7 @@ export const createTrainingSchema = z.object({
   isRequired: z.boolean().default(false),
   effectivenessCheckAfterDays: z.number().min(1).max(365).default(30),
   targetOrganizationIds: z.array(z.string()).optional(),
+  externalLink: z.string().url("Ungültige URL").optional().or(z.literal("")), // link to external training
 });
 
 export const createSessionSchema = z.object({
@@ -936,23 +969,44 @@ export const createSessionSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-const ratingField = z.number().min(1, "Bewertung erforderlich").max(6);
+const ratingField = z.number().min(1, "Bewertung erforderlich (1-6)").max(6, "Bewertung max. 6");
 
+// Schulungsbewertungsbogen (6.2.0) — matches the paper form
 export const trainingFeedbackSchema = z.object({
   participantId: z.string().min(1),
   sessionId: z.string().min(1),
-  ratings: z.object({
-    contentRelevance: ratingField,
-    trainerCompetence: ratingField,
-    methodology: ratingField,
-    practicalApplicability: ratingField,
-    organizationQuality: ratingField,
-    overallSatisfaction: ratingField,
+  shortReport: z.string().min(30, "Der Kurzbericht muss mindestens 30 Zeichen lang sein").max(5000),
+  organizationRatings: z.object({
+    venueAccessibility: ratingField,      // Erreichbarkeit des Tagungsortes
+    conferenceRooms: ratingField,          // Tagungsräume
+    catering: ratingField,                 // Verpflegung
+    staffSupport: ratingField,             // Betreuung durch das Personal
   }),
-  comments: z.string().max(2000).optional(),
-  improvementSuggestions: z.string().max(2000).optional(),
-  wouldRecommend: z.boolean(),
-});
+  eventRatings: z.object({
+    overallEvent: ratingField,             // Die Veranstaltung war insgesamt
+    knowledgeUsefulness: ratingField,      // Nutzen der erworbenen Kenntnisse
+    structureAndPresentation: ratingField, // Aufbau und Präsentation
+    seminarContent: ratingField,           // Die Inhalte des Seminars
+    questionOpportunity: ratingField,      // Möglichkeit, Fragen zu stellen
+    seminarMaterials: ratingField,         // Die Seminarunterlagen
+    speakerExpertise: ratingField,         // Sachkunde des Referenten
+    presentationQuality: ratingField,      // Qualität des Vortrags
+  }),
+  badRatingReason: z.string().max(2000).optional(), // "Ich habe eine 5/6 vergeben weil:" — validated separately
+}).refine(
+  (data) => {
+    const allRatings = [
+      ...Object.values(data.organizationRatings),
+      ...Object.values(data.eventRatings),
+    ];
+    const hasBadRating = allRatings.some((r) => r >= 5);
+    return !hasBadRating || (data.badRatingReason && data.badRatingReason.length > 0);
+  },
+  {
+    message: "Bitte begründen Sie, warum Sie eine 5 oder 6 vergeben haben",
+    path: ["badRatingReason"],
+  }
+);
 
 export const effectivenessCheckSchema = z.object({
   participantId: z.string().min(1),
@@ -989,6 +1043,7 @@ export const createProductSchema = z.object({
   udi: z.string().max(100).optional(),
   productGroup: z.string().max(100).optional(),
   manufacturerId: z.string().optional(),
+  departmentId: z.string().optional(), // department assignment for grouping
   riskClass: z.enum(RISK_CLASSES, { message: "Ungültige Risikoklasse" }),
   notes: z.string().max(2000).optional(),
 });
@@ -2392,19 +2447,63 @@ git commit -m "feat: add role-based dashboard with task, document, and training 
 
 ---
 
-### Task 0.13: Tasks & Calendar Pages
+### Task 0.13: Tasks Page (with "Aufgabe erstellen")
 
 **Files:**
 - Create: `app/(dashboard)/tasks/page.tsx`
-- Create: `app/(dashboard)/calendar/page.tsx`
+- Create: `components/domain/tasks/create-task-dialog.tsx`
 
-Tasks page: Lists user's tasks with filter by status, type, priority. Uses `data-table` component. Click to complete/cancel. Calendar page: Simple list view of upcoming due dates sorted by date. Both pages use Convex queries.
+Tasks page: Lists user's tasks with filter by status, type, priority. Uses `data-table` component. Click to complete/cancel. **"Aufgabe erstellen" button** opens dialog to create GENERAL tasks. Employees can only assign to themselves. department_lead can assign to team members. qmb/admin can assign to anyone. Uses `createTaskSchema` Zod validator.
 
 **Step: Commit**
 
 ```bash
-git add app/(dashboard)/tasks/ app/(dashboard)/calendar/
-git commit -m "feat: add tasks page and calendar/due dates page"
+git add app/(dashboard)/tasks/ components/domain/tasks/
+git commit -m "feat: add tasks page with create task dialog"
+```
+
+---
+
+### Task 0.13b: Calendar Page (Full Calendar + Own Events CRUD)
+
+**Files:**
+- Create: `app/(dashboard)/calendar/page.tsx`
+- Create: `components/domain/calendar/calendar-view.tsx`
+- Create: `components/domain/calendar/event-dialog.tsx`
+- Create: `convex/calendarEvents.ts`
+- Create: `lib/validators/calendarEvent.ts`
+
+Full calendar with **4 views**: month, week, day, list. Data sources merged: training sessions (from `trainingSessions`), task due dates (from `tasks`), and user-created events (from `calendarEvents`). Color-coded by type.
+
+**Own events CRUD:** Create, edit, delete personal calendar events. Dialog with: title, description, start/end date/time, all-day toggle, location, private toggle. Private events only visible to creator.
+
+`lib/validators/calendarEvent.ts`:
+```typescript
+import { z } from "zod";
+
+export const createCalendarEventSchema = z.object({
+  title: z.string().min(1, "Titel ist erforderlich").max(200),
+  description: z.string().max(2000).optional(),
+  startDate: z.number().min(1, "Startdatum ist erforderlich"),
+  endDate: z.number().optional(),
+  allDay: z.boolean().default(false),
+  location: z.string().max(200).optional(),
+  isPrivate: z.boolean().default(false),
+}).refine(
+  (data) => !data.endDate || data.endDate >= data.startDate,
+  { message: "Enddatum muss nach Startdatum liegen", path: ["endDate"] }
+);
+
+export type CreateCalendarEventInput = z.infer<typeof createCalendarEventSchema>;
+```
+
+`convex/calendarEvents.ts`: CRUD mutations + queries. List events by date range for current user (own events + public events). Update/delete only own events.
+
+**Step: Commit**
+
+```bash
+git add app/(dashboard)/calendar/ components/domain/calendar/ convex/calendarEvents.ts lib/validators/calendarEvent.ts
+git commit -m "feat: add full calendar with month/week/day/list views and own events CRUD"
 ```
 
 ---
@@ -2446,22 +2545,29 @@ git commit -m "feat: add Convex functions for document records and read confirma
 
 ---
 
-### Task 1.2: Document Pages — List & Detail
+### Task 1.2: Document Pages — List (Tabs by Type) & Detail
 
 **Files:**
 - Create: `app/(dashboard)/documents/page.tsx`
 - Create: `app/(dashboard)/documents/[id]/page.tsx`
 - Create: `components/domain/documents/document-list.tsx`
+- Create: `components/domain/documents/document-tab-view.tsx`
 - Create: `components/domain/documents/document-detail.tsx`
 - Create: `components/domain/documents/read-confirmation-button.tsx`
 
-Document list page: Fetches Sanity content list + Convex status metadata. Filter by type, status. Document detail page: Server Component fetches Sanity content (Portable Text), nested Client Component shows Convex status + read confirmation button + audit history timeline.
+Document list page: **Organized in Tabs by document type** using shadcn Tabs component:
+- Tab 1: QM-Handbuch (qmDocument)
+- Tab 2: Arbeitsanweisungen (workInstruction)
+- Tab 3: Formblätter (formTemplate)
+- Tab 4: Prozessbeschreibungen (processDescription)
+
+Each tab fetches Sanity content + Convex status metadata for that type. Filter by status within each tab. Document detail page: Server Component fetches Sanity content (Portable Text), nested Client Component shows Convex status + read confirmation button + audit history timeline.
 
 **Step: Commit**
 
 ```bash
 git add app/(dashboard)/documents/ components/domain/documents/
-git commit -m "feat: add document control pages — list, detail, read confirmations"
+git commit -m "feat: add document control pages — tabbed list by type, detail, read confirmations"
 ```
 
 ---
@@ -2518,7 +2624,7 @@ git commit -m "feat: add training request functions with approval workflow"
 
 ---
 
-### Task 2.4: Training Pages — List, Detail, Sessions, Feedback
+### Task 2.4: Training Pages — List, Detail, Sessions, Feedback (Schulungsbewertungsbogen)
 
 **Files:**
 - Create: `app/(dashboard)/trainings/page.tsx`
@@ -2530,16 +2636,41 @@ git commit -m "feat: add training request functions with approval workflow"
 - Create: `components/domain/training/training-form.tsx`
 - Create: `components/domain/training/session-form.tsx`
 - Create: `components/domain/training/participant-list.tsx`
-- Create: `components/domain/training/feedback-form.tsx`
+- Create: `components/domain/training/feedback-form.tsx` (Schulungsbewertungsbogen)
 - Create: `components/domain/training/effectiveness-form.tsx`
 
-Training list with filter/search. Create/edit training form. Session management (plan, mark as held, close). Participant list with status badges. Feedback form with 1-6 rating scale per item. Effectiveness check form. All with Zod validation and audit history.
+Training list with filter/search. Create/edit training form **with externalLink field** (shown as clickable link for external trainings). Session management (plan, mark as held, close). Participant list with status badges.
+
+**Schulungsbewertungsbogen (feedback-form.tsx)** — matches paper form 6.2.0:
+- Header: Training title, organizer, date, location, participant name, department
+- Kurzbericht (textarea, min 30 chars validation)
+- Organisation section (4 items, 1-6 radio/select):
+  - Erreichbarkeit des Tagungsortes
+  - Tagungsräume
+  - Verpflegung
+  - Betreuung durch das Personal
+- Veranstaltung section (8 items, 1-6 radio/select):
+  - Die Veranstaltung war insgesamt
+  - Nutzen der erworbenen Kenntnisse
+  - Aufbau und Präsentation
+  - Inhalte des Seminars
+  - Möglichkeit, Fragen zu stellen
+  - Seminarunterlagen
+  - Sachkunde des Referenten
+  - Qualität des Vortrags
+- "Ich habe eine 5/6 vergeben weil:" (conditional, shows when any rating >= 5)
+- **Zertifikat / Teilnehmerliste Upload** (optional file upload via Convex storage)
+- Signature area: Ort + Datum (auto-filled), digital confirmation button
+
+**Auto-notification:** When session → HELD, the system creates a TRAINING_FEEDBACK task per ATTENDED participant linking to the feedback form.
+
+Effectiveness check form. All with Zod validation and audit history.
 
 **Step: Commit**
 
 ```bash
 git add app/(dashboard)/trainings/ components/domain/training/
-git commit -m "feat: add training pages — list, detail, sessions, feedback, effectiveness"
+git commit -m "feat: add training pages with Schulungsbewertungsbogen feedback form and certificate upload"
 ```
 
 ---
@@ -2581,7 +2712,7 @@ git commit -m "feat: add Convex functions for products, manufacturers, and decla
 
 ---
 
-### Task 3.2: MDR Pages — Products & Declarations
+### Task 3.2: MDR Pages — Products (by Department + Import/Export) & Declarations
 
 **Files:**
 - Create: `app/(dashboard)/mdr/products/page.tsx`
@@ -2590,15 +2721,27 @@ git commit -m "feat: add Convex functions for products, manufacturers, and decla
 - Create: `app/(dashboard)/mdr/declarations/page.tsx`
 - Create: `app/(dashboard)/mdr/declarations/[id]/page.tsx`
 - Create: `components/domain/products/product-form.tsx`
+- Create: `components/domain/products/product-import-export.tsx`
 - Create: `components/domain/products/declaration-upload.tsx`
+- Create: `convex/productImportExport.ts`
 
-Product list with filter by status, risk class, manufacturer. Product detail with linked DoCs. Declaration list with expiry warnings. Declaration detail with file download and review UI. File upload component using Convex file storage.
+Product list with filter by status, risk class, manufacturer, **and department**. **Department grouping:** Products can be filtered/grouped by department using a dropdown or tab selector. Product form includes department assignment dropdown.
+
+**Import/Export (product-import-export.tsx):**
+- **Export:** Button to download products as JSON or XLSX. Uses Convex action to generate file.
+- **Import:** Upload JSON or XLSX file to bulk-create/update products. Validates each row against `createProductSchema`. Shows preview with validation errors before confirming import.
+- XLSX support via `xlsx` library (SheetJS).
+- JSON format: array of product objects matching the schema.
+
+Product detail with linked DoCs. Declaration list with expiry warnings. Declaration detail with file download and review UI. File upload component using Convex file storage.
+
+**Additional dependency:** `npm install xlsx` (for XLSX import/export)
 
 **Step: Commit**
 
 ```bash
-git add app/(dashboard)/mdr/ components/domain/products/
-git commit -m "feat: add MDR pages — product list, detail, declarations with file upload"
+git add app/(dashboard)/mdr/ components/domain/products/ convex/productImportExport.ts
+git commit -m "feat: add MDR pages — product list by department, import/export (JSON+XLSX), declarations"
 ```
 
 ---
@@ -2720,9 +2863,9 @@ git commit -m "feat: wire dashboard widgets and audit history component"
 | # | Task | Phase | Depends On |
 |---|---|---|---|
 | 0.1 | Project scaffold | 0 | — |
-| 0.2 | Convex schema | 0 | 0.1 |
+| 0.2 | Convex schema (incl. calendarEvents, updated trainings/feedback/products) | 0 | 0.1 |
 | 0.3 | Shared types & enums | 0 | 0.2 |
-| 0.4 | Zod validators | 0 | 0.3 |
+| 0.4 | Zod validators (incl. Schulungsbewertungsbogen, calendarEvent) | 0 | 0.3 |
 | 0.5 | Convex lib (RBAC, audit, state machine) | 0 | 0.2 |
 | 0.6 | Convex Auth setup | 0 | 0.2 |
 | 0.7 | Users & Organizations functions | 0 | 0.5, 0.6 |
@@ -2731,21 +2874,35 @@ git commit -m "feat: wire dashboard widgets and audit history component"
 | 0.10 | Custom hooks & utilities | 0 | 0.7, 0.8 |
 | 0.11 | Layout & shared components | 0 | 0.10 |
 | 0.12 | Dashboard page | 0 | 0.11 |
-| 0.13 | Tasks & Calendar pages | 0 | 0.11 |
+| 0.13 | Tasks page (with "Aufgabe erstellen") | 0 | 0.11 |
+| 0.13b | Calendar page (full calendar + own events CRUD) | 0 | 0.11, 0.8 |
 | 0.14 | Admin pages | 0 | 0.11 |
 | 1.1 | Document Control functions | 1 | 0.5 |
-| 1.2 | Document pages | 1 | 0.11, 0.9, 1.1 |
-| 2.1 | Training + Session + Participant functions | 2 | 0.5 |
-| 2.2 | Feedback & Effectiveness functions | 2 | 2.1 |
+| 1.2 | Document pages (tabbed by type) | 1 | 0.11, 0.9, 1.1 |
+| 2.1 | Training + Session + Participant functions (with externalLink) | 2 | 0.5 |
+| 2.2 | Feedback (Schulungsbewertungsbogen) & Effectiveness functions | 2 | 2.1 |
 | 2.3 | Training Request functions | 2 | 0.5 |
-| 2.4 | Training pages | 2 | 0.11, 2.1, 2.2 |
+| 2.4 | Training pages (with Schulungsbewertungsbogen + certificate upload) | 2 | 0.11, 2.1, 2.2 |
 | 2.5 | Training Request pages | 2 | 0.11, 2.3 |
-| 3.1 | Products + Declarations functions | 3 | 0.5 |
-| 3.2 | MDR pages | 3 | 0.11, 3.1 |
+| 3.1 | Products + Declarations functions (with departmentId) | 3 | 0.5 |
+| 3.2 | MDR pages (by department + JSON/XLSX import/export) | 3 | 0.11, 3.1 |
 | 3.3 | Cron jobs | 3 | 2.2, 3.1 |
 | 4.1 | Placeholder pages + stubs | 4 | 0.11 |
 | 5.1 | Seed script | 5 | 0.7, 2.1, 3.1 |
 | 5.2 | Dashboard wiring + audit history | 5 | all above |
+
+---
+
+## Additions (2026-02-26)
+
+| # | Addition | Affected Tasks |
+|---|----------|---------------|
+| 1 | Eigene Aufgaben erstellen (GENERAL tasks) | 0.8, 0.13 |
+| 2 | Link zur Schulung (externalLink) | 0.2, 0.4, 2.1, 2.4 |
+| 3 | Schulungsbewertungsbogen nach PDF 6.2.0 + Zertifikat-Upload + Auto-Aufforderung | 0.2, 0.4, 2.2, 2.4 |
+| 4 | Kalender: Monats/Wochen/Tag/Liste + eigene Termine CRUD | 0.2, 0.4, 0.13b (new) |
+| 5 | Produkte nach Abteilung + JSON/XLSX Import/Export | 0.2, 0.4, 3.1, 3.2 |
+| 6 | Dokument-Typen in Tabs | 1.2 |
 
 ---
 
@@ -2757,4 +2914,4 @@ These task groups can run in parallel (no dependencies between groups):
 **Group B (Sanity):** 0.9 (independent)
 **Group C (UI Foundation):** 0.3 → 0.4 → 0.10 → 0.11
 
-After Groups A+B+C complete: 0.12 → 0.13 → 0.14 → 1.2 → 2.4 → 2.5 → 3.2 → 4.1 → 5.1 → 5.2
+After Groups A+B+C complete: 0.12 → 0.13 → 0.13b → 0.14 → 1.2 → 2.4 → 2.5 → 3.2 → 4.1 → 5.1 → 5.2

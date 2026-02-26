@@ -52,7 +52,7 @@ next-qms/
 │   │   ├── layout.tsx                # Sidebar + Topbar + RBAC Provider
 │   │   ├── page.tsx                  # Role-based dashboard
 │   │   ├── documents/
-│   │   │   ├── page.tsx              # Document list (Sanity browser + Convex status)
+│   │   │   ├── page.tsx              # Document list — organized in Tabs by type (QM-Handbuch, AA, Formblatt, Prozess)
 │   │   │   └── [id]/page.tsx         # Document detail + read confirmation
 │   │   ├── trainings/
 │   │   │   ├── page.tsx              # Training list
@@ -76,8 +76,8 @@ next-qms/
 │   │   │   └── declarations/
 │   │   │       ├── page.tsx          # DoC list
 │   │   │       └── [id]/page.tsx     # DoC detail + file
-│   │   ├── tasks/page.tsx            # My tasks
-│   │   ├── calendar/page.tsx         # Due dates overview
+│   │   ├── tasks/page.tsx            # My tasks + "Aufgabe erstellen" button
+│   │   ├── calendar/page.tsx         # Full calendar: month/week/day/list views + own events CRUD
 │   │   ├── admin/
 │   │   │   ├── users/page.tsx
 │   │   │   ├── locations/page.tsx
@@ -204,6 +204,8 @@ next-qms/
 - `resourceType?: string`, `resourceId?: string`
 - Audit fields
 
+> All users can create GENERAL tasks for themselves or (with tasks:team/tasks:all permission) for others. The tasks page includes a "Aufgabe erstellen" button. System-generated tasks (TRAINING_FEEDBACK, DOC_EXPIRY_WARNING etc.) are created automatically by business logic and cron jobs.
+
 ### 4.3 Document Control (Convex side)
 
 **documentRecords**
@@ -231,6 +233,7 @@ next-qms/
 - `isRequired: boolean`
 - `effectivenessCheckAfterDays: number` (default: 30)
 - `targetOrganizationIds?: Id<"organizations">[]`
+- `externalLink?: string` (URL to external training provider/platform)
 - `status: "ACTIVE" | "ARCHIVED"`
 - Audit fields
 
@@ -251,14 +254,19 @@ next-qms/
 - `attendedAt?: number`
 - Audit fields
 
-**trainingFeedback**
+**trainingFeedback** (based on Schulungsbewertungsbogen 6.2.0)
 - `participantId: Id<"trainingParticipants">`
 - `sessionId: Id<"trainingSessions">`
 - `userId: Id<"users">`
-- `ratings: { contentRelevance: number, trainerCompetence: number, methodology: number, practicalApplicability: number, organizationQuality: number, overallSatisfaction: number }` (each 1-6)
-- `comments?: string`, `improvementSuggestions?: string`
-- `wouldRecommend: boolean`
+- `shortReport: string` (Kurzbericht, min 30 characters)
+- `organizationRatings: { venueAccessibility: number, conferenceRooms: number, catering: number, staffSupport: number }` (each 1-6)
+- `eventRatings: { overallEvent: number, knowledgeUsefulness: number, structureAndPresentation: number, seminarContent: number, questionOpportunity: number, seminarMaterials: number, speakerExpertise: number, presentationQuality: number }` (each 1-6)
+- `badRatingReason?: string` (required if any rating is 5 or 6)
+- `certificateFileId?: Id<"_storage">` (uploaded certificate/Teilnehmerliste)
+- `certificateFileName?: string`
 - Audit fields
+
+> Auto-notification: When session status → HELD, system creates TRAINING_FEEDBACK task for each participant. Task includes link to feedback form (Schulungsbewertungsbogen).
 
 **effectivenessChecks**
 - `participantId: Id<"trainingParticipants">`
@@ -290,10 +298,13 @@ next-qms/
 - `name: string`, `articleNumber: string`
 - `udi?: string`, `productGroup?: string`
 - `manufacturerId?: Id<"manufacturers">`
+- `departmentId?: Id<"organizations">` (department assignment for grouping)
 - `riskClass: "I" | "IIa" | "IIb" | "III"`
 - `status: "ACTIVE" | "BLOCKED" | "DELISTED"`
 - `notes?: string`
 - Audit fields
+
+> Products can be filtered/grouped by department. JSON and XLSX import/export supported.
 
 **manufacturers**
 - `name: string`, `country?: string`, `contactInfo?: string`
@@ -309,7 +320,22 @@ next-qms/
 - `reviewedById?: Id<"users">`, `reviewedAt?: number`
 - Audit fields
 
-### 4.7 Cross-Cutting
+### 4.7 Calendar Events
+
+**calendarEvents**
+- `title: string`, `description?: string`
+- `startDate: number`, `endDate?: number`
+- `allDay: boolean`
+- `location?: string`
+- `createdByUserId: Id<"users">`
+- `isPrivate: boolean` (private = only visible to creator)
+- Audit fields
+
+> Calendar shows: training sessions (from trainingSessions), task due dates, and user-created events. Supports month, week, day, and list views. Users can create, edit, and delete their own events.
+
+---
+
+### 4.8 Cross-Cutting
 
 **auditLog**
 - `userId: Id<"users">`
@@ -323,7 +349,7 @@ next-qms/
 - `key: string`, `enabled: boolean`, `description?: string`
 - Audit fields
 
-### 4.8 Phase 4 Placeholder Tables
+### 4.9 Phase 4 Placeholder Tables
 
 `audits`, `auditFindings`, `capaActions`, `complaints`, `incomingGoodsChecks`, `deviceRecords`, `deviceCalibrations`
 - Minimal schema: `title?: string`, `status: "PLACEHOLDER"`, audit fields
@@ -431,13 +457,18 @@ Three levels:
 
 ## 10. Business Rules
 
-1. After training attendance → feedback form is mandatory (blocks further progress)
-2. After effectivenessCheckAfterDays → scheduled job creates task for dept lead/QMB
-3. If effectiveness = INEFFECTIVE → participant REQUIRES_ACTION, follow-up task created, CAPA trigger placeholder
-4. Product must not be ACTIVE without VALID DoC (when feature flag `enforceDocForActiveProduct` enabled)
-5. Warning task when DoC expires in < 90 days
-6. No hard deletes — only soft delete (isArchived + archivedAt + archivedBy)
-7. All writes produce audit log entries
+1. After training attendance → Schulungsbewertungsbogen (feedback form) is mandatory (blocks further progress)
+2. When session marked HELD → auto-create TRAINING_FEEDBACK task for each ATTENDED participant with link to Schulungsbewertungsbogen
+3. Schulungsbewertungsbogen requires: Kurzbericht (min 30 chars), Organization ratings (4 items, 1-6), Event ratings (8 items, 1-6), bad rating reason (required if any 5/6), optional certificate upload
+4. After effectivenessCheckAfterDays → scheduled job creates task for dept lead/QMB
+5. If effectiveness = INEFFECTIVE → participant REQUIRES_ACTION, follow-up task created, CAPA trigger placeholder
+6. Product must not be ACTIVE without VALID DoC (when feature flag `enforceDocForActiveProduct` enabled)
+7. Warning task when DoC expires in < 90 days
+8. No hard deletes — only soft delete (isArchived + archivedAt + archivedBy)
+9. All writes produce audit log entries
+10. All users can create own GENERAL tasks; department_lead/qmb/admin can create tasks for others
+11. Document list organized by type in tabs (QM-Handbuch, Arbeitsanweisung, Formblatt, Prozessbeschreibung)
+12. Products can be grouped/filtered by department; JSON and XLSX import/export supported
 
 ---
 
