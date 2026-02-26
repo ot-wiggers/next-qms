@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useEditor, EditorContent, type Editor as TiptapEditor, ReactRenderer } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Table } from "@tiptap/extension-table";
@@ -24,6 +25,7 @@ import { AttachmentBlock } from "./extensions/attachment-block";
 import { CalloutBlock } from "./extensions/callout-block";
 import { ProcessDiagram } from "./extensions/process-diagram";
 import { TableOfContents } from "./extensions/table-of-contents";
+import { DocumentPickerDialog } from "./DocumentPickerDialog";
 
 interface DocumentEditorProps {
   content?: any; // Tiptap JSON
@@ -38,7 +40,22 @@ export function DocumentEditor({
   editable = true,
   extraSlashItems = [],
 }: DocumentEditorProps) {
-  const allSlashItems = [...defaultSlashItems, ...extraSlashItems];
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const allSlashItems: SlashCommandItem[] = [
+    ...defaultSlashItems,
+    {
+      title: "Dokument-Referenz",
+      description: "Verweis auf ein anderes QMS-Dokument",
+      icon: "FileText",
+      category: "QMS",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).run();
+        setPickerOpen(true);
+      },
+    },
+    ...extraSlashItems,
+  ];
 
   const editor = useEditor({
     extensions: [
@@ -132,12 +149,44 @@ export function DocumentEditor({
     },
   });
 
+  const handleDocumentSelect = useCallback(
+    (doc: {
+      documentId: string;
+      documentCode: string;
+      documentTitle: string;
+      documentStatus: string;
+    }) => {
+      if (!editor) return;
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "documentReference",
+          attrs: {
+            documentId: doc.documentId,
+            documentCode: doc.documentCode,
+            documentTitle: doc.documentTitle,
+            documentStatus: doc.documentStatus,
+          },
+        })
+        .run();
+    },
+    [editor],
+  );
+
   if (!editor) return null;
 
   return (
     <div className="border rounded-lg overflow-hidden">
       {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} className="p-4 min-h-[400px]" />
+      {editable && (
+        <DocumentPickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          onSelect={handleDocumentSelect}
+        />
+      )}
     </div>
   );
 }
