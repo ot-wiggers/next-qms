@@ -22,7 +22,7 @@ import {
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
 import { getAllowedTransitions } from "../../../../convex/lib/stateMachine";
-import { ArrowLeft, Calendar, Plus, Pencil, Archive, Users } from "lucide-react";
+import { ArrowLeft, Calendar, Plus, Pencil, Archive, Users, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ interface Training {
   status: string;
   isRequired: boolean;
   effectivenessCheckAfterDays: number;
+  externalLink?: string;
   createdAt: number;
 }
 
@@ -49,6 +50,7 @@ interface Session {
   status: string;
   maxParticipants?: number;
   notes?: string;
+  externalLink?: string;
 }
 
 export default function TrainingDetailPage() {
@@ -78,6 +80,7 @@ export default function TrainingDetailPage() {
     category: "",
     isRequired: false,
     effectivenessCheckAfterDays: 0,
+    externalLink: "",
   });
 
   // Training archive state
@@ -93,6 +96,7 @@ export default function TrainingDetailPage() {
     trainerName: "",
     maxParticipants: "",
     notes: "",
+    externalLink: "",
   });
 
   if (training === undefined) {
@@ -110,6 +114,7 @@ export default function TrainingDetailPage() {
       category: training.category ?? "",
       isRequired: training.isRequired,
       effectivenessCheckAfterDays: training.effectivenessCheckAfterDays,
+      externalLink: training.externalLink ?? "",
     });
     setEditOpen(true);
   };
@@ -123,6 +128,7 @@ export default function TrainingDetailPage() {
         category: editForm.category || undefined,
         isRequired: editForm.isRequired,
         effectivenessCheckAfterDays: editForm.effectivenessCheckAfterDays,
+        externalLink: editForm.externalLink || undefined,
       });
       toast.success("Schulung aktualisiert");
       setEditOpen(false);
@@ -152,6 +158,7 @@ export default function TrainingDetailPage() {
       trainerName: session.trainerName ?? "",
       maxParticipants: session.maxParticipants?.toString() ?? "",
       notes: session.notes ?? "",
+      externalLink: session.externalLink ?? "",
     });
     setSessionEditOpen(true);
   };
@@ -167,6 +174,7 @@ export default function TrainingDetailPage() {
           ? parseInt(sessionEditForm.maxParticipants)
           : undefined,
         notes: sessionEditForm.notes || undefined,
+        externalLink: sessionEditForm.externalLink || undefined,
       });
       toast.success("Termin aktualisiert");
       setSessionEditOpen(false);
@@ -240,6 +248,17 @@ export default function TrainingDetailPage() {
           {training.description && (
             <p className="mb-4 text-sm">{training.description}</p>
           )}
+          {training.externalLink && (
+            <a
+              href={training.externalLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-4 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              {training.externalLink}
+            </a>
+          )}
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Erstellt</p>
@@ -302,6 +321,18 @@ export default function TrainingDetailPage() {
                             {session.maxParticipants &&
                               ` · Max. ${session.maxParticipants} TN`}
                           </p>
+                          {session.externalLink && (
+                            <a
+                              href={session.externalLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Externer Link
+                            </a>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -415,6 +446,20 @@ export default function TrainingDetailPage() {
                 }
               />
             </div>
+            <div className="space-y-2">
+              <Label>Externer Link</Label>
+              <Input
+                type="url"
+                value={editForm.externalLink}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, externalLink: e.target.value })
+                }
+                placeholder="https://..."
+              />
+              <p className="text-xs text-muted-foreground">
+                z.B. Link zur externen Schulungsplattform
+              </p>
+            </div>
             <Button className="w-full" onClick={handleTrainingEdit}>
               Änderungen speichern
             </Button>
@@ -490,6 +535,23 @@ export default function TrainingDetailPage() {
                   })
                 }
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Externer Link</Label>
+              <Input
+                type="url"
+                value={sessionEditForm.externalLink}
+                onChange={(e) =>
+                  setSessionEditForm({
+                    ...sessionEditForm,
+                    externalLink: e.target.value,
+                  })
+                }
+                placeholder="https://..."
+              />
+              <p className="text-xs text-muted-foreground">
+                z.B. Link zur externen Schulungsplattform
+              </p>
             </div>
             <Button className="w-full" onClick={handleSessionEdit}>
               Änderungen speichern

@@ -23,6 +23,7 @@ export function SessionForm({ trainingId, onCreated }: SessionFormProps) {
     trainerName: "",
     maxParticipants: "",
     notes: "",
+    externalLink: "",
   });
 
   const handleSubmit = async () => {
@@ -40,9 +41,10 @@ export function SessionForm({ trainingId, onCreated }: SessionFormProps) {
           ? parseInt(form.maxParticipants)
           : undefined,
         notes: form.notes || undefined,
+        externalLink: form.externalLink || undefined,
       });
       toast.success("Termin erstellt");
-      setForm({ scheduledDate: "", location: "", trainerName: "", maxParticipants: "", notes: "" });
+      setForm({ scheduledDate: "", location: "", trainerName: "", maxParticipants: "", notes: "", externalLink: "" });
       onCreated?.();
     } catch (err: any) {
       toast.error(err.message ?? "Fehler beim Erstellen");
@@ -98,6 +100,18 @@ export function SessionForm({ trainingId, onCreated }: SessionFormProps) {
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
           rows={2}
         />
+      </div>
+      <div className="space-y-2">
+        <Label>Externer Link</Label>
+        <Input
+          type="url"
+          value={form.externalLink}
+          onChange={(e) => setForm({ ...form, externalLink: e.target.value })}
+          placeholder="https://..."
+        />
+        <p className="text-xs text-muted-foreground">
+          z.B. Link zur externen Schulungsplattform
+        </p>
       </div>
       <Button onClick={handleSubmit} size="sm">
         Termin erstellen

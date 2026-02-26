@@ -8,22 +8,39 @@ import { validateTransition } from "./lib/stateMachine";
 // Training Feedback Submission
 // ============================================================
 
-/** Submit training feedback */
+/** Generate a file upload URL for certificate/participant list uploads */
+export const generateUploadUrl = mutation({
+  handler: async (ctx) => {
+    await requirePermission(ctx, "trainings:feedback:submit");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Submit training feedback (Schulungsbewertungsbogen 6.2.0) */
 export const submitFeedback = mutation({
   args: {
     participantId: v.id("trainingParticipants"),
     sessionId: v.id("trainingSessions"),
-    ratings: v.object({
-      contentRelevance: v.number(),
-      trainerCompetence: v.number(),
-      methodology: v.number(),
-      practicalApplicability: v.number(),
-      organizationQuality: v.number(),
-      overallSatisfaction: v.number(),
+    shortReport: v.string(),
+    organizationRatings: v.object({
+      venueAccessibility: v.number(),
+      conferenceRooms: v.number(),
+      catering: v.number(),
+      staffSupport: v.number(),
     }),
-    comments: v.optional(v.string()),
-    improvementSuggestions: v.optional(v.string()),
-    wouldRecommend: v.boolean(),
+    eventRatings: v.object({
+      overallEvent: v.number(),
+      knowledgeUsefulness: v.number(),
+      structurePresentation: v.number(),
+      seminarContent: v.number(),
+      questionOpportunity: v.number(),
+      seminarMaterials: v.number(),
+      speakerExpertise: v.number(),
+      presentationQuality: v.number(),
+    }),
+    badRatingReason: v.optional(v.string()),
+    certificateFileId: v.optional(v.id("_storage")),
+    certificateFileName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "trainings:feedback:submit");
@@ -37,12 +54,28 @@ export const submitFeedback = mutation({
 
     validateTransition("participantStatus", participant.status, "FEEDBACK_DONE");
 
-    // Validate ratings are 1-6
-    const ratingValues = Object.values(args.ratings);
-    for (const rating of ratingValues) {
-      if (rating < 1 || rating > 6) {
+    // Validate shortReport minimum length
+    if (args.shortReport.trim().length < 30) {
+      throw new Error("Der Kurzbericht muss mindestens 30 Zeichen lang sein");
+    }
+
+    // Validate all ratings are 1-6
+    const allRatings = [
+      ...Object.values(args.organizationRatings),
+      ...Object.values(args.eventRatings),
+    ];
+    for (const rating of allRatings) {
+      if (!Number.isInteger(rating) || rating < 1 || rating > 6) {
         throw new Error("Bewertungen müssen zwischen 1 und 6 liegen");
       }
+    }
+
+    // If any rating is 5 or 6, badRatingReason is required
+    const hasBadRating = allRatings.some((r) => r >= 5);
+    if (hasBadRating && (!args.badRatingReason || args.badRatingReason.trim().length === 0)) {
+      throw new Error(
+        "Bei einer Bewertung von 5 oder 6 muss eine Begründung angegeben werden"
+      );
     }
 
     const now = Date.now();
@@ -52,10 +85,12 @@ export const submitFeedback = mutation({
       participantId: args.participantId,
       sessionId: args.sessionId,
       userId: user._id,
-      ratings: args.ratings,
-      comments: args.comments,
-      improvementSuggestions: args.improvementSuggestions,
-      wouldRecommend: args.wouldRecommend,
+      shortReport: args.shortReport,
+      organizationRatings: args.organizationRatings,
+      eventRatings: args.eventRatings,
+      badRatingReason: args.badRatingReason,
+      certificateFileId: args.certificateFileId,
+      certificateFileName: args.certificateFileName,
       isArchived: false,
       createdAt: now,
       updatedAt: now,

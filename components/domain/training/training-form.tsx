@@ -21,6 +21,7 @@ export function TrainingForm() {
     category: "",
     isRequired: false,
     effectivenessCheckAfterDays: 30,
+    externalLink: "",
   });
 
   const handleSubmit = async () => {
@@ -35,6 +36,7 @@ export function TrainingForm() {
         category: form.category || undefined,
         isRequired: form.isRequired,
         effectivenessCheckAfterDays: form.effectivenessCheckAfterDays,
+        externalLink: form.externalLink || undefined,
       });
       toast.success("Schulung erstellt");
       router.push(`/trainings/${id}`);
@@ -99,6 +101,19 @@ export function TrainingForm() {
             })
           }
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Externer Link</Label>
+        <Input
+          type="url"
+          value={form.externalLink}
+          onChange={(e) => setForm({ ...form, externalLink: e.target.value })}
+          placeholder="https://..."
+        />
+        <p className="text-xs text-muted-foreground">
+          z.B. Link zur externen Schulungsplattform
+        </p>
       </div>
 
       <Button onClick={handleSubmit}>Schulung erstellen</Button>

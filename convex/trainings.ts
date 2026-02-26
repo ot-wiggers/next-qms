@@ -44,6 +44,7 @@ export const create = mutation({
     isRequired: v.boolean(),
     effectivenessCheckAfterDays: v.number(),
     targetOrganizationIds: v.optional(v.array(v.id("organizations"))),
+    externalLink: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "trainings:create");
@@ -81,6 +82,7 @@ export const update = mutation({
     isRequired: v.optional(v.boolean()),
     effectivenessCheckAfterDays: v.optional(v.number()),
     targetOrganizationIds: v.optional(v.array(v.id("organizations"))),
+    externalLink: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
     const user = await requirePermission(ctx, "trainings:manage");
@@ -183,6 +185,7 @@ export const createSession = mutation({
     trainerName: v.optional(v.string()),
     maxParticipants: v.optional(v.number()),
     notes: v.optional(v.string()),
+    externalLink: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "trainings:manage");
@@ -221,6 +224,7 @@ export const updateSession = mutation({
     trainerName: v.optional(v.string()),
     maxParticipants: v.optional(v.number()),
     notes: v.optional(v.string()),
+    externalLink: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
     const user = await requirePermission(ctx, "trainings:manage");

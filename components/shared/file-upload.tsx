@@ -10,16 +10,23 @@ interface FileUploadProps {
   onUploadComplete: (fileId: string, fileName: string) => void;
   accept?: string;
   label?: string;
+  /** Which generateUploadUrl mutation to use. Defaults to declarations. */
+  uploadUrlSource?: "declarations" | "effectiveness";
 }
 
 export function FileUpload({
   onUploadComplete,
   accept = ".pdf,.doc,.docx",
   label = "Datei hochladen",
+  uploadUrlSource = "declarations",
 }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const generateUploadUrl = useMutation(api.declarations.generateUploadUrl);
+  const generateDeclarationUrl = useMutation(api.declarations.generateUploadUrl);
+  const generateEffectivenessUrl = useMutation(api.effectiveness.generateUploadUrl);
+
+  const generateUploadUrl =
+    uploadUrlSource === "effectiveness" ? generateEffectivenessUrl : generateDeclarationUrl;
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

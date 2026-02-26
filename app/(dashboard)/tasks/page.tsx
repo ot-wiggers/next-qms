@@ -30,8 +30,10 @@ import {
 } from "@/lib/types/enums";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useState } from "react";
-import { CheckCircle2, XCircle, AlertTriangle, Pencil } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle2, XCircle, AlertTriangle, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface TaskRow {
   _id: string;
@@ -50,6 +52,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   TRAINING_EFFECTIVENESS: "Wirksamkeitsprüfung",
   DOC_EXPIRY_WARNING: "DoC-Ablaufwarnung",
   TRAINING_REQUEST_REVIEW: "Schulungsantrag prüfen",
+  DOCUMENT_REVIEW_DUE: "Dokumentenprüfung fällig",
   GENERAL: "Allgemein",
   FOLLOW_UP: "Folgemaßnahme",
 };
@@ -68,8 +71,29 @@ export default function TasksPage() {
 
   const updateStatus = useMutation(api.tasks.updateStatus);
   const updateTask = useMutation(api.tasks.update);
+  const createTask = useMutation(api.tasks.create);
+
+  const currentUser = useQuery(api.users.me) as
+    | { _id: Id<"users">; firstName?: string; lastName?: string; email?: string }
+    | null
+    | undefined;
+  const usersList = useQuery(api.users.list) as
+    | Array<{ _id: Id<"users">; firstName?: string; lastName?: string; email?: string }>
+    | undefined;
 
   const tasks = (can("tasks:all") ? allTasks : myTasks) ?? [];
+
+  // Create state
+  const [createOpen, setCreateOpen] = useState(false);
+  const initialCreateForm = {
+    title: "",
+    description: "",
+    type: "GENERAL",
+    priority: "MEDIUM",
+    dueDate: "",
+    assigneeId: "",
+  };
+  const [createForm, setCreateForm] = useState(initialCreateForm);
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
@@ -125,6 +149,35 @@ export default function TasksPage() {
       setEditOpen(false);
     } catch (err: any) {
       toast.error(err.message ?? "Fehler beim Aktualisieren");
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!createForm.title.trim()) {
+      toast.error("Bitte einen Titel eingeben");
+      return;
+    }
+    const assigneeId = createForm.assigneeId || currentUser?._id;
+    if (!assigneeId) {
+      toast.error("Kein Benutzer für die Zuweisung verfügbar");
+      return;
+    }
+    try {
+      await createTask({
+        type: createForm.type,
+        title: createForm.title.trim(),
+        description: createForm.description.trim() || undefined,
+        assigneeId: assigneeId as Id<"users">,
+        priority: createForm.priority,
+        dueDate: createForm.dueDate
+          ? new Date(createForm.dueDate).getTime()
+          : undefined,
+      });
+      toast.success("Aufgabe erstellt");
+      setCreateForm(initialCreateForm);
+      setCreateOpen(false);
+    } catch (err: any) {
+      toast.error(err.message ?? "Fehler beim Erstellen der Aufgabe");
     }
   };
 
@@ -223,6 +276,12 @@ export default function TasksPage() {
       <PageHeader
         title="Aufgaben"
         description="Übersicht über alle Ihre Aufgaben"
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Aufgabe erstellen
+          </Button>
+        }
       />
 
       <div className="flex flex-wrap gap-3">
@@ -274,6 +333,124 @@ export default function TasksPage() {
         data={filteredTasks}
         emptyMessage="Keine Aufgaben gefunden"
       />
+
+      {/* Create Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aufgabe erstellen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Titel *</Label>
+              <Input
+                value={createForm.title}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, title: e.target.value })
+                }
+                placeholder="Aufgabentitel eingeben"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Beschreibung</Label>
+              <Textarea
+                value={createForm.description}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, description: e.target.value })
+                }
+                placeholder="Optionale Beschreibung"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Typ</Label>
+                <Select
+                  value={createForm.type}
+                  onValueChange={(v) =>
+                    setCreateForm({ ...createForm, type: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {TASK_TYPE_LABELS[t] ?? t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Priorität</Label>
+                <Select
+                  value={createForm.priority}
+                  onValueChange={(v) =>
+                    setCreateForm({ ...createForm, priority: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {STATUS_LABELS[p]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Fälligkeitsdatum</Label>
+              <Input
+                type="date"
+                value={createForm.dueDate}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, dueDate: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Zuweisen an</Label>
+              {usersList && usersList.length > 0 ? (
+                <Select
+                  value={createForm.assigneeId || (currentUser?._id ?? "")}
+                  onValueChange={(v) =>
+                    setCreateForm({ ...createForm, assigneeId: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Benutzer auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usersList.map((u) => (
+                      <SelectItem key={u._id} value={u._id}>
+                        {[u.firstName, u.lastName].filter(Boolean).join(" ") ||
+                          u.email ||
+                          u._id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Wird Ihnen selbst zugewiesen
+                  {currentUser
+                    ? ` (${[currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") || currentUser.email || ""})`
+                    : ""}
+                </p>
+              )}
+            </div>
+            <Button className="w-full" onClick={handleCreate}>
+              Aufgabe erstellen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

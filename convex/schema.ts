@@ -379,6 +379,7 @@ export default defineSchema({
     isRequired: v.boolean(),
     effectivenessCheckAfterDays: v.number(), // default: 30
     targetOrganizationIds: v.optional(v.array(v.id("organizations"))),
+    externalLink: v.optional(v.string()), // e.g. link to external training provider
     status: trainingStatus,
     ...auditFields,
   })
@@ -397,6 +398,7 @@ export default defineSchema({
     trainerId: v.optional(v.id("users")),
     trainerName: v.optional(v.string()),
     maxParticipants: v.optional(v.number()),
+    externalLink: v.optional(v.string()), // e.g. link to external training provider
     status: sessionStatus,
     notes: v.optional(v.string()),
     ...auditFields,
@@ -421,17 +423,47 @@ export default defineSchema({
     participantId: v.id("trainingParticipants"),
     sessionId: v.id("trainingSessions"),
     userId: v.id("users"),
-    ratings: v.object({
+
+    // Schulungsbewertungsbogen 6.2.0
+    shortReport: v.string(), // Kurzbericht (min 30 chars, validated in mutation)
+
+    organizationRatings: v.object({
+      venueAccessibility: v.number(),   // Erreichbarkeit des Veranstaltungsortes (1-6)
+      conferenceRooms: v.number(),      // Konferenzräume (1-6)
+      catering: v.number(),             // Verpflegung (1-6)
+      staffSupport: v.number(),         // Betreuung durch Personal (1-6)
+    }),
+
+    eventRatings: v.object({
+      overallEvent: v.number(),           // Veranstaltung insgesamt (1-6)
+      knowledgeUsefulness: v.number(),    // Verwertbarkeit der Kenntnisse (1-6)
+      structurePresentation: v.number(),  // Aufbau und Darstellung (1-6)
+      seminarContent: v.number(),         // Seminarinhalt (1-6)
+      questionOpportunity: v.number(),    // Fragemöglichkeit (1-6)
+      seminarMaterials: v.number(),       // Seminarunterlagen (1-6)
+      speakerExpertise: v.number(),       // Fachkompetenz des Referenten (1-6)
+      presentationQuality: v.number(),    // Qualität des Vortrags (1-6)
+    }),
+
+    badRatingReason: v.optional(v.string()), // "Ich habe eine 5/6 vergeben weil:"
+
+    // Certificate / Teilnehmerliste upload
+    certificateFileId: v.optional(v.id("_storage")),
+    certificateFileName: v.optional(v.string()),
+
+    // Legacy fields (kept for backwards-compat, optional)
+    ratings: v.optional(v.object({
       contentRelevance: v.number(),
       trainerCompetence: v.number(),
       methodology: v.number(),
       practicalApplicability: v.number(),
       organizationQuality: v.number(),
       overallSatisfaction: v.number(),
-    }),
+    })),
     comments: v.optional(v.string()),
     improvementSuggestions: v.optional(v.string()),
-    wouldRecommend: v.boolean(),
+    wouldRecommend: v.optional(v.boolean()),
+
     ...auditFields,
   })
     .index("by_participant", ["participantId"])
@@ -478,6 +510,26 @@ export default defineSchema({
     .index("by_urgency", ["urgency"]),
 
   // ============================================================
+  // Calendar Events (user-created personal/shared events)
+  // ============================================================
+
+  calendarEvents: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    startDate: v.number(),
+    endDate: v.optional(v.number()),
+    allDay: v.boolean(),
+    location: v.optional(v.string()),
+    color: v.optional(v.string()), // hex color for display
+    isPrivate: v.boolean(), // only visible to creator
+    createdByUserId: v.id("users"),
+    ...auditFields,
+  })
+    .index("by_creator", ["createdByUserId"])
+    .index("by_startDate", ["startDate"])
+    .index("by_endDate", ["endDate"]),
+
+  // ============================================================
   // PHASE 3: MDR & Products
   // ============================================================
 
@@ -495,6 +547,7 @@ export default defineSchema({
     udi: v.optional(v.string()),
     productGroup: v.optional(v.string()),
     manufacturerId: v.optional(v.id("manufacturers")),
+    departmentId: v.optional(v.id("organizations")), // Abteilung
     riskClass: riskClass,
     status: productStatus,
     notes: v.optional(v.string()),
@@ -504,7 +557,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_manufacturer", ["manufacturerId"])
     .index("by_riskClass", ["riskClass"])
-    .index("by_productGroup", ["productGroup"]),
+    .index("by_productGroup", ["productGroup"])
+    .index("by_department", ["departmentId"]),
 
   declarationsOfConformity: defineTable({
     productId: v.id("products"),

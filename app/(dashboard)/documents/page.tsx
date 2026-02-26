@@ -10,10 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DOCUMENT_STATUSES,
-  DOCUMENT_TYPES,
-  DOCUMENT_TYPE_LABELS,
   STATUS_LABELS,
 } from "@/lib/types/enums";
 import { usePermissions } from "@/lib/hooks/usePermissions";
@@ -43,6 +42,16 @@ export default function DocumentsPage() {
         }
       />
 
+      <Tabs defaultValue="all" onValueChange={setTypeFilter}>
+        <TabsList>
+          <TabsTrigger value="all">Alle</TabsTrigger>
+          <TabsTrigger value="qm_handbook">QM-Handbuch</TabsTrigger>
+          <TabsTrigger value="work_instruction">Arbeitsanweisungen</TabsTrigger>
+          <TabsTrigger value="form_template">Formblätter</TabsTrigger>
+          <TabsTrigger value="process_description">Prozessbeschreibungen</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="flex flex-wrap gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]">
@@ -53,20 +62,6 @@ export default function DocumentsPage() {
             {DOCUMENT_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
                 {STATUS_LABELS[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Typ" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle Typen</SelectItem>
-            {DOCUMENT_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {DOCUMENT_TYPE_LABELS[t]}
               </SelectItem>
             ))}
           </SelectContent>

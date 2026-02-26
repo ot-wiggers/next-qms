@@ -70,6 +70,7 @@ export const list = query({
     status: v.optional(v.string()),
     riskClass: v.optional(v.string()),
     manufacturerId: v.optional(v.id("manufacturers")),
+    departmentId: v.optional(v.id("organizations")),
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, "products:list");
@@ -81,6 +82,7 @@ export const list = query({
     if (args.status) results = results.filter((p) => p.status === args.status);
     if (args.riskClass) results = results.filter((p) => p.riskClass === args.riskClass);
     if (args.manufacturerId) results = results.filter((p) => p.manufacturerId === args.manufacturerId);
+    if (args.departmentId) results = results.filter((p) => p.departmentId === args.departmentId);
     return results;
   },
 });
@@ -102,6 +104,7 @@ export const create = mutation({
     udi: v.optional(v.string()),
     productGroup: v.optional(v.string()),
     manufacturerId: v.optional(v.id("manufacturers")),
+    departmentId: v.optional(v.id("organizations")),
     riskClass: v.string(),
     notes: v.optional(v.string()),
   },
@@ -141,6 +144,7 @@ export const update = mutation({
     udi: v.optional(v.string()),
     productGroup: v.optional(v.string()),
     manufacturerId: v.optional(v.id("manufacturers")),
+    departmentId: v.optional(v.id("organizations")),
     riskClass: v.optional(v.string()),
     status: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -197,5 +201,119 @@ export const archive = mutation({
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "products:update");
     await archiveRecord(ctx, "products", args.id, user._id);
+  },
+});
+
+/** Bulk-import products */
+export const importProducts = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        name: v.string(),
+        articleNumber: v.string(),
+        udi: v.optional(v.string()),
+        productGroup: v.optional(v.string()),
+        riskClass: v.string(),
+        notes: v.optional(v.string()),
+        departmentId: v.optional(v.id("organizations")),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "products:create");
+    const now = Date.now();
+    const validRiskClasses = ["I", "IIa", "IIb", "III"];
+    const ids: string[] = [];
+
+    for (const product of args.products) {
+      // Validate required fields
+      if (!product.name || !product.articleNumber || !product.riskClass) {
+        throw new Error(
+          `Pflichtfelder fehlen: name, articleNumber und riskClass sind erforderlich (Artikel: ${product.articleNumber || "unbekannt"})`
+        );
+      }
+      if (!validRiskClasses.includes(product.riskClass)) {
+        throw new Error(
+          `Ungültige Risikoklasse "${product.riskClass}" für Artikel ${product.articleNumber}. Erlaubt: ${validRiskClasses.join(", ")}`
+        );
+      }
+
+      const id = await ctx.db.insert("products", {
+        name: product.name,
+        articleNumber: product.articleNumber,
+        udi: product.udi,
+        productGroup: product.productGroup,
+        riskClass: product.riskClass as any,
+        notes: product.notes,
+        departmentId: product.departmentId,
+        status: "ACTIVE",
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: user._id,
+        updatedBy: user._id,
+      });
+      ids.push(id);
+    }
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "CREATE",
+      entityType: "products",
+      entityId: ids[0] ?? "bulk-import",
+      metadata: { bulkImport: true, count: args.products.length },
+    });
+
+    return { imported: ids.length, ids };
+  },
+});
+
+/** Export all non-archived products for download */
+export const exportProducts = query({
+  handler: async (ctx) => {
+    await requirePermission(ctx, "products:list");
+
+    const products = await ctx.db
+      .query("products")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    // Resolve department names
+    const departmentIds = [
+      ...new Set(products.map((p) => p.departmentId).filter(Boolean)),
+    ];
+    const departments: Record<string, string> = {};
+    for (const deptId of departmentIds) {
+      if (deptId) {
+        const dept = await ctx.db.get(deptId);
+        if (dept) departments[deptId] = dept.name;
+      }
+    }
+
+    // Resolve manufacturer names
+    const manufacturerIds = [
+      ...new Set(products.map((p) => p.manufacturerId).filter(Boolean)),
+    ];
+    const manufacturerNames: Record<string, string> = {};
+    for (const mfId of manufacturerIds) {
+      if (mfId) {
+        const mf = await ctx.db.get(mfId);
+        if (mf) manufacturerNames[mfId] = mf.name;
+      }
+    }
+
+    return products.map((p) => ({
+      name: p.name,
+      articleNumber: p.articleNumber,
+      udi: p.udi ?? "",
+      productGroup: p.productGroup ?? "",
+      riskClass: p.riskClass,
+      status: p.status,
+      notes: p.notes ?? "",
+      departmentName: p.departmentId ? (departments[p.departmentId] ?? "") : "",
+      manufacturerName: p.manufacturerId
+        ? (manufacturerNames[p.manufacturerId] ?? "")
+        : "",
+    }));
   },
 });

@@ -10,6 +10,7 @@
 
 import type * as auditLog from "../auditLog.js";
 import type * as auth from "../auth.js";
+import type * as calendarEvents from "../calendarEvents.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as declarations from "../declarations.js";
@@ -52,6 +53,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auditLog: typeof auditLog;
   auth: typeof auth;
+  calendarEvents: typeof calendarEvents;
   crons: typeof crons;
   dashboard: typeof dashboard;
   declarations: typeof declarations;
