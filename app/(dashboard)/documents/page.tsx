@@ -16,12 +16,13 @@ import {
   STATUS_LABELS,
 } from "@/lib/types/enums";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { Plus, Archive, RotateCcw, Trash2 } from "lucide-react";
+import { Plus, Archive, RotateCcw, Trash2, FileUp } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { DeleteConfirmationDialog } from "@/components/domain/documents/delete-confirmation-dialog";
+import { ImportDialog } from "@/components/domain/documents/import-dialog";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ export default function DocumentsPage() {
   const restoreDoc = useMutation(api.documents.restore);
   const permanentDeleteDoc = useMutation(api.documents.permanentDelete);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; code: string } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -43,12 +45,18 @@ export default function DocumentsPage() {
         description="QM-Dokumente, Arbeitsanweisungen und Formblätter"
         actions={
           can("documents:create") ? (
-            <Button size="sm" asChild>
-              <Link href="/documents/new">
-                <Plus className="mr-1 h-4 w-4" />
-                Neues Dokument
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+                <FileUp className="mr-1 h-4 w-4" />
+                Importieren
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/documents/new">
+                  <Plus className="mr-1 h-4 w-4" />
+                  Neues Dokument
+                </Link>
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -123,6 +131,8 @@ export default function DocumentsPage() {
       ) : (
         <DocumentList statusFilter={statusFilter} typeFilter={typeFilter} />
       )}
+
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
