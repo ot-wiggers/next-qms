@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -22,13 +22,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Search } from "lucide-react";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { initials, fullName } from "@/lib/utils/formatting";
 import { USER_ROLE_LABELS } from "@/lib/types/enums";
 import type { UserRole } from "@/lib/types/enums";
 import { MobileSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { CommandSearch } from "@/components/shared/command-search";
 import { toast } from "sonner";
 
 export function Topbar() {
@@ -36,12 +37,25 @@ export function Topbar() {
   const { signOut } = useAuthActions();
   const updateSelf = useMutation(api.users.updateSelf);
 
+  const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({
     firstName: "",
     lastName: "",
     email: "",
   });
+
+  // Cmd+K / Ctrl+K to open search
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   const openProfile = () => {
     if (!user) return;
@@ -75,6 +89,27 @@ export function Topbar() {
 
       {user && (
         <>
+          <Button
+            variant="outline"
+            className="hidden h-9 w-64 justify-start gap-2 text-sm text-muted-foreground sm:flex"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="h-4 w-4" />
+            <span>Suchen...</span>
+            <kbd className="pointer-events-none ml-auto inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <span className="text-xs">⌘</span>K
+            </kbd>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="sm:hidden"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="h-5 w-5" />
+            <span className="sr-only">Suchen</span>
+          </Button>
+          <CommandSearch open={searchOpen} onOpenChange={setSearchOpen} />
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
