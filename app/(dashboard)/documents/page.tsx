@@ -16,14 +16,25 @@ import {
   STATUS_LABELS,
 } from "@/lib/types/enums";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { Plus } from "lucide-react";
+import { Plus, Archive, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { DeleteConfirmationDialog } from "@/components/domain/documents/delete-confirmation-dialog";
+import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { toast } from "sonner";
 
 export default function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const { can } = usePermissions();
+
+  const archivedDocs = useQuery(api.documents.listArchived, typeFilter === "archive" ? {} : "skip");
+  const restoreDoc = useMutation(api.documents.restore);
+  const permanentDeleteDoc = useMutation(api.documents.permanentDelete);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; code: string } | null>(null);
 
   return (
     <div className="space-y-6">
@@ -49,6 +60,7 @@ export default function DocumentsPage() {
           <TabsTrigger value="work_instruction">Arbeitsanweisungen</TabsTrigger>
           <TabsTrigger value="form_template">Formblätter</TabsTrigger>
           <TabsTrigger value="process_description">Prozessbeschreibungen</TabsTrigger>
+          <TabsTrigger value="archive">Archiv</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -68,7 +80,49 @@ export default function DocumentsPage() {
         </Select>
       </div>
 
-      <DocumentList statusFilter={statusFilter} typeFilter={typeFilter} />
+      {typeFilter === "archive" ? (
+        <div className="space-y-2">
+          {archivedDocs === undefined && <p className="text-sm text-muted-foreground">Lade...</p>}
+          {archivedDocs?.length === 0 && <p className="text-sm text-muted-foreground">Keine archivierten Dokumente</p>}
+          {archivedDocs?.map((doc: any) => (
+            <Card key={doc._id} className="p-4 opacity-70">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">{doc.title ?? doc.documentCode}</p>
+                  <p className="text-xs text-muted-foreground">{doc.documentCode} · Version {doc.version}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={doc.status} />
+                  {can("documents:archive") && (
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      try { await restoreDoc({ id: doc._id }); toast.success("Wiederhergestellt"); } catch (e: any) { toast.error(e.message); }
+                    }}>
+                      <RotateCcw className="mr-1 h-3 w-3" /> Wiederherstellen
+                    </Button>
+                  )}
+                  {can("documents:delete") && (
+                    <Button variant="destructive" size="sm" onClick={() => setDeleteTarget({ id: doc._id, code: doc.documentCode })}>
+                      <Trash2 className="mr-1 h-3 w-3" /> Löschen
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          ))}
+          {deleteTarget && (
+            <DeleteConfirmationDialog
+              open={!!deleteTarget}
+              onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+              documentCode={deleteTarget.code}
+              onConfirm={async () => {
+                try { await permanentDeleteDoc({ id: deleteTarget.id as any }); toast.success("Endgültig gelöscht"); setDeleteTarget(null); } catch (e: any) { toast.error(e.message); }
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <DocumentList statusFilter={statusFilter} typeFilter={typeFilter} />
+      )}
     </div>
   );
 }

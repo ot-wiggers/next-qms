@@ -71,9 +71,13 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const updateStatus = useMutation(api.documents.updateStatus);
   const updateDocument = useMutation(api.documents.update);
   const confirmReview = useMutation(api.documents.confirmReview);
+  const archiveDocument = useMutation(api.documents.archive);
+  const restoreDocument = useMutation(api.documents.restore);
+  const permanentDeleteDocument = useMutation(api.documents.permanentDelete);
 
   const [contentEditOpen, setContentEditOpen] = useState(false);
   const [contentDraft, setContentDraft] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   if (document === undefined) {
     return <div className="text-sm text-muted-foreground">Lade Dokument...</div>;
@@ -116,6 +120,12 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
+          {document.isArchived && (
+            <div className="mb-3 rounded-md bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900 p-3 flex items-center gap-2">
+              <Archive className="h-4 w-4 text-yellow-600" />
+              <span className="text-sm text-yellow-800 dark:text-yellow-200">Dieses Dokument ist archiviert</span>
+            </div>
+          )}
           <div className="flex items-start justify-between">
             <div>
               <CardTitle>{document.title ?? document.documentCode}</CardTitle>
@@ -258,6 +268,55 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                 </Button>
               )
             ))}
+
+            {/* Archive button — visible for non-archived docs */}
+            {can("documents:archive") && !document.isArchived && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await archiveDocument({ id: documentId as any });
+                    toast.success("Dokument archiviert");
+                  } catch (err: any) {
+                    toast.error(err.message ?? "Fehler");
+                  }
+                }}
+              >
+                <Archive className="mr-1 h-3.5 w-3.5" />
+                Archivieren
+              </Button>
+            )}
+
+            {/* Restore + Delete buttons — visible for archived docs */}
+            {document.isArchived && can("documents:archive") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await restoreDocument({ id: documentId as any });
+                    toast.success("Dokument wiederhergestellt");
+                  } catch (err: any) {
+                    toast.error(err.message ?? "Fehler");
+                  }
+                }}
+              >
+                <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                Wiederherstellen
+              </Button>
+            )}
+
+            {document.isArchived && can("documents:delete") && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                Endgültig löschen
+              </Button>
+            )}
           </div>
 
           {/* Rich content (Tiptap editor, read-only) */}
@@ -376,6 +435,21 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
           />
         </TabsContent>
       </Tabs>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        documentCode={document.documentCode}
+        onConfirm={async () => {
+          try {
+            await permanentDeleteDocument({ id: documentId as any });
+            toast.success("Dokument endgültig gelöscht");
+            setDeleteDialogOpen(false);
+          } catch (err: any) {
+            toast.error(err.message ?? "Fehler");
+          }
+        }}
+      />
     </div>
   );
 }
