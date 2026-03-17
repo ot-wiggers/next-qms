@@ -47,21 +47,29 @@ export const getById = query({
 export const create = mutation({
   args: {
     productId: v.id("products"),
-    fileId: v.id("_storage"),
-    fileName: v.string(),
+    fileId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
     version: v.string(),
     issuedAt: v.number(),
     validFrom: v.number(),
     validUntil: v.number(),
     notifiedBody: v.optional(v.string()),
     certificateNumber: v.optional(v.string()),
+    externalUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "declarations:upload");
+
+    if (!args.fileId && !args.externalUrl) {
+      throw new Error("Entweder eine Datei oder eine externe URL muss angegeben werden");
+    }
+
     const now = Date.now();
 
     const id = await ctx.db.insert("declarationsOfConformity", {
       ...args,
+      externalUrl: args.externalUrl,
+      urlStatus: args.externalUrl ? "UNCHECKED" : undefined,
       status: "IN_REVIEW",
       isArchived: false,
       createdAt: now,

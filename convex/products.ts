@@ -106,6 +106,10 @@ export const create = mutation({
     manufacturerId: v.optional(v.id("manufacturers")),
     departmentId: v.optional(v.id("organizations")),
     riskClass: v.string(),
+    hmvNummer: v.optional(v.string()),
+    ceMarkPresent: v.optional(v.boolean()),
+    instructionsPresent: v.optional(v.boolean()),
+    regulatoryBasis: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -115,6 +119,11 @@ export const create = mutation({
     const id = await ctx.db.insert("products", {
       ...args,
       riskClass: args.riskClass as any,
+      hmvNummer: args.hmvNummer,
+      ceMarkPresent: args.ceMarkPresent ?? false,
+      instructionsPresent: args.instructionsPresent ?? false,
+      regulatoryBasis: args.regulatoryBasis as any,
+      migrationRequired: args.regulatoryBasis === "DIRECTIVE" ? true : undefined,
       status: "ACTIVE",
       isArchived: false,
       createdAt: now,
@@ -147,6 +156,10 @@ export const update = mutation({
     departmentId: v.optional(v.id("organizations")),
     riskClass: v.optional(v.string()),
     status: v.optional(v.string()),
+    hmvNummer: v.optional(v.string()),
+    ceMarkPresent: v.optional(v.boolean()),
+    instructionsPresent: v.optional(v.boolean()),
+    regulatoryBasis: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
@@ -177,11 +190,19 @@ export const update = mutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(id, {
+    const patchData: Record<string, any> = {
       ...updates,
       updatedAt: now,
       updatedBy: user._id,
-    } as any);
+    };
+    if (updates.hmvNummer !== undefined) patchData.hmvNummer = updates.hmvNummer;
+    if (updates.ceMarkPresent !== undefined) patchData.ceMarkPresent = updates.ceMarkPresent;
+    if (updates.instructionsPresent !== undefined) patchData.instructionsPresent = updates.instructionsPresent;
+    if (updates.regulatoryBasis !== undefined) {
+      patchData.regulatoryBasis = updates.regulatoryBasis;
+      patchData.migrationRequired = updates.regulatoryBasis === "DIRECTIVE" ? true : undefined;
+    }
+    await ctx.db.patch(id, patchData as any);
 
     await logAuditEvent(ctx, {
       userId: user._id,
@@ -214,6 +235,10 @@ export const importProducts = mutation({
         udi: v.optional(v.string()),
         productGroup: v.optional(v.string()),
         riskClass: v.string(),
+        hmvNummer: v.optional(v.string()),
+        ceMarkPresent: v.optional(v.boolean()),
+        instructionsPresent: v.optional(v.boolean()),
+        regulatoryBasis: v.optional(v.string()),
         notes: v.optional(v.string()),
         departmentId: v.optional(v.id("organizations")),
       })
@@ -244,6 +269,11 @@ export const importProducts = mutation({
         udi: product.udi,
         productGroup: product.productGroup,
         riskClass: product.riskClass as any,
+        hmvNummer: product.hmvNummer,
+        ceMarkPresent: product.ceMarkPresent ?? false,
+        instructionsPresent: product.instructionsPresent ?? false,
+        regulatoryBasis: product.regulatoryBasis as any,
+        migrationRequired: product.regulatoryBasis === "DIRECTIVE" ? true : undefined,
         notes: product.notes,
         departmentId: product.departmentId,
         status: "ACTIVE",
@@ -265,6 +295,125 @@ export const importProducts = mutation({
     });
 
     return { imported: ids.length, ids };
+  },
+});
+
+/** Import products from Wiggers legacy Excel with manufacturer + DoC auto-creation */
+export const importLegacyProducts = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        name: v.string(),
+        manufacturer: v.string(),
+        productGroup: v.optional(v.string()),
+        riskClass: v.string(),
+        ceMarkPresent: v.boolean(),
+        instructionsPresent: v.boolean(),
+        docPresent: v.boolean(),
+        regulatoryBasis: v.string(),       // "MDR" or "DIRECTIVE"
+        externalUrl: v.optional(v.string()),
+        issuedAt: v.optional(v.number()),
+        validUntil: v.optional(v.number()),
+        notes: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "products:create");
+    const now = Date.now();
+    const validRiskClasses = ["I", "IIa", "IIb", "III"];
+    const productIds: string[] = [];
+
+    // Collect unique manufacturers and auto-create
+    const manufacturerCache: Record<string, string> = {};
+    const existingManufacturers = await ctx.db
+      .query("manufacturers")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    for (const m of existingManufacturers) {
+      manufacturerCache[m.name.toLowerCase()] = m._id;
+    }
+
+    for (let i = 0; i < args.products.length; i++) {
+      const product = args.products[i];
+      if (!product.name || !product.riskClass) {
+        throw new Error(`Pflichtfelder fehlen für Produkt: ${product.name || "unbekannt"}`);
+      }
+      if (!validRiskClasses.includes(product.riskClass)) {
+        throw new Error(`Ungültige Risikoklasse "${product.riskClass}" für ${product.name}`);
+      }
+
+      // Find or create manufacturer
+      let manufacturerId: string | undefined;
+      if (product.manufacturer) {
+        const key = product.manufacturer.toLowerCase();
+        if (manufacturerCache[key]) {
+          manufacturerId = manufacturerCache[key];
+        } else {
+          const mId = await ctx.db.insert("manufacturers", {
+            name: product.manufacturer,
+            isArchived: false,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: user._id,
+            updatedBy: user._id,
+          });
+          manufacturerCache[key] = mId;
+          manufacturerId = mId;
+        }
+      }
+
+      // Create product (counter-based article number for guaranteed uniqueness)
+      const productId = await ctx.db.insert("products", {
+        name: product.name,
+        articleNumber: `LEGACY-${String(i + 1).padStart(4, "0")}`,
+        productGroup: product.productGroup,
+        manufacturerId: manufacturerId as any,
+        riskClass: product.riskClass as any,
+        status: "ACTIVE",
+        ceMarkPresent: product.ceMarkPresent,
+        instructionsPresent: product.instructionsPresent,
+        regulatoryBasis: product.regulatoryBasis as any,
+        migrationRequired: product.regulatoryBasis === "DIRECTIVE" ? true : undefined,
+        notes: product.notes,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: user._id,
+        updatedBy: user._id,
+      });
+      productIds.push(productId);
+
+      // Create Declaration of Conformity if present
+      if (product.docPresent && (product.externalUrl || product.issuedAt)) {
+        await ctx.db.insert("declarationsOfConformity", {
+          productId: productId as any,
+          version: "1.0",
+          issuedAt: product.issuedAt ?? now,
+          validFrom: product.issuedAt ?? now,
+          validUntil: product.validUntil ?? now + 157680000000, // 5 years default
+          status: product.validUntil && product.validUntil < now ? "EXPIRED" : "VALID",
+          externalUrl: product.externalUrl,
+          urlStatus: product.externalUrl ? "UNCHECKED" : undefined,
+          isArchived: false,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: user._id,
+          updatedBy: user._id,
+        });
+      }
+    }
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "CREATE",
+      entityType: "products",
+      entityId: productIds[0] ?? "legacy-import",
+      metadata: { legacyImport: true, count: args.products.length },
+    });
+
+    return { imported: productIds.length, ids: productIds };
   },
 });
 
@@ -315,5 +464,22 @@ export const exportProducts = query({
         ? (manufacturerNames[p.manufacturerId] ?? "")
         : "",
     }));
+  },
+});
+
+/** List products linked to a specific HMV number prefix */
+export const listByHmv = query({
+  args: { hmvPrefix: v.string() },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "products:list");
+
+    const allProducts = await ctx.db
+      .query("products")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    return allProducts.filter(
+      (p) => p.hmvNummer && p.hmvNummer.startsWith(args.hmvPrefix)
+    );
   },
 });
