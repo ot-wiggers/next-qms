@@ -17,6 +17,7 @@ import { RISK_CLASSES } from "@/lib/types/enums";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { HmvSearch } from "./hmv-search";
 
 interface Manufacturer {
   _id: string;
@@ -184,11 +185,17 @@ export function ProductForm() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="hmvNummer">HMV-Nummer (optional)</Label>
-            <Input
-              id="hmvNummer"
+            <HmvSearch
               value={hmvNummer}
-              onChange={(e) => setHmvNummer(e.target.value)}
-              placeholder="z.B. 18.46.02.1003"
+              onChange={(nummer, displayName, productGroup) => {
+                setHmvNummer(nummer);
+                if (displayName && !form.name) {
+                  setForm((prev) => ({ ...prev, name: displayName }));
+                }
+                if (productGroup && !form.productGroup) {
+                  setForm((prev) => ({ ...prev, productGroup }));
+                }
+              }}
             />
           </div>
         </div>
