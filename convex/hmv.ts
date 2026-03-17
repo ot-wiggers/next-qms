@@ -96,18 +96,38 @@ export const searchCache = query({
     await requirePermission(ctx, "hmv:browse");
 
     const term = args.searchTerm.toLowerCase();
+
+    // If search term looks like an HMV number (starts with digits), use the index
+    if (/^\d/.test(term)) {
+      const byNumber = await ctx.db
+        .query("hmvCache")
+        .withIndex("by_hmvNummer")
+        .filter((q) => q.eq(q.field("isArchived"), false))
+        .collect();
+
+      return byNumber
+        .filter((e) => e.hmvNummer.startsWith(term) || e.hmvNummer.includes(term))
+        .slice(0, 50);
+    }
+
+    // For text search, scan but limit results to avoid performance issues
+    const results: any[] = [];
     const allEntries = await ctx.db
       .query("hmvCache")
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
 
-    return allEntries
-      .filter(
-        (entry) =>
-          entry.hmvNummer.toLowerCase().includes(term) ||
-          entry.displayName.toLowerCase().includes(term)
-      )
-      .slice(0, 50);
+    for (const entry of allEntries) {
+      if (
+        entry.hmvNummer.toLowerCase().includes(term) ||
+        entry.displayName.toLowerCase().includes(term)
+      ) {
+        results.push(entry);
+        if (results.length >= 50) break;
+      }
+    }
+
+    return results;
   },
 });
 
@@ -179,13 +199,16 @@ export const markItem = mutation({
 export const unmarkItem = mutation({
   args: {
     hmvNummer: v.string(),
+    organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "hmv:mark");
 
+    // Scoped to organization for multi-tenancy
     const item = await ctx.db
       .query("hmvMarkedItems")
-      .withIndex("by_hmvNummer", (q) => q.eq("hmvNummer", args.hmvNummer))
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => q.eq(q.field("hmvNummer"), args.hmvNummer))
       .first();
 
     if (!item) {
@@ -228,13 +251,16 @@ export const listMarkedItems = query({
 export const isMarked = query({
   args: {
     hmvNummer: v.string(),
+    organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, "hmv:browse");
 
+    // Scoped to organization for multi-tenancy
     const item = await ctx.db
       .query("hmvMarkedItems")
-      .withIndex("by_hmvNummer", (q) => q.eq("hmvNummer", args.hmvNummer))
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => q.eq(q.field("hmvNummer"), args.hmvNummer))
       .first();
 
     return item !== null;

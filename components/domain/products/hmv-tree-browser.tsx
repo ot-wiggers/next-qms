@@ -97,7 +97,8 @@ export function HmvTreeBrowser() {
     }
     loadRoot();
     return () => { cancelled = true; };
-  }, [upsertCache]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleToggleExpand = useCallback(
     async (node: TreeNode) => {
@@ -178,7 +179,7 @@ export function HmvTreeBrowser() {
           });
           toast.success(`${node.hmvNummer} als Versorgungsbereich markiert`);
         } else {
-          await unmarkItem({ hmvNummer: node.hmvNummer });
+          await unmarkItem({ hmvNummer: node.hmvNummer, organizationId });
           toast.success(`Markierung fuer ${node.hmvNummer} entfernt`);
         }
       } catch (err) {
