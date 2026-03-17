@@ -122,6 +122,15 @@ export const DOC_STATUSES = [
 ] as const;
 export type DocStatus = (typeof DOC_STATUSES)[number];
 
+export const REGULATORY_BASES = ["MDR", "DIRECTIVE"] as const;
+export type RegulatoryBasis = (typeof REGULATORY_BASES)[number];
+
+export const URL_STATUSES = ["REACHABLE", "UNREACHABLE", "UNCHECKED"] as const;
+export type UrlStatus = (typeof URL_STATUSES)[number];
+
+export const HMV_LEVELS = ["produktgruppe", "anwendungsort", "untergruppe", "produktart"] as const;
+export type HmvLevel = (typeof HMV_LEVELS)[number];
+
 export const AUDIT_ACTIONS = [
   "CREATE",
   "UPDATE",
@@ -258,6 +267,13 @@ export const STATUS_COLORS: Record<string, string> = {
   URGENT: "bg-red-100 text-red-800",
   // Review
   CHANGES_REQUESTED: "bg-orange-100 text-orange-800",
+  // Regulatory basis
+  MDR: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  DIRECTIVE: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  // URL status
+  REACHABLE: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  UNREACHABLE: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  UNCHECKED: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
   // Placeholder
   PLACEHOLDER: "bg-gray-100 text-gray-500",
 };
@@ -296,6 +312,11 @@ export const STATUS_LABELS: Record<string, string> = {
   EXPIRED: "Abgelaufen",
   PENDING: "Ausstehend",
   CHANGES_REQUESTED: "Änderungen angefordert",
+  MDR: "MDR (EU 2017/745)",
+  DIRECTIVE: "Richtlinie (93/42/EWG)",
+  REACHABLE: "Erreichbar",
+  UNREACHABLE: "Nicht erreichbar",
+  UNCHECKED: "Nicht geprüft",
   PLACEHOLDER: "In Planung",
   LOW: "Niedrig",
   MEDIUM: "Mittel",
