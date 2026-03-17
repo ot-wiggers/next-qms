@@ -12,6 +12,8 @@ import {
   Users,
   Settings,
   Shield,
+  BookOpen,
+  CheckSquare,
   AlertTriangle,
   Bell,
   ClipboardCheck,
@@ -70,6 +72,8 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Produkte", href: "/mdr/products", icon: Package, permission: "products:list" },
       { label: "Konformitätserklärungen", href: "/mdr/declarations", icon: Shield, permission: "declarations:list" },
+      { label: "Hilfsmittelverzeichnis", href: "/mdr/hilfsmittelverzeichnis", icon: BookOpen, permission: "hmv:browse" },
+      { label: "Versorgungsspektrum", href: "/mdr/versorgungsspektrum", icon: CheckSquare, permission: "hmv:browse" },
     ],
   },
   {
