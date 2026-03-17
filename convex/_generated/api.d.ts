@@ -21,6 +21,7 @@ import type * as documents from "../documents.js";
 import type * as effectiveness from "../effectiveness.js";
 import type * as email from "../email.js";
 import type * as featureFlags from "../featureFlags.js";
+import type * as hmv from "../hmv.js";
 import type * as http from "../http.js";
 import type * as lib_auditLog from "../lib/auditLog.js";
 import type * as lib_notificationHelpers from "../lib/notificationHelpers.js";
@@ -39,6 +40,7 @@ import type * as placeholders_incomingGoods from "../placeholders/incomingGoods.
 import type * as placeholders_reports from "../placeholders/reports.js";
 import type * as products from "../products.js";
 import type * as search from "../search.js";
+import type * as searchQuota from "../searchQuota.js";
 import type * as seed from "../seed.js";
 import type * as tasks from "../tasks.js";
 import type * as trainingRequests from "../trainingRequests.js";
@@ -65,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   effectiveness: typeof effectiveness;
   email: typeof email;
   featureFlags: typeof featureFlags;
+  hmv: typeof hmv;
   http: typeof http;
   "lib/auditLog": typeof lib_auditLog;
   "lib/notificationHelpers": typeof lib_notificationHelpers;
@@ -83,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "placeholders/reports": typeof placeholders_reports;
   products: typeof products;
   search: typeof search;
+  searchQuota: typeof searchQuota;
   seed: typeof seed;
   tasks: typeof tasks;
   trainingRequests: typeof trainingRequests;
