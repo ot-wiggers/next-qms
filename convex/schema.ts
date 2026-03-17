@@ -124,6 +124,9 @@ const riskClass = v.union(
   v.literal("III")
 );
 
+const regulatoryBasis = v.union(v.literal("MDR"), v.literal("DIRECTIVE"));
+const urlStatus = v.union(v.literal("REACHABLE"), v.literal("UNREACHABLE"), v.literal("UNCHECKED"));
+
 const productStatus = v.union(
   v.literal("ACTIVE"),
   v.literal("BLOCKED"),
@@ -553,6 +556,11 @@ export default defineSchema({
     riskClass: riskClass,
     status: productStatus,
     notes: v.optional(v.string()),
+    hmvNummer: v.optional(v.string()),          // 10-digit HMV number e.g. "18.46.02.1003"
+    ceMarkPresent: v.optional(v.boolean()),      // CE-Zeichen vorhanden
+    instructionsPresent: v.optional(v.boolean()), // Gebrauchsanweisung vorhanden
+    regulatoryBasis: v.optional(regulatoryBasis), // MDR or DIRECTIVE (MDD)
+    migrationRequired: v.optional(v.boolean()),   // true if DIRECTIVE, needs MDR migration
     ...auditFields,
   })
     .index("by_articleNumber", ["articleNumber"])
@@ -560,7 +568,8 @@ export default defineSchema({
     .index("by_manufacturer", ["manufacturerId"])
     .index("by_riskClass", ["riskClass"])
     .index("by_productGroup", ["productGroup"])
-    .index("by_department", ["departmentId"]),
+    .index("by_department", ["departmentId"])
+    .index("by_hmvNummer", ["hmvNummer"]),
 
   declarationsOfConformity: defineTable({
     productId: v.id("products"),
@@ -575,11 +584,56 @@ export default defineSchema({
     status: docStatus,
     reviewedById: v.optional(v.id("users")),
     reviewedAt: v.optional(v.number()),
+    externalUrl: v.optional(v.string()),        // URL to manufacturer's PDF
+    urlLastChecked: v.optional(v.number()),     // timestamp of last URL check
+    urlStatus: v.optional(urlStatus),           // REACHABLE | UNREACHABLE | UNCHECKED
     ...auditFields,
   })
     .index("by_product", ["productId"])
     .index("by_status", ["status"])
     .index("by_validUntil", ["validUntil"]),
+
+  // HMV (Hilfsmittelverzeichnis) - cached from REHADAT API
+  hmvCache: defineTable({
+    rehadatId: v.string(),                    // UUID from REHADAT API
+    hmvNummer: v.string(),                    // e.g. "18.46.02.1003"
+    displayName: v.string(),                  // e.g. "18.46.02.1003 - Duschrollstuhl"
+    level: v.number(),                        // 1=Produktgruppe, 2=Anwendungsort, 3=Untergruppe, 4=Produktart, 5=Produkt
+    parentRehadatId: v.optional(v.string()),  // parent UUID
+    herstellerName: v.optional(v.string()),   // manufacturer (only for level 5 products)
+    lastSynced: v.number(),                   // timestamp
+    ...auditFields,
+  })
+    .index("by_rehadatId", ["rehadatId"])
+    .index("by_hmvNummer", ["hmvNummer"])
+    .index("by_parent", ["parentRehadatId"])
+    .index("by_level", ["level"]),
+
+  // Marked HMV items = Versorgungsspektrum (supply spectrum)
+  hmvMarkedItems: defineTable({
+    hmvNummer: v.string(),                    // Can be 2-digit (Produktgruppe), 4-digit, 6-digit, or 7-digit
+    hmvLevel: v.union(
+      v.literal("produktgruppe"),
+      v.literal("anwendungsort"),
+      v.literal("untergruppe"),
+      v.literal("produktart"),
+    ),
+    displayName: v.string(),                  // Cached display name
+    rehadatId: v.string(),                    // UUID for linking back to HMV tree
+    organizationId: v.id("organizations"),
+    ...auditFields,
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_hmvNummer", ["hmvNummer"]),
+
+  // Google Search quota tracking (no auditFields — simple counter, not an auditable entity)
+  searchQuota: defineTable({
+    organizationId: v.id("organizations"),
+    date: v.string(),                         // YYYY-MM-DD
+    count: v.number(),                        // searches used today
+    maxPerDay: v.number(),                    // configurable limit (default 20)
+  })
+    .index("by_org_date", ["organizationId", "date"]),
 
   // ============================================================
   // PHASE 4: Placeholders (IN PLANUNG)
