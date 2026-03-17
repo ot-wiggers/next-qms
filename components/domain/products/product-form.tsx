@@ -38,6 +38,11 @@ export function ProductForm() {
     notes: "",
   });
 
+  const [ceMarkPresent, setCeMarkPresent] = useState(false);
+  const [instructionsPresent, setInstructionsPresent] = useState(false);
+  const [regulatoryBasis, setRegulatoryBasis] = useState<string>("MDR");
+  const [hmvNummer, setHmvNummer] = useState("");
+
   const handleSubmit = async () => {
     if (!form.name || !form.articleNumber) {
       toast.error("Bitte Produktname und Artikelnummer ausfüllen");
@@ -52,6 +57,10 @@ export function ProductForm() {
         manufacturerId: form.manufacturerId ? (form.manufacturerId as any) : undefined,
         riskClass: form.riskClass,
         notes: form.notes || undefined,
+        ceMarkPresent,
+        instructionsPresent,
+        regulatoryBasis,
+        hmvNummer: hmvNummer || undefined,
       });
       toast.success("Produkt erstellt");
       router.push(`/mdr/products/${id}`);
@@ -134,6 +143,60 @@ export function ProductForm() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium">Regulatorische Details</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="ceMarkPresent"
+              checked={ceMarkPresent}
+              onChange={(e) => setCeMarkPresent(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <Label htmlFor="ceMarkPresent">CE-Zeichen vorhanden</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="instructionsPresent"
+              checked={instructionsPresent}
+              onChange={(e) => setInstructionsPresent(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <Label htmlFor="instructionsPresent">Gebrauchsanweisung vorhanden</Label>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label htmlFor="regulatoryBasis">Grundlage</Label>
+            <Select value={regulatoryBasis} onValueChange={setRegulatoryBasis}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MDR">MDR (EU 2017/745)</SelectItem>
+                <SelectItem value="DIRECTIVE">Richtlinie (93/42/EWG)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="hmvNummer">HMV-Nummer (optional)</Label>
+            <Input
+              id="hmvNummer"
+              value={hmvNummer}
+              onChange={(e) => setHmvNummer(e.target.value)}
+              placeholder="z.B. 18.46.02.1003"
+            />
+          </div>
+        </div>
+        {regulatoryBasis === "DIRECTIVE" && (
+          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+            Dieses Produkt basiert auf der alten Richtlinie (MDD). Eine Migration auf die MDR ist erforderlich.
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
