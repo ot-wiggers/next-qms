@@ -38,6 +38,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { LegacyImportDialog } from "@/components/domain/products/legacy-import-dialog";
 
 interface ProductRow {
   _id: string;
@@ -79,6 +80,7 @@ export default function ProductsPage() {
 
   // Import dialog state
   const [importOpen, setImportOpen] = useState(false);
+  const [legacyImportOpen, setLegacyImportOpen] = useState(false);
   const [importData, setImportData] = useState<ImportRow[]>([]);
   const [importFileName, setImportFileName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -276,6 +278,14 @@ export default function ProductsPage() {
                   <Upload className="mr-1 h-4 w-4" />
                   Import
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setLegacyImportOpen(true)}
+                >
+                  <FileSpreadsheet className="mr-1 h-4 w-4" />
+                  Wiggers Excel importieren
+                </Button>
               </>
             )}
             <Button
@@ -412,6 +422,9 @@ export default function ProductsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Legacy Import Dialog ──────────────────────────────── */}
+      <LegacyImportDialog open={legacyImportOpen} onOpenChange={setLegacyImportOpen} />
     </div>
   );
 }
