@@ -30,7 +30,9 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatDate, daysUntil } from "@/lib/utils/dates";
 import { STATUS_LABELS, RISK_CLASSES } from "@/lib/types/enums";
 import { getAllowedTransitions } from "../../../../../convex/lib/stateMachine";
-import { ArrowLeft, AlertTriangle, FileText, Pencil, Archive } from "lucide-react";
+import { ArrowLeft, AlertTriangle, FileText, Pencil, Archive, Search } from "lucide-react";
+import { ConformitySearchDialog } from "@/components/domain/products/conformity-search-dialog";
+import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -47,6 +49,11 @@ interface Product {
   status: string;
   notes?: string;
   createdAt: number;
+  hmvNummer?: string;
+  ceMarkPresent?: boolean;
+  instructionsPresent?: boolean;
+  regulatoryBasis?: string;
+  migrationRequired?: boolean;
 }
 
 interface Manufacturer {
@@ -72,6 +79,7 @@ export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { can } = usePermissions();
+  const { user } = useCurrentUser();
   const productId = params.id as string;
 
   const product = useQuery(api.products.getById, {
@@ -90,6 +98,7 @@ export default function ProductDetailPage() {
   const updateProduct = useMutation(api.products.update);
   const archiveProduct = useMutation(api.products.archive);
   const reviewDeclaration = useMutation(api.declarations.review);
+  const createDeclaration = useMutation(api.declarations.create);
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
@@ -100,7 +109,14 @@ export default function ProductDetailPage() {
     productGroup: "",
     riskClass: "",
     notes: "",
+    ceMarkPresent: false,
+    instructionsPresent: false,
+    regulatoryBasis: "MDR",
+    hmvNummer: "",
   });
+
+  // Conformity search state
+  const [conformitySearchOpen, setConformitySearchOpen] = useState(false);
 
   // Archive state
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -122,6 +138,10 @@ export default function ProductDetailPage() {
       productGroup: product.productGroup ?? "",
       riskClass: product.riskClass,
       notes: product.notes ?? "",
+      ceMarkPresent: product.ceMarkPresent ?? false,
+      instructionsPresent: product.instructionsPresent ?? false,
+      regulatoryBasis: product.regulatoryBasis ?? "MDR",
+      hmvNummer: product.hmvNummer ?? "",
     });
     setEditOpen(true);
   };
@@ -136,6 +156,10 @@ export default function ProductDetailPage() {
         productGroup: editForm.productGroup || undefined,
         riskClass: editForm.riskClass,
         notes: editForm.notes || undefined,
+        ceMarkPresent: editForm.ceMarkPresent,
+        instructionsPresent: editForm.instructionsPresent,
+        regulatoryBasis: editForm.regulatoryBasis,
+        hmvNummer: editForm.hmvNummer || undefined,
       });
       toast.success("Produkt aktualisiert");
       setEditOpen(false);
@@ -237,6 +261,44 @@ export default function ProductDetailPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Regulatorische Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">CE-Zeichen:</span>{" "}
+              <span>{product.ceMarkPresent ? "Vorhanden" : "Fehlt"}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Gebrauchsanweisung:</span>{" "}
+              <span>{product.instructionsPresent ? "Vorhanden" : "Fehlt"}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Grundlage:</span>{" "}
+              <StatusBadge status={product.regulatoryBasis ?? "MDR"} />
+            </div>
+            {product.hmvNummer && (
+              <div>
+                <span className="text-muted-foreground">HMV-Nr.:</span>{" "}
+                <Link
+                  href={`/mdr/hilfsmittelverzeichnis?highlight=${product.hmvNummer}`}
+                  className="text-blue-600 hover:underline"
+                >
+                  {product.hmvNummer}
+                </Link>
+              </div>
+            )}
+          </div>
+          {product.migrationRequired && (
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+              Migration erforderlich: Dieses Produkt basiert auf der alten Richtlinie (MDD) und muss auf die MDR (EU 2017/745) migriert werden.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="declarations">
         <TabsList>
           <TabsTrigger value="declarations">
@@ -247,6 +309,16 @@ export default function ProductDetailPage() {
         </TabsList>
 
         <TabsContent value="declarations" className="mt-4 space-y-3">
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConformitySearchOpen(true)}
+            >
+              <Search className="mr-1 h-4 w-4" />
+              Konformitätserklärung suchen
+            </Button>
+          </div>
           {(declarations?.length ?? 0) === 0 ? (
             <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
               <FileText className="h-4 w-4" />
@@ -396,6 +468,64 @@ export default function ProductDetailPage() {
                 }
               />
             </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Regulatorische Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit-ceMarkPresent"
+                    checked={editForm.ceMarkPresent}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, ceMarkPresent: e.target.checked })
+                    }
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="edit-ceMarkPresent">CE-Zeichen vorhanden</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit-instructionsPresent"
+                    checked={editForm.instructionsPresent}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, instructionsPresent: e.target.checked })
+                    }
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="edit-instructionsPresent">Gebrauchsanweisung vorhanden</Label>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Grundlage</Label>
+                  <Select
+                    value={editForm.regulatoryBasis}
+                    onValueChange={(v) =>
+                      setEditForm({ ...editForm, regulatoryBasis: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MDR">MDR (EU 2017/745)</SelectItem>
+                      <SelectItem value="DIRECTIVE">Richtlinie (93/42/EWG)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>HMV-Nummer</Label>
+                  <Input
+                    value={editForm.hmvNummer}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, hmvNummer: e.target.value })
+                    }
+                    placeholder="z.B. 18.46.02.1003"
+                  />
+                </div>
+              </div>
+            </div>
             <Button className="w-full" onClick={handleEdit}>
               Änderungen speichern
             </Button>
@@ -412,6 +542,33 @@ export default function ProductDetailPage() {
         entityLabel={product.name}
         isLoading={archiveLoading}
       />
+
+      {/* Conformity Search Dialog */}
+      {user?.organizationId && (
+        <ConformitySearchDialog
+          open={conformitySearchOpen}
+          onOpenChange={setConformitySearchOpen}
+          productId={productId}
+          productName={product.name}
+          manufacturerName={manufacturer?.name ?? ""}
+          organizationId={user.organizationId}
+          onSelected={async (url) => {
+            try {
+              await createDeclaration({
+                productId: productId as any,
+                externalUrl: url,
+                version: "1.0",
+                issuedAt: Date.now(),
+                validFrom: Date.now(),
+                validUntil: Date.now() + 365 * 24 * 60 * 60 * 1000,
+              });
+              toast.success("Konformitätserklärung aus externer URL erstellt");
+            } catch (err: any) {
+              toast.error(err.message ?? "Fehler beim Erstellen");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
