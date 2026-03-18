@@ -36,8 +36,9 @@ export function HmvTreeBrowser() {
   const [loadedChildren, setLoadedChildren] = useState<Map<string, TreeNode[]>>(new Map());
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [rootNodes, setRootNodes] = useState<TreeNode[]>([]);
-  const [rootLoading, setRootLoading] = useState(false);
+  const [rootLoading, setRootLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const organizationId = user?.organizationId as Id<"organizations"> | undefined;
 
@@ -64,6 +65,7 @@ export function HmvTreeBrowser() {
     let cancelled = false;
     async function loadRoot() {
       setRootLoading(true);
+      setError(null);
       try {
         const items = await fetchHmvTree(1);
         if (cancelled) return;
@@ -76,23 +78,29 @@ export function HmvTreeBrowser() {
           level: item.level,
         }));
         setRootNodes(nodes);
+        setRootLoading(false);
 
-        // Cache in Convex
-        await upsertCache({
-          entries: items.map((item) => ({
-            rehadatId: item.id,
-            hmvNummer: item.xSteller,
-            displayName: item.displayValue,
-            level: item.level,
-            parentRehadatId: item.parentId ?? undefined,
-          })),
-        });
+        // Cache in Convex (fire-and-forget, don't block rendering)
+        try {
+          await upsertCache({
+            entries: items.map((item) => ({
+              rehadatId: item.id,
+              hmvNummer: item.xSteller,
+              displayName: item.displayValue,
+              level: item.level,
+              parentRehadatId: item.parentId ?? undefined,
+            })),
+          });
+        } catch {
+          // Caching failure is non-critical — tree still renders
+          console.warn("HMV Cache-Aktualisierung fehlgeschlagen");
+        }
       } catch (err) {
         if (!cancelled) {
+          setError("Hilfsmittelverzeichnis konnte nicht geladen werden. Bitte versuchen Sie es erneut.");
           toast.error("Fehler beim Laden des Hilfsmittelverzeichnisses");
+          setRootLoading(false);
         }
-      } finally {
-        if (!cancelled) setRootLoading(false);
       }
     }
     loadRoot();
@@ -136,9 +144,9 @@ export function HmvTreeBrowser() {
         setLoadedChildren((prev) => new Map(prev).set(nodeId, children));
         setExpandedNodes((prev) => new Set(prev).add(nodeId));
 
-        // Cache in Convex
+        // Cache in Convex (fire-and-forget)
         if (items.length > 0) {
-          await upsertCache({
+          upsertCache({
             entries: items.map((item) => ({
               rehadatId: item.id,
               hmvNummer: item.xSteller,
@@ -146,9 +154,11 @@ export function HmvTreeBrowser() {
               level: item.level,
               parentRehadatId: item.parentId ?? undefined,
             })),
+          }).catch(() => {
+            console.warn("HMV Cache-Aktualisierung fehlgeschlagen");
           });
         }
-      } catch (err) {
+      } catch {
         toast.error("Fehler beim Laden der Unterkategorien");
       } finally {
         setLoadingNodes((prev) => {
@@ -180,9 +190,9 @@ export function HmvTreeBrowser() {
           toast.success(`${node.hmvNummer} als Versorgungsbereich markiert`);
         } else {
           await unmarkItem({ hmvNummer: node.hmvNummer, organizationId });
-          toast.success(`Markierung fuer ${node.hmvNummer} entfernt`);
+          toast.success(`Markierung für ${node.hmvNummer} entfernt`);
         }
-      } catch (err) {
+      } catch {
         toast.error(
           checked
             ? "Fehler beim Markieren"
@@ -245,7 +255,7 @@ export function HmvTreeBrowser() {
             <span className="font-mono text-muted-foreground mr-2">
               {node.hmvNummer}
             </span>
-            <span>{node.displayValue}</span>
+            <span>{node.displayValue.replace(/^\d+\s*-\s*/, "")}</span>
           </button>
         </div>
 
@@ -272,7 +282,7 @@ export function HmvTreeBrowser() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Suche im Hilfsmittelverzeichnis..."
+          placeholder="Suche nach Nummer oder Name (z.B. '18' oder 'Rollstuhl')..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-9"
@@ -285,11 +295,21 @@ export function HmvTreeBrowser() {
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             Hilfsmittelverzeichnis wird geladen...
           </div>
+        ) : error && !isSearching ? (
+          <div className="text-center py-8 text-sm">
+            <p className="text-destructive mb-2">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-primary hover:underline text-sm"
+            >
+              Seite neu laden
+            </button>
+          </div>
         ) : displayNodes.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {isSearching
               ? "Keine Ergebnisse gefunden."
-              : "Keine Eintraege vorhanden."}
+              : "Keine Einträge vorhanden."}
           </div>
         ) : isSearching ? (
           <div className="space-y-0.5">
