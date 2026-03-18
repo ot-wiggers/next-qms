@@ -60,6 +60,92 @@ export const createManufacturer = mutation({
   },
 });
 
+/** Update manufacturer */
+export const updateManufacturer = mutation({
+  args: {
+    id: v.id("manufacturers"),
+    name: v.optional(v.string()),
+    country: v.optional(v.string()),
+    contactInfo: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "products:create");
+    const existing = await ctx.db.get(args.id);
+    if (!existing) throw new Error("Hersteller nicht gefunden");
+
+    const updates: Record<string, any> = {
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    };
+    if (args.name !== undefined) updates.name = args.name;
+    if (args.country !== undefined) updates.country = args.country;
+    if (args.contactInfo !== undefined) updates.contactInfo = args.contactInfo;
+
+    await ctx.db.patch(args.id, updates);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "manufacturers",
+      entityId: args.id,
+      metadata: { name: args.name ?? existing.name },
+    });
+  },
+});
+
+/** Archive manufacturer (soft delete) */
+export const archiveManufacturer = mutation({
+  args: { id: v.id("manufacturers") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "products:create");
+    await archiveRecord(ctx, "manufacturers", args.id, user._id);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "ARCHIVE",
+      entityType: "manufacturers",
+      entityId: args.id,
+    });
+  },
+});
+
+/** Restore archived manufacturer */
+export const restoreManufacturer = mutation({
+  args: { id: v.id("manufacturers") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "products:create");
+    const existing = await ctx.db.get(args.id);
+    if (!existing) throw new Error("Hersteller nicht gefunden");
+
+    await ctx.db.patch(args.id, {
+      isArchived: false,
+      archivedAt: undefined,
+      archivedBy: undefined,
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    });
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "RESTORE",
+      entityType: "manufacturers",
+      entityId: args.id,
+    });
+  },
+});
+
+/** List archived manufacturers */
+export const listArchivedManufacturers = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "products:list");
+    return await ctx.db
+      .query("manufacturers")
+      .filter((q) => q.eq(q.field("isArchived"), true))
+      .collect();
+  },
+});
+
 // ============================================================
 // Products
 // ============================================================

@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Bell,
   ClipboardCheck,
+  Factory,
   GitBranch,
   Truck,
   Wrench,
@@ -71,6 +72,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     title: "MDR & Produkte",
     items: [
       { label: "Produkte", href: "/mdr/products", icon: Package, permission: "products:list" },
+      { label: "Hersteller", href: "/mdr/manufacturers", icon: Factory, permission: "products:list" },
       { label: "Konformitätserklärungen", href: "/mdr/declarations", icon: Shield, permission: "declarations:list" },
       { label: "Hilfsmittelverzeichnis", href: "/mdr/hilfsmittelverzeichnis", icon: BookOpen, permission: "hmv:browse" },
       { label: "Versorgungsspektrum", href: "/mdr/versorgungsspektrum", icon: CheckSquare, permission: "hmv:browse" },
