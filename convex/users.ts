@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { query, mutation, action } from "./_generated/server";
+import { getAuthUserId, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { requirePermission, getAuthenticatedUser } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { archiveRecord } from "./lib/softDelete";
@@ -182,5 +182,31 @@ export const archive = mutation({
   handler: async (ctx, args) => {
     const currentUser = await requirePermission(ctx, "users:archive");
     await archiveRecord(ctx, "users", args.id, currentUser._id);
+  },
+});
+
+/** Change password for a user (admin action) */
+export const changePassword = action({
+  args: {
+    email: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) throw new Error("Nicht authentifiziert");
+
+    if (!args.newPassword || args.newPassword.length < 8) {
+      throw new Error(
+        "Das Passwort muss mindestens 8 Zeichen lang sein"
+      );
+    }
+
+    await modifyAccountCredentials(ctx, {
+      provider: "password",
+      account: {
+        id: args.email,
+        secret: args.newPassword,
+      },
+    });
   },
 });

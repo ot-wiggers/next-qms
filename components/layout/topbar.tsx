@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogOut, User, Search } from "lucide-react";
+import { LogOut, User, Search, KeyRound } from "lucide-react";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { initials, fullName } from "@/lib/utils/formatting";
 import { USER_ROLE_LABELS } from "@/lib/types/enums";
@@ -30,6 +30,7 @@ import type { UserRole } from "@/lib/types/enums";
 import { MobileSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { CommandSearch } from "@/components/shared/command-search";
+import { ChangePasswordDialog } from "@/components/domain/users/change-password-dialog";
 import { toast } from "sonner";
 
 export function Topbar() {
@@ -39,6 +40,7 @@ export function Topbar() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({
     firstName: "",
     lastName: "",
@@ -136,6 +138,10 @@ export function Topbar() {
                 <User className="mr-2 h-4 w-4" />
                 Profil bearbeiten
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPasswordOpen(true)}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Passwort ändern
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => signOut()}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Abmelden
@@ -183,6 +189,14 @@ export function Topbar() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {user && (
+            <ChangePasswordDialog
+              open={passwordOpen}
+              onOpenChange={setPasswordOpen}
+              userEmail={user.email}
+            />
+          )}
         </>
       )}
     </header>
