@@ -542,6 +542,7 @@ export default defineSchema({
     name: v.string(),
     country: v.optional(v.string()),
     contactInfo: v.optional(v.string()),
+    website: v.optional(v.string()),
     ...auditFields,
   })
     .index("by_name", ["name"]),

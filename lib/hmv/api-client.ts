@@ -80,6 +80,21 @@ export async function searchHmv(term: string): Promise<HmvTreeItem[]> {
   return response.json();
 }
 
+/** Search for conformity declarations on a specific manufacturer website */
+export async function searchConformityOnSite(
+  manufacturer: string,
+  product: string,
+  site: string
+): Promise<{ results: ConformitySearchResult[]; totalResults: string }> {
+  const params = new URLSearchParams({ manufacturer, product, site });
+  const response = await fetch(`/api/conformity-search?${params.toString()}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `Conformity Search Fehler: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** Search for conformity declarations via Serper.dev (Google Search) */
 export async function searchConformityDeclarations(
   manufacturer: string,

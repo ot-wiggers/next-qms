@@ -60,6 +60,7 @@ interface Manufacturer {
   _id: string;
   name: string;
   country?: string;
+  website?: string;
 }
 
 interface Declaration {
@@ -551,6 +552,7 @@ export default function ProductDetailPage() {
           productId={productId}
           productName={product.name}
           manufacturerName={manufacturer?.name ?? ""}
+          manufacturerWebsite={manufacturer?.website}
           organizationId={user.organizationId}
           onSelected={async (url) => {
             try {

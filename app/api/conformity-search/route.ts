@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const manufacturer = searchParams.get("manufacturer");
     const product = searchParams.get("product");
+    const site = searchParams.get("site");
 
     if (!manufacturer || !product) {
       return NextResponse.json(
@@ -28,7 +29,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const query = `"${manufacturer}" "${product}" Konformitätserklärung filetype:pdf`;
+    let query: string;
+    if (site) {
+      // Extract domain from URL for site-scoped search
+      let domain: string;
+      try {
+        domain = new URL(site).hostname;
+      } catch {
+        domain = site.replace(/^https?:\/\//, "").split("/")[0];
+      }
+      query = `site:${domain} "${product}" Konformitätserklärung filetype:pdf`;
+    } else {
+      query = `"${manufacturer}" "${product}" Konformitätserklärung filetype:pdf`;
+    }
 
     const response = await fetch("https://google.serper.dev/search", {
       method: "POST",

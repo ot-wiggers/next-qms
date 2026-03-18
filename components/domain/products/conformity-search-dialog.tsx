@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { searchConformityDeclarations, ConformitySearchResult } from "@/lib/hmv/api-client";
+import { searchConformityDeclarations, searchConformityOnSite, ConformitySearchResult } from "@/lib/hmv/api-client";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ interface Props {
   productId: string;
   productName: string;
   manufacturerName: string;
+  manufacturerWebsite?: string;
   organizationId: string;
   onSelected: (url: string) => void;
 }
@@ -32,12 +33,14 @@ export function ConformitySearchDialog({
   productId,
   productName,
   manufacturerName,
+  manufacturerWebsite,
   organizationId,
   onSelected,
 }: Props) {
   const [manufacturer, setManufacturer] = useState(manufacturerName);
   const [product, setProduct] = useState(productName);
-  const [results, setResults] = useState<ConformitySearchResult[]>([]);
+  const [siteResults, setSiteResults] = useState<ConformitySearchResult[]>([]);
+  const [webResults, setWebResults] = useState<ConformitySearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -59,13 +62,28 @@ export function ConformitySearchDialog({
 
     setLoading(true);
     setHasSearched(true);
+    setSiteResults([]);
+    setWebResults([]);
+
     try {
+      // Phase 1: Search manufacturer website first (if available)
+      if (manufacturerWebsite) {
+        await incrementQuota({ organizationId: organizationId as any });
+        try {
+          const siteData = await searchConformityOnSite(manufacturer, product, manufacturerWebsite);
+          setSiteResults(siteData.results);
+        } catch {
+          // Site search failed, continue with web search
+        }
+      }
+
+      // Phase 2: Search the entire web
       await incrementQuota({ organizationId: organizationId as any });
-      const data = await searchConformityDeclarations(manufacturer, product);
-      setResults(data.results);
+      const webData = await searchConformityDeclarations(manufacturer, product);
+      setWebResults(webData.results);
     } catch (err: any) {
       toast.error(err.message ?? "Fehler bei der Suche");
-      setResults([]);
+      setWebResults([]);
     } finally {
       setLoading(false);
     }
@@ -75,6 +93,44 @@ export function ConformitySearchDialog({
     onSelected(url);
     onOpenChange(false);
   };
+
+  const renderResultCard = (result: ConformitySearchResult, idx: number) => (
+    <div
+      key={idx}
+      className="rounded-lg border p-4 space-y-2"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium leading-snug">
+            {result.title}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+            {result.snippet}
+          </p>
+          <a
+            href={result.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+          >
+            <ExternalLink className="h-3 w-3" />
+            {result.url.length > 60
+              ? result.url.slice(0, 60) + "..."
+              : result.url}
+          </a>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleSelect(result.url)}
+        >
+          Übernehmen
+        </Button>
+      </div>
+    </div>
+  );
+
+  const allResults = siteResults.length + webResults.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,49 +186,27 @@ export function ConformitySearchDialog({
             </div>
           )}
 
-          {!loading && hasSearched && results.length === 0 && (
+          {!loading && hasSearched && allResults === 0 && (
             <div className="py-8 text-center text-sm text-muted-foreground">
               Keine Ergebnisse gefunden
             </div>
           )}
 
-          {!loading && results.length > 0 && (
-            <div className="space-y-3">
-              {results.map((result, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-lg border p-4 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium leading-snug">
-                        {result.title}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                        {result.snippet}
-                      </p>
-                      <a
-                        href={result.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        {result.url.length > 60
-                          ? result.url.slice(0, 60) + "..."
-                          : result.url}
-                      </a>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSelect(result.url)}
-                    >
-                      Übernehmen
-                    </Button>
-                  </div>
-                </div>
-              ))}
+          {!loading && siteResults.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                Ergebnisse von Herstellerwebsite
+              </h4>
+              {siteResults.map((result, idx) => renderResultCard(result, idx))}
+            </div>
+          )}
+
+          {!loading && webResults.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                {siteResults.length > 0 ? "Weitere Ergebnisse aus dem Web" : "Ergebnisse"}
+              </h4>
+              {webResults.map((result, idx) => renderResultCard(result, idx))}
             </div>
           )}
         </div>

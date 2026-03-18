@@ -36,7 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Archive, RotateCcw, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface Manufacturer {
@@ -44,6 +44,7 @@ interface Manufacturer {
   name: string;
   country?: string;
   contactInfo?: string;
+  website?: string;
 }
 
 interface Product {
@@ -70,6 +71,7 @@ export default function ManufacturersPage() {
   const [formName, setFormName] = useState("");
   const [formCountry, setFormCountry] = useState("");
   const [formContact, setFormContact] = useState("");
+  const [formWebsite, setFormWebsite] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const getProductCount = (manufacturerId: Id<"manufacturers">) => {
@@ -82,6 +84,7 @@ export default function ManufacturersPage() {
     setFormName("");
     setFormCountry("");
     setFormContact("");
+    setFormWebsite("");
     setDialogOpen(true);
   };
 
@@ -90,6 +93,7 @@ export default function ManufacturersPage() {
     setFormName(m.name);
     setFormCountry(m.country ?? "");
     setFormContact(m.contactInfo ?? "");
+    setFormWebsite(m.website ?? "");
     setDialogOpen(true);
   };
 
@@ -111,6 +115,7 @@ export default function ManufacturersPage() {
           name: formName.trim(),
           country: formCountry.trim() || undefined,
           contactInfo: formContact.trim() || undefined,
+          website: formWebsite.trim() || undefined,
         });
         toast.success("Hersteller aktualisiert.");
       } else {
@@ -118,6 +123,7 @@ export default function ManufacturersPage() {
           name: formName.trim(),
           country: formCountry.trim() || undefined,
           contactInfo: formContact.trim() || undefined,
+          website: formWebsite.trim() || undefined,
         });
         toast.success("Hersteller erstellt.");
       }
@@ -188,6 +194,7 @@ export default function ManufacturersPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Land</TableHead>
+                  <TableHead>Website</TableHead>
                   <TableHead>Kontakt</TableHead>
                   <TableHead className="w-[100px] text-center">Produkte</TableHead>
                   {can("products:create") && (
@@ -199,7 +206,7 @@ export default function ManufacturersPage() {
                 {!manufacturers || manufacturers.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={can("products:create") ? 5 : 4}
+                      colSpan={can("products:create") ? 6 : 5}
                       className="text-center text-muted-foreground py-8"
                     >
                       Keine Hersteller vorhanden
@@ -211,6 +218,21 @@ export default function ManufacturersPage() {
                       <TableCell className="font-medium">{m.name}</TableCell>
                       <TableCell className="text-sm">
                         {m.country || "\u2014"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {m.website ? (
+                          <a
+                            href={m.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            {m.website.replace(/^https?:\/\//, "").split("/")[0]}
+                          </a>
+                        ) : (
+                          "\u2014"
+                        )}
                       </TableCell>
                       <TableCell className="text-sm max-w-[250px] truncate">
                         {m.contactInfo || "\u2014"}
@@ -344,6 +366,16 @@ export default function ManufacturersPage() {
                 value={formContact}
                 onChange={(e) => setFormContact(e.target.value)}
                 placeholder="E-Mail, Telefon, Adresse..."
+                maxLength={500}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mf-website">Website</Label>
+              <Input
+                id="mf-website"
+                value={formWebsite}
+                onChange={(e) => setFormWebsite(e.target.value)}
+                placeholder="https://www.example.com"
                 maxLength={500}
               />
             </div>

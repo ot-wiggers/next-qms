@@ -34,6 +34,7 @@ export const createManufacturer = mutation({
     name: v.string(),
     country: v.optional(v.string()),
     contactInfo: v.optional(v.string()),
+    website: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "products:create");
@@ -67,6 +68,7 @@ export const updateManufacturer = mutation({
     name: v.optional(v.string()),
     country: v.optional(v.string()),
     contactInfo: v.optional(v.string()),
+    website: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "products:create");
@@ -80,6 +82,7 @@ export const updateManufacturer = mutation({
     if (args.name !== undefined) updates.name = args.name;
     if (args.country !== undefined) updates.country = args.country;
     if (args.contactInfo !== undefined) updates.contactInfo = args.contactInfo;
+    if (args.website !== undefined) updates.website = args.website;
 
     await ctx.db.patch(args.id, updates);
 
