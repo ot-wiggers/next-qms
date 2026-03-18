@@ -40,7 +40,15 @@ export async function GET(request: NextRequest) {
 
       let data = await response.json();
 
-      // Filter by parentId client-side if provided
+      const numLevel = parseInt(level);
+
+      // CRITICAL: Filter to only return items of the REQUESTED level
+      // The API returns all items from level 1 up to the requested level
+      data = data.filter(
+        (item: { level: number; parentId: string | null }) => item.level === numLevel
+      );
+
+      // Further filter by parentId if provided
       if (parentId) {
         data = data.filter(
           (item: { parentId: string | null }) => item.parentId === parentId
@@ -48,6 +56,53 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json(data);
+    }
+
+    if (action === "search") {
+      const term = searchParams.get("term");
+      if (!term || term.length < 2) {
+        return NextResponse.json(
+          { error: "Parameter 'term' muss mindestens 2 Zeichen lang sein" },
+          { status: 400 }
+        );
+      }
+
+      const termLower = term.toLowerCase();
+      const results: Array<{
+        id: string;
+        parentId: string | null;
+        displayValue: string;
+        xSteller: string;
+        level: number;
+      }> = [];
+
+      // Search across levels 1-4 (but limit per level for performance)
+      for (const lvl of [1, 2, 3, 4]) {
+        try {
+          const response = await fetch(
+            `${BASE_URL}/VerzeichnisTree/${lvl}`,
+            { next: { revalidate: 86400 } }
+          );
+          if (!response.ok) continue;
+
+          const data = await response.json();
+          const matches = data
+            .filter((item: { level: number; displayValue: string; xSteller: string }) =>
+              item.level === lvl && (
+                item.xSteller.includes(term) ||
+                item.displayValue.toLowerCase().includes(termLower)
+              )
+            )
+            .slice(0, 20);
+
+          results.push(...matches);
+          if (results.length >= 50) break;
+        } catch {
+          continue;
+        }
+      }
+
+      return NextResponse.json(results.slice(0, 50));
     }
 
     if (action === "product") {

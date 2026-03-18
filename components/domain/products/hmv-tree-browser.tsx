@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { fetchHmvTree, type HmvTreeItem } from "@/lib/hmv/api-client";
+import { fetchHmvTree, searchHmv, type HmvTreeItem } from "@/lib/hmv/api-client";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,10 @@ export function HmvTreeBrowser() {
   const [rootLoading, setRootLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [apiSearchResults, setApiSearchResults] = useState<TreeNode[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const isSearching = searchTerm.length >= 2;
 
   const organizationId = user?.organizationId as Id<"organizations"> | undefined;
 
@@ -107,6 +111,43 @@ export function HmvTreeBrowser() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // When Convex cache search returns no/few results, search the API directly
+  useEffect(() => {
+    if (!isSearching) {
+      setApiSearchResults([]);
+      return;
+    }
+
+    // If Convex has enough results, don't hit the API
+    if (searchResults && searchResults.length >= 5) {
+      setApiSearchResults([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const items = await searchHmv(searchTerm);
+        if (!cancelled) {
+          setApiSearchResults(items.map((item) => ({
+            id: item.id,
+            parentId: item.parentId,
+            displayValue: item.displayValue,
+            hmvNummer: item.xSteller,
+            level: item.level,
+          })));
+        }
+      } catch {
+        // Silently fail — Convex results still shown
+      } finally {
+        if (!cancelled) setSearchLoading(false);
+      }
+    }, 500);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchTerm, isSearching, searchResults]);
 
   const handleToggleExpand = useCallback(
     async (node: TreeNode) => {
@@ -266,15 +307,26 @@ export function HmvTreeBrowser() {
   };
 
   // Determine what to display
-  const isSearching = searchTerm.length >= 2;
   const displayNodes = isSearching
-    ? (searchResults ?? []).map((item: { rehadatId: string; hmvNummer: string; displayName: string; level: number; parentRehadatId?: string }) => ({
-        id: item.rehadatId,
-        parentId: item.parentRehadatId ?? null,
-        displayValue: item.displayName,
-        hmvNummer: item.hmvNummer,
-        level: item.level,
-      }))
+    ? (() => {
+        const convexNodes = (searchResults ?? []).map((item: { rehadatId: string; hmvNummer: string; displayName: string; level: number; parentRehadatId?: string }) => ({
+          id: item.rehadatId,
+          parentId: item.parentRehadatId ?? null,
+          displayValue: item.displayName,
+          hmvNummer: item.hmvNummer,
+          level: item.level,
+        }));
+        // Merge API results, deduplicating by hmvNummer
+        const seen = new Set(convexNodes.map((n: TreeNode) => n.hmvNummer));
+        const combined = [...convexNodes];
+        for (const node of apiSearchResults) {
+          if (!seen.has(node.hmvNummer)) {
+            combined.push(node);
+            seen.add(node.hmvNummer);
+          }
+        }
+        return combined.slice(0, 50);
+      })()
     : rootNodes;
 
   return (
@@ -305,11 +357,16 @@ export function HmvTreeBrowser() {
               Seite neu laden
             </button>
           </div>
-        ) : displayNodes.length === 0 ? (
+        ) : displayNodes.length === 0 && !searchLoading ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {isSearching
               ? "Keine Ergebnisse gefunden."
               : "Keine Einträge vorhanden."}
+          </div>
+        ) : displayNodes.length === 0 && searchLoading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Suche im Hilfsmittelverzeichnis...
           </div>
         ) : isSearching ? (
           <div className="space-y-0.5">
@@ -341,6 +398,12 @@ export function HmvTreeBrowser() {
                 </span>
               </div>
             ))}
+            {searchLoading && (
+              <div className="flex items-center justify-center py-2 text-muted-foreground text-xs">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                Weitere Ergebnisse werden geladen...
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-0.5">

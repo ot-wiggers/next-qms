@@ -69,7 +69,18 @@ export async function fetchHmvProduct(productId: string): Promise<HmvProduct> {
   return response.json();
 }
 
-/** Search for conformity declarations via Google Custom Search */
+/** Search HMV entries by name or number across all levels */
+export async function searchHmv(term: string): Promise<HmvTreeItem[]> {
+  const params = new URLSearchParams({ action: "search", term });
+  const response = await fetch(`/api/hmv?${params.toString()}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `HMV API Fehler: ${response.status}`);
+  }
+  return response.json();
+}
+
+/** Search for conformity declarations via Serper.dev (Google Search) */
 export async function searchConformityDeclarations(
   manufacturer: string,
   product: string
