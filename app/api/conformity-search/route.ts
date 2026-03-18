@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+    const apiKey = process.env.SERPER_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
         {
           error:
-            "Brave Search ist nicht konfiguriert. Bitte BRAVE_SEARCH_API_KEY als Umgebungsvariable setzen.",
+            "Serper ist nicht konfiguriert. Bitte SERPER_API_KEY als Umgebungsvariable setzen.",
         },
         { status: 503 }
       );
@@ -30,46 +30,47 @@ export async function GET(request: NextRequest) {
 
     const query = `"${manufacturer}" "${product}" Konformitätserklärung filetype:pdf`;
 
-    const url = new URL("https://api.search.brave.com/res/v1/web/search");
-    url.searchParams.set("q", query);
-    url.searchParams.set("count", "5");
-
-    const response = await fetch(url.toString(), {
+    const response = await fetch("https://google.serper.dev/search", {
+      method: "POST",
       headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip",
-        "X-Subscription-Token": apiKey,
+        "X-API-KEY": apiKey,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        q: query,
+        num: 5,
+        gl: "de",
+        hl: "de",
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.text().catch(() => "");
-      console.error("Brave Search API Fehler:", response.status, errorData);
+      console.error("Serper API Fehler:", response.status, errorData);
       return NextResponse.json(
-        { error: `Brave Search API Fehler: ${response.status}` },
+        { error: `Serper API Fehler: ${response.status}` },
         { status: response.status }
       );
     }
 
     const data = await response.json();
 
-    const results = (data.web?.results || []).map(
+    const results = (data.organic || []).map(
       (item: {
         title: string;
-        url: string;
-        description: string;
-        extra_snippets?: string[];
+        link: string;
+        snippet: string;
       }) => ({
         title: item.title,
-        url: item.url,
-        snippet: item.description,
-        fileFormat: item.url.toLowerCase().endsWith(".pdf") ? "PDF" : null,
+        url: item.link,
+        snippet: item.snippet,
+        fileFormat: item.link.toLowerCase().endsWith(".pdf") ? "PDF" : null,
       })
     );
 
     return NextResponse.json({
       results,
-      totalResults: String(data.web?.total_count || results.length),
+      totalResults: String(data.searchInformation?.totalResults || results.length),
     });
   } catch (error) {
     console.error("Conformity Search Fehler:", error);
