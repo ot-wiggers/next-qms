@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
-    const cx = process.env.GOOGLE_CUSTOM_SEARCH_CX;
+    const apiKey = process.env.BRAVE_SEARCH_API_KEY;
 
-    if (!apiKey || !cx) {
+    if (!apiKey) {
       return NextResponse.json(
         {
           error:
-            "Google Custom Search ist nicht konfiguriert. Bitte GOOGLE_CUSTOM_SEARCH_API_KEY und GOOGLE_CUSTOM_SEARCH_CX als Umgebungsvariablen setzen.",
+            "Brave Search ist nicht konfiguriert. Bitte BRAVE_SEARCH_API_KEY als Umgebungsvariable setzen.",
         },
         { status: 503 }
       );
@@ -30,42 +29,47 @@ export async function GET(request: NextRequest) {
     }
 
     const query = `"${manufacturer}" "${product}" Konformitätserklärung filetype:pdf`;
-    const url = new URL("https://www.googleapis.com/customsearch/v1");
-    url.searchParams.set("key", apiKey);
-    url.searchParams.set("cx", cx);
-    url.searchParams.set("q", query);
-    url.searchParams.set("num", "5");
 
-    const response = await fetch(url.toString());
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("count", "5");
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": apiKey,
+      },
+    });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error("Google Search API Fehler:", errorData);
+      const errorData = await response.text().catch(() => "");
+      console.error("Brave Search API Fehler:", response.status, errorData);
       return NextResponse.json(
-        { error: `Google Search API Fehler: ${response.status}` },
+        { error: `Brave Search API Fehler: ${response.status}` },
         { status: response.status }
       );
     }
 
     const data = await response.json();
 
-    const results = (data.items || []).map(
+    const results = (data.web?.results || []).map(
       (item: {
         title: string;
-        link: string;
-        snippet: string;
-        fileFormat?: string;
+        url: string;
+        description: string;
+        extra_snippets?: string[];
       }) => ({
         title: item.title,
-        url: item.link,
-        snippet: item.snippet,
-        fileFormat: item.fileFormat || null,
+        url: item.url,
+        snippet: item.description,
+        fileFormat: item.url.toLowerCase().endsWith(".pdf") ? "PDF" : null,
       })
     );
 
     return NextResponse.json({
       results,
-      totalResults: data.searchInformation?.totalResults || "0",
+      totalResults: String(data.web?.total_count || results.length),
     });
   } catch (error) {
     console.error("Conformity Search Fehler:", error);
