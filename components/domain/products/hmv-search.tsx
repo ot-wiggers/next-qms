@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { fetchHmvTree } from "@/lib/hmv/api-client";
+import { searchHmv } from "@/lib/hmv/api-client";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,45 +57,46 @@ export function HmvSearch({ value, onChange, disabled }: Props) {
     debouncedTerm.length >= 2 ? { searchTerm: debouncedTerm } : "skip"
   ) as CacheEntry[] | undefined;
 
-  // If no local results, try fetching from API once
+  // If no local results, search the API directly across all levels
   useEffect(() => {
     if (
-      debouncedTerm.length >= 2 &&
-      searchResults !== undefined &&
-      searchResults.length === 0 &&
-      !hasTriedFetch &&
-      !isLoadingApi
+      debouncedTerm.length < 2 ||
+      searchResults === undefined ||
+      searchResults.length > 0 ||
+      hasTriedFetch ||
+      isLoadingApi
     ) {
-      let cancelled = false;
-      setIsLoadingApi(true);
-      setHasTriedFetch(true);
-
-      fetchHmvTree(1)
-        .then(async (items) => {
-          if (cancelled) return;
-          if (items.length > 0) {
-            await upsertCache({
-              entries: items.map((item) => ({
-                rehadatId: item.id,
-                hmvNummer: item.xSteller,
-                displayName: item.displayValue,
-                level: item.level,
-                parentRehadatId: item.parentId ?? undefined,
-              })),
-            });
-          }
-        })
-        .catch(() => {
-          // Silently ignore - user can still type manually
-        })
-        .finally(() => {
-          if (!cancelled) setIsLoadingApi(false);
-        });
-
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
+
+    let cancelled = false;
+    setIsLoadingApi(true);
+    setHasTriedFetch(true);
+
+    searchHmv(debouncedTerm)
+      .then(async (items) => {
+        if (cancelled || items.length === 0) return;
+        // Cache the results in Convex for future searches
+        await upsertCache({
+          entries: items.map((item) => ({
+            rehadatId: item.id,
+            hmvNummer: item.xSteller,
+            displayName: item.displayValue,
+            level: item.level,
+            parentRehadatId: item.parentId ?? undefined,
+          })),
+        });
+      })
+      .catch(() => {
+        // Silently ignore - user can still type manually
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingApi(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [debouncedTerm, searchResults, hasTriedFetch, isLoadingApi, upsertCache]);
 
   // Close on click outside

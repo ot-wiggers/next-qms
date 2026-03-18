@@ -314,6 +314,38 @@ export const archive = mutation({
   },
 });
 
+/** Permanently delete a product and all related data */
+export const permanentDelete = mutation({
+  args: { id: v.id("products") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "products:delete");
+
+    const product = await ctx.db.get(args.id);
+    if (!product) throw new Error("Produkt nicht gefunden");
+
+    // Delete related declarations
+    const declarations = await ctx.db
+      .query("declarationsOfConformity")
+      .filter((q) => q.eq(q.field("productId"), args.id))
+      .collect();
+
+    for (const doc of declarations) {
+      await ctx.db.delete(doc._id);
+    }
+
+    // Delete the product
+    await ctx.db.delete(args.id);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "PERMANENT_DELETE",
+      entityType: "products",
+      entityId: args.id,
+      metadata: { name: product.name, articleNumber: product.articleNumber },
+    });
+  },
+});
+
 /** Bulk-import products */
 export const importProducts = mutation({
   args: {

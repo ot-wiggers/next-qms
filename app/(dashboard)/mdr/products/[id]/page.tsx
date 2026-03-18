@@ -30,7 +30,7 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatDate, daysUntil } from "@/lib/utils/dates";
 import { STATUS_LABELS, RISK_CLASSES } from "@/lib/types/enums";
 import { getAllowedTransitions } from "../../../../../convex/lib/stateMachine";
-import { ArrowLeft, AlertTriangle, FileText, Pencil, Archive, Search } from "lucide-react";
+import { ArrowLeft, AlertTriangle, FileText, Pencil, Archive, Search, Trash2 } from "lucide-react";
 import { ConformitySearchDialog } from "@/components/domain/products/conformity-search-dialog";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import Link from "next/link";
@@ -96,8 +96,11 @@ export default function ProductDetailPage() {
     product?.manufacturerId ? { id: product.manufacturerId as any } : "skip" as any,
   ) as Manufacturer | null | undefined;
 
+  const manufacturers = useQuery(api.products.listManufacturers);
+
   const updateProduct = useMutation(api.products.update);
   const archiveProduct = useMutation(api.products.archive);
+  const permanentDeleteProduct = useMutation(api.products.permanentDelete);
   const reviewDeclaration = useMutation(api.declarations.review);
   const createDeclaration = useMutation(api.declarations.create);
 
@@ -108,6 +111,7 @@ export default function ProductDetailPage() {
     articleNumber: "",
     udi: "",
     productGroup: "",
+    manufacturerId: "",
     riskClass: "",
     notes: "",
     ceMarkPresent: false,
@@ -123,6 +127,10 @@ export default function ProductDetailPage() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveLoading, setArchiveLoading] = useState(false);
 
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   if (product === undefined) {
     return <div className="text-sm text-muted-foreground">Lade Produkt...</div>;
   }
@@ -137,6 +145,7 @@ export default function ProductDetailPage() {
       articleNumber: product.articleNumber,
       udi: product.udi ?? "",
       productGroup: product.productGroup ?? "",
+      manufacturerId: product.manufacturerId ?? "",
       riskClass: product.riskClass,
       notes: product.notes ?? "",
       ceMarkPresent: product.ceMarkPresent ?? false,
@@ -155,6 +164,7 @@ export default function ProductDetailPage() {
         articleNumber: editForm.articleNumber,
         udi: editForm.udi || undefined,
         productGroup: editForm.productGroup || undefined,
+        manufacturerId: (editForm.manufacturerId || undefined) as any,
         riskClass: editForm.riskClass,
         notes: editForm.notes || undefined,
         ceMarkPresent: editForm.ceMarkPresent,
@@ -228,6 +238,16 @@ export default function ProductDetailPage() {
                     Archivieren
                   </Button>
                 </>
+              )}
+              {can("products:delete") && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  Löschen
+                </Button>
               )}
               <span className="rounded-full border px-2 py-0.5 text-xs font-medium">
                 Klasse {product.riskClass}
@@ -432,6 +452,26 @@ export default function ProductDetailPage() {
               </div>
             </div>
             <div className="space-y-2">
+              <Label>Hersteller</Label>
+              <Select
+                value={editForm.manufacturerId}
+                onValueChange={(v) =>
+                  setEditForm({ ...editForm, manufacturerId: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Hersteller wählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(manufacturers ?? []).map((m: any) => (
+                    <SelectItem key={m._id} value={m._id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Produktgruppe</Label>
               <Input
                 value={editForm.productGroup}
@@ -543,6 +583,42 @@ export default function ProductDetailPage() {
         entityLabel={product.name}
         isLoading={archiveLoading}
       />
+
+      {/* Delete Confirmation */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Produkt endgültig löschen?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Das Produkt <strong>{product.name}</strong> und alle zugehörigen
+            Konformitätserklärungen werden unwiderruflich gelöscht.
+          </p>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteLoading}
+              onClick={async () => {
+                setDeleteLoading(true);
+                try {
+                  await permanentDeleteProduct({ id: productId as any });
+                  toast.success("Produkt gelöscht");
+                  router.push("/mdr/products");
+                } catch (err: any) {
+                  toast.error(err.message ?? "Fehler beim Löschen");
+                } finally {
+                  setDeleteLoading(false);
+                }
+              }}
+            >
+              {deleteLoading ? "Wird gelöscht..." : "Endgültig löschen"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Conformity Search Dialog */}
       {user?.organizationId && (
