@@ -25,7 +25,7 @@ export type PermissionAction =
   | "trainings:feedback:submit" | "trainings:effectiveness:review"
   | "trainingRequests:create" | "trainingRequests:review"
   | "products:list" | "products:create" | "products:update" | "products:delete"
-  | "declarations:list" | "declarations:upload" | "declarations:review"
+  | "declarations:list" | "declarations:upload" | "declarations:review" | "declarations:delete"
   | "hmv:browse" | "hmv:mark"
   | "tasks:own" | "tasks:team" | "tasks:all"
   | "notifications:read" | "notifications:manage"

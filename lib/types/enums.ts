@@ -114,11 +114,8 @@ export const PRODUCT_STATUSES = ["ACTIVE", "BLOCKED", "DELISTED"] as const;
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 
 export const DOC_STATUSES = [
-  "MISSING",
-  "IN_REVIEW",
-  "VALID",
-  "EXPIRING",
-  "EXPIRED",
+  "MISSING", "IN_REVIEW", "VALID", "EXPIRING", "EXPIRED",
+  "REJECTED", "WITHDRAWN", "SUPERSEDED",
 ] as const;
 export type DocStatus = (typeof DOC_STATUSES)[number];
 
@@ -258,6 +255,8 @@ export const STATUS_COLORS: Record<string, string> = {
   VALID: "bg-green-100 text-green-800",
   EXPIRING: "bg-orange-100 text-orange-800",
   EXPIRED: "bg-red-100 text-red-800",
+  WITHDRAWN: "bg-gray-100 text-gray-600",
+  SUPERSEDED: "bg-purple-100 text-purple-700",
   // Effectiveness
   PENDING: "bg-yellow-100 text-yellow-800",
   // Priority
@@ -310,6 +309,8 @@ export const STATUS_LABELS: Record<string, string> = {
   VALID: "Gültig",
   EXPIRING: "Läuft bald ab",
   EXPIRED: "Abgelaufen",
+  WITHDRAWN: "Zurückgezogen",
+  SUPERSEDED: "Ersetzt",
   PENDING: "Ausstehend",
   CHANGES_REQUESTED: "Änderungen angefordert",
   MDR: "MDR (EU 2017/745)",

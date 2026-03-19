@@ -138,7 +138,10 @@ const docStatus = v.union(
   v.literal("IN_REVIEW"),
   v.literal("VALID"),
   v.literal("EXPIRING"),
-  v.literal("EXPIRED")
+  v.literal("EXPIRED"),
+  v.literal("REJECTED"),
+  v.literal("WITHDRAWN"),
+  v.literal("SUPERSEDED"),
 );
 
 const auditAction = v.union(
@@ -585,6 +588,7 @@ export default defineSchema({
     status: docStatus,
     reviewedById: v.optional(v.id("users")),
     reviewedAt: v.optional(v.number()),
+    reviewComment: v.optional(v.string()),
     externalUrl: v.optional(v.string()),        // URL to manufacturer's PDF
     urlLastChecked: v.optional(v.number()),     // timestamp of last URL check
     urlStatus: v.optional(urlStatus),           // REACHABLE | UNREACHABLE | UNCHECKED
