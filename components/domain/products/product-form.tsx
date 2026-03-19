@@ -14,14 +14,51 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RISK_CLASSES } from "@/lib/types/enums";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { HmvSearch } from "./hmv-search";
+import type { HmvSelectionData } from "./hmv-search";
+import { CheckCircle2, Info } from "lucide-react";
 
 interface Manufacturer {
   _id: string;
   name: string;
+}
+
+/**
+ * Try to match a REHADAT manufacturer name against existing manufacturers.
+ * Returns the matched manufacturer ID or null.
+ */
+function findMatchingManufacturer(
+  herstellerName: string,
+  manufacturers: Manufacturer[]
+): Manufacturer | null {
+  const needle = herstellerName.toLowerCase().trim();
+
+  // 1. Exact match
+  const exact = manufacturers.find(
+    (m) => m.name.toLowerCase().trim() === needle
+  );
+  if (exact) return exact;
+
+  // 2. One contains the other (handles "Drive Medical" vs "Drive Medical GmbH & Co. KG")
+  const partial = manufacturers.find((m) => {
+    const mLower = m.name.toLowerCase().trim();
+    return needle.includes(mLower) || mLower.includes(needle);
+  });
+  if (partial) return partial;
+
+  // 3. First word match (e.g. "Bischoff" matches "Bischoff & Bischoff Medizin...")
+  const firstWord = needle.split(/[\s&,]/)[0];
+  if (firstWord.length >= 4) {
+    const wordMatch = manufacturers.find((m) =>
+      m.name.toLowerCase().startsWith(firstWord)
+    );
+    if (wordMatch) return wordMatch;
+  }
+
+  return null;
 }
 
 export function ProductForm() {
@@ -43,6 +80,70 @@ export function ProductForm() {
   const [instructionsPresent, setInstructionsPresent] = useState(false);
   const [regulatoryBasis, setRegulatoryBasis] = useState<string>("MDR");
   const [hmvNummer, setHmvNummer] = useState("");
+  const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set());
+  const [unmatchedHersteller, setUnmatchedHersteller] = useState<string | null>(null);
+
+  const handleHmvChange = useCallback(
+    (data: HmvSelectionData) => {
+      setHmvNummer(data.hmvNummer);
+      setUnmatchedHersteller(null);
+
+      // Only auto-fill on explicit selection (when we have displayName)
+      if (!data.displayName) return;
+
+      const updates: Partial<typeof form> = {};
+      const newAutoFilled = new Set<string>();
+
+      // Auto-fill product name
+      if (data.displayName) {
+        // For products from keywords, displayName might be "Rollator Migo 2G 723 600 000 Drive Medical GmbH"
+        // If we have full product data, use the clean name from there
+        const productName = data.product?.name ?? data.displayName;
+        updates.name = productName;
+        newAutoFilled.add("name");
+      }
+
+      // Product group from first 2 digits
+      if (data.productGroup) {
+        updates.productGroup = data.productGroup;
+        newAutoFilled.add("productGroup");
+      }
+
+      // If full product data available, fill additional fields
+      if (data.product) {
+        // UDI
+        if (data.product.basisUDIDI) {
+          updates.udi = data.product.basisUDIDI.trim();
+          newAutoFilled.add("udi");
+        }
+
+        // Article number(s)
+        if (data.product.artikelnummern && data.product.artikelnummern.length > 0) {
+          updates.articleNumber = data.product.artikelnummern.join(", ");
+          newAutoFilled.add("articleNumber");
+        }
+
+        // Match manufacturer
+        if (data.product.herstellerName && manufacturers) {
+          const match = findMatchingManufacturer(data.product.herstellerName, manufacturers);
+          if (match) {
+            updates.manufacturerId = match._id;
+            newAutoFilled.add("manufacturerId");
+            setUnmatchedHersteller(null);
+          } else {
+            setUnmatchedHersteller(data.product.herstellerName);
+          }
+        }
+      }
+
+      setForm((prev) => ({ ...prev, ...updates }));
+      setAutoFilledFields(newAutoFilled);
+
+      // Clear auto-filled indicators after a few seconds
+      setTimeout(() => setAutoFilledFields(new Set()), 4000);
+    },
+    [manufacturers]
+  );
 
   const handleSubmit = async () => {
     if (!form.name || !form.articleNumber) {
@@ -72,16 +173,48 @@ export function ProductForm() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      {/* HMV Search — separated at the top */}
+      <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+        <Label className="text-base font-medium">HMV-Suche</Label>
+        <p className="text-sm text-muted-foreground">
+          Suche nach HMV-Nummer oder Produktname. Bei Auswahl werden die Felder automatisch befüllt.
+        </p>
+        <HmvSearch
+          value={hmvNummer}
+          onChange={handleHmvChange}
+        />
+        {unmatchedHersteller && (
+          <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 p-2.5 text-sm text-amber-800">
+            <Info className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              Hersteller <strong>&quot;{unmatchedHersteller}&quot;</strong> wurde nicht in der Datenbank gefunden.
+              Bitte manuell zuordnen oder zuerst unter Hersteller anlegen.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Product details */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Produktname *</Label>
+          <Label className="flex items-center gap-1.5">
+            Produktname *
+            {autoFilledFields.has("name") && (
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+            )}
+          </Label>
           <Input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
         </div>
         <div className="space-y-2">
-          <Label>Artikelnummer *</Label>
+          <Label className="flex items-center gap-1.5">
+            Artikelnummer *
+            {autoFilledFields.has("articleNumber") && (
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+            )}
+          </Label>
           <Input
             value={form.articleNumber}
             onChange={(e) => setForm({ ...form, articleNumber: e.target.value })}
@@ -91,7 +224,12 @@ export function ProductForm() {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>UDI</Label>
+          <Label className="flex items-center gap-1.5">
+            UDI
+            {autoFilledFields.has("udi") && (
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+            )}
+          </Label>
           <Input
             value={form.udi}
             onChange={(e) => setForm({ ...form, udi: e.target.value })}
@@ -99,7 +237,12 @@ export function ProductForm() {
           />
         </div>
         <div className="space-y-2">
-          <Label>Produktgruppe</Label>
+          <Label className="flex items-center gap-1.5">
+            Produktgruppe
+            {autoFilledFields.has("productGroup") && (
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+            )}
+          </Label>
           <Input
             value={form.productGroup}
             onChange={(e) => setForm({ ...form, productGroup: e.target.value })}
@@ -127,7 +270,12 @@ export function ProductForm() {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Hersteller</Label>
+          <Label className="flex items-center gap-1.5">
+            Hersteller
+            {autoFilledFields.has("manufacturerId") && (
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+            )}
+          </Label>
           <Select
             value={form.manufacturerId}
             onValueChange={(v) => setForm({ ...form, manufacturerId: v })}
@@ -184,18 +332,13 @@ export function ProductForm() {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="hmvNummer">HMV-Nummer (optional)</Label>
-            <HmvSearch
+            <Label>HMV-Nummer</Label>
+            <Input
               value={hmvNummer}
-              onChange={(nummer, displayName, productGroup) => {
-                setHmvNummer(nummer);
-                if (displayName && !form.name) {
-                  setForm((prev) => ({ ...prev, name: displayName }));
-                }
-                if (productGroup && !form.productGroup) {
-                  setForm((prev) => ({ ...prev, productGroup }));
-                }
-              }}
+              onChange={(e) => setHmvNummer(e.target.value)}
+              placeholder="Wird durch HMV-Suche befüllt"
+              readOnly
+              className="bg-muted/50"
             />
           </div>
         </div>

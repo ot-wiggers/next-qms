@@ -61,13 +61,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Dynamic import to avoid issues with pdf-parse in edge runtime
-    const { PDFParse } = await import("pdf-parse");
-    const pdfParse = new PDFParse({ data: new Uint8Array(buffer) });
-    const textResult = await pdfParse.getText();
-    await pdfParse.destroy();
+    // pdf-parse v1: import lib directly to avoid test-file loading in index.js
+    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
+    const pdfData = await pdfParse(buffer);
 
-    const result = analyzePdfText(textResult.text, textResult.total);
+    const result = analyzePdfText(pdfData.text, pdfData.numpages);
 
     return NextResponse.json(result);
   } catch (error: any) {

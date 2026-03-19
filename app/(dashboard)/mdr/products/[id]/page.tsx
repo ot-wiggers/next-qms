@@ -629,20 +629,20 @@ export default function ProductDetailPage() {
         manufacturerName={manufacturer?.name ?? ""}
         manufacturerWebsite={manufacturer?.website}
         onSelected={async (url) => {
-            try {
-              await createDeclaration({
-                productId: productId as any,
-                externalUrl: url,
-                version: "1.0",
-                issuedAt: Date.now(),
-                validFrom: Date.now(),
-                validUntil: Date.now() + 365 * 24 * 60 * 60 * 1000,
-              });
-              toast.success("Konformitätserklärung aus externer URL erstellt");
-            } catch (err: any) {
-              toast.error(err.message ?? "Fehler beim Erstellen");
-            }
-          }}
+          try {
+            await createDeclaration({
+              productId: productId as any,
+              externalUrl: url,
+              version: "1.0",
+              issuedAt: Date.now(),
+              validFrom: Date.now(),
+              validUntil: Date.now() + 365 * 24 * 60 * 60 * 1000,
+            });
+            toast.success("Konformitätserklärung aus externer URL erstellt");
+          } catch (err: any) {
+            toast.error(err.message ?? "Fehler beim Erstellen");
+          }
+        }}
       />
     </div>
   );

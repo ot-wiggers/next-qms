@@ -97,35 +97,26 @@ export const searchCache = query({
 
     const term = args.searchTerm.toLowerCase();
 
-    // If search term looks like an HMV number (starts with digits), use the index
-    if (/^\d/.test(term)) {
-      const byNumber = await ctx.db
-        .query("hmvCache")
-        .withIndex("by_hmvNummer")
-        .filter((q) => q.eq(q.field("isArchived"), false))
-        .collect();
-
-      return byNumber
-        .filter((e) => e.hmvNummer.startsWith(term) || e.hmvNummer.includes(term))
-        .slice(0, 50);
-    }
-
-    // For text search, scan but limit results to avoid performance issues
-    const results: any[] = [];
     const allEntries = await ctx.db
       .query("hmvCache")
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
 
+    const results: typeof allEntries = [];
     for (const entry of allEntries) {
+      // Bidirectional matching: entry contains term OR term contains entry number
       if (
         entry.hmvNummer.toLowerCase().includes(term) ||
+        term.includes(entry.hmvNummer.toLowerCase()) ||
         entry.displayName.toLowerCase().includes(term)
       ) {
         results.push(entry);
         if (results.length >= 50) break;
       }
     }
+
+    // Sort: most specific (longest hmvNummer) first
+    results.sort((a, b) => b.hmvNummer.length - a.hmvNummer.length);
 
     return results;
   },

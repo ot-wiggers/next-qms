@@ -38,14 +38,20 @@ const PATTERNS = {
   manufacturer: [
     /(?:hersteller|manufacturer|fabricant)[:\s]*([^\n]{3,80})/i,
     /(?:hergestellt von|manufactured by|fabriqué par)[:\s]*([^\n]{3,80})/i,
+    // Common DoC pattern: "erklärt COMPANY_NAME" or "declares COMPANY_NAME"
+    /(?:erklärt|declares?)\s+([A-Z][^\n]{5,60}(?:GmbH|AG|Ltd|Inc|Co\.|S\.A\.|SE)[^\n]{0,30})/i,
   ],
   productName: [
+    // Pattern: "Modell / Art.Nr." line — most specific, try first
+    /(?:modell|model)\s*[/\s]*(?:art\.?\s*(?:nr\.?|nummer))?[^:]*[:\s]+([A-Z][^\n/]{2,40})/i,
     /(?:produkt(?:name|bezeichnung)?|product(?:\s*name)?|produit)[:\s]*([^\n]{3,80})/i,
     /(?:medizinprodukt|medical device|dispositif médical)[:\s]*([^\n]{3,80})/i,
   ],
   udi: [
     /(?:UDI(?:-DI)?|Unique Device Identifier)[:\s]*([A-Z0-9()]{8,})/i,
     /(?:Basic UDI-DI|Basis-UDI-DI)[:\s]*([A-Z0-9()]{8,})/i,
+    // Standalone UDI-DI pattern (alphanumeric, 8+ chars)
+    /UDI-DI[:\s]*([A-Z0-9]{8,})/i,
   ],
   notifiedBody: [
     /(?:benannte stelle|notified body|organisme notifié)[:\s]*([^\n]{3,80})/i,
@@ -64,6 +70,8 @@ const PATTERNS = {
   ],
   signatory: [
     /(?:unterschrift|signature|unterzeichnet|signed by)[:\s]*([^\n]{3,60})/i,
+    // Common: "Geschäftsführer: NAME"
+    /(?:geschäftsführer|managing director|CEO)[:\s]*([^\n]{3,60})/i,
   ],
 };
 
@@ -167,7 +175,14 @@ function buildChecklist(text: string, extracted: PdfAnalysisResult["extracted"])
       id: "ce_marking",
       label: "CE-Kennzeichnung",
       description: "Verweis auf CE-Kennzeichnung gemäß Art. 20",
-      passed: /\bce\b/i.test(text) || textLower.includes("ce-kennzeichnung") || textLower.includes("ce marking"),
+      passed:
+        /\bce\b/i.test(text) ||
+        textLower.includes("ce-kennzeichnung") ||
+        textLower.includes("ce marking") ||
+        textLower.includes("ce-zeichen") ||
+        textLower.includes("eg-konformität") ||
+        textLower.includes("ec declaration") ||
+        textLower.includes("eu-konformität"),
     },
   ];
 }

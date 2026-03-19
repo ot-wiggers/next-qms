@@ -172,7 +172,7 @@ export function ConformitySearchDialog({
             <DialogTitle>Konformitätserklärung suchen</DialogTitle>
             {balance !== null && (
               <span className="text-xs text-muted-foreground rounded-full border px-2 py-0.5">
-                Guthaben: {balance} Suchen
+                {balance} Credits verbleibend
               </span>
             )}
           </div>
