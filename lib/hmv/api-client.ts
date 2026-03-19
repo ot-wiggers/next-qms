@@ -6,11 +6,13 @@ export interface HmvTreeItem {
   id: string;
   parentId: string | null;
   displayValue: string;
-  xStellerDisplayValue: string;
+  xStellerDisplayValue?: string;
   xSteller: string;
   level: number;
-  keywords: string | null;
-  containsInvalidProductsOnly: boolean;
+  keywords?: string | null;
+  containsInvalidProductsOnly?: boolean;
+  herstellerName?: string;
+  isProduct?: boolean;
 }
 
 export interface HmvProduct {
@@ -18,16 +20,22 @@ export interface HmvProduct {
   zehnSteller: string;
   name: string;
   herstellerName: string;
-  produktartBezeichnung: string;
-  produktgruppeNummer: number;
-  anwendungsortNummer: number;
-  untergruppeNummer: number;
-  produktartNummer: number;
-  nummer: number;
-  aufnahmeDatum: string;
-  aenderungsDatum: string;
+  produktartBezeichnung?: string;
+  produktgruppeNummer?: number;
+  anwendungsortNummer?: number;
+  untergruppeNummer?: number;
+  produktartNummer?: number;
+  nummer?: number;
+  aufnahmeDatum?: string;
+  aenderungsDatum?: string | null;
   istHerausgenommen: boolean;
   basisUDIDI: string | null;
+  artikelnummern?: string[];
+  typenAusfuehrungen?: string[];
+  nutzungsdauer?: string | null;
+  wiedereinsatzVerbrauchsmaterialText?: string;
+  herstellungsende?: string | null;
+  vertriebsende?: string | null;
 }
 
 export interface ConformitySearchResult {
@@ -80,6 +88,18 @@ export async function searchHmv(term: string): Promise<HmvTreeItem[]> {
   return response.json();
 }
 
+/** Fetch full product details by 10-digit HMV number (zehnSteller) */
+export async function fetchHmvProductByNumber(zehnSteller: string): Promise<HmvProduct | null> {
+  const params = new URLSearchParams({ action: "productByNumber", number: zehnSteller });
+  const response = await fetch(`/api/hmv?${params.toString()}`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `HMV API Fehler: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** Search for conformity declarations on a specific manufacturer website */
 export async function searchConformityOnSite(
   manufacturer: string,
@@ -91,6 +111,15 @@ export async function searchConformityOnSite(
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(error.error || `Conformity Search Fehler: ${response.status}`);
+  }
+  return response.json();
+}
+
+/** Fetch current Serper.dev account balance */
+export async function fetchSerperBalance(): Promise<{ balance: number; rateLimit: number }> {
+  const response = await fetch("/api/serper-balance");
+  if (!response.ok) {
+    throw new Error("Fehler beim Abrufen des Serper-Kontostands");
   }
   return response.json();
 }
