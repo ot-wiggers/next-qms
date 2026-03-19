@@ -1,6 +1,6 @@
 "use client";
 
-import { searchConformityDeclarations, searchConformityOnSite, ConformitySearchResult, fetchSerperBalance } from "@/lib/hmv/api-client";
+import { searchConformityDeclarations, searchConformityOnSite, ConformitySearchResult, fetchSerperBalance, scrapePdfLinks, ScrapedPdf } from "@/lib/hmv/api-client";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,7 @@ export function ConformitySearchDialog({
 }: Props) {
   const [manufacturer, setManufacturer] = useState(manufacturerName);
   const [product, setProduct] = useState(productName);
+  const [scrapeResults, setScrapeResults] = useState<ScrapedPdf[]>([]);
   const [siteResults, setSiteResults] = useState<ConformitySearchResult[]>([]);
   const [webResults, setWebResults] = useState<ConformitySearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +47,7 @@ export function ConformitySearchDialog({
     if (open) {
       setManufacturer(manufacturerName);
       setProduct(productName);
+      setScrapeResults([]);
       setSiteResults([]);
       setWebResults([]);
       setHasSearched(false);
@@ -68,10 +70,21 @@ export function ConformitySearchDialog({
 
     setLoading(true);
     setHasSearched(true);
+    setScrapeResults([]);
     setSiteResults([]);
     setWebResults([]);
 
     try {
+      // Phase 0: Scrape manufacturer website for PDF links (free, no credits)
+      if (manufacturerWebsite) {
+        try {
+          const scrapeData = await scrapePdfLinks(manufacturerWebsite, product);
+          setScrapeResults(scrapeData.pdfs);
+        } catch {
+          // Scraping failed, continue with search
+        }
+      }
+
       // Phase 1: Search manufacturer website first (if available)
       if (manufacturerWebsite) {
         try {
@@ -149,7 +162,7 @@ export function ConformitySearchDialog({
     );
   };
 
-  const allResults = siteResults.length + webResults.length;
+  const allResults = scrapeResults.length + siteResults.length + webResults.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -208,6 +221,48 @@ export function ConformitySearchDialog({
           {!loading && hasSearched && allResults === 0 && (
             <div className="py-8 text-center text-sm text-muted-foreground">
               Keine Ergebnisse gefunden
+            </div>
+          )}
+
+          {!loading && scrapeResults.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                PDFs auf Herstellerwebsite gefunden
+              </h4>
+              {scrapeResults.map((pdf, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-lg border border-green-200 bg-green-50/50 p-4 space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 uppercase">
+                          PDF
+                        </span>
+                        <p className="text-sm font-medium leading-snug">{pdf.text}</p>
+                      </div>
+                      {pdf.context && (
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                          {pdf.context}
+                        </p>
+                      )}
+                      <a
+                        href={pdf.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        {pdf.url.length > 70 ? pdf.url.slice(0, 70) + "..." : pdf.url}
+                      </a>
+                    </div>
+                    <Button size="sm" onClick={() => handleSelect(pdf.url)}>
+                      Übernehmen
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
