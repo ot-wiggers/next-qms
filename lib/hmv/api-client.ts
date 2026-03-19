@@ -2,6 +2,8 @@
 // HMV API Client — client-side helpers for HMV and conformity search
 // ============================================================
 
+import type { PdfAnalysisResult } from "@/lib/pdf/mdr-checklist";
+
 export interface HmvTreeItem {
   id: string;
   parentId: string | null;
@@ -143,6 +145,17 @@ export async function scrapePdfLinks(
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(error.error || `Scraper Fehler: ${response.status}`);
+  }
+  return response.json();
+}
+
+/** Analyze a PDF for MDR compliance */
+export async function analyzePdf(pdfUrl: string): Promise<PdfAnalysisResult> {
+  const params = new URLSearchParams({ url: pdfUrl });
+  const response = await fetch(`/api/analyze-pdf?${params.toString()}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `PDF Analyse Fehler: ${response.status}`);
   }
   return response.json();
 }
