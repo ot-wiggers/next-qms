@@ -94,16 +94,25 @@ export const create = mutation({
   },
 });
 
-/** Review and approve a declaration */
+/** Review and change status of a declaration */
 export const review = mutation({
   args: {
     id: v.id("declarationsOfConformity"),
     status: v.string(),
+    comment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "declarations:review");
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Konformitätserklärung nicht gefunden");
+
+    // Require comment for REJECTED and WITHDRAWN transitions
+    if (
+      (args.status === "REJECTED" || args.status === "WITHDRAWN") &&
+      !args.comment?.trim()
+    ) {
+      throw new Error("Ein Kommentar ist für diesen Statuswechsel erforderlich");
+    }
 
     validateTransition("docStatus", doc.status, args.status);
 
@@ -112,6 +121,7 @@ export const review = mutation({
       status: args.status as any,
       reviewedById: user._id,
       reviewedAt: now,
+      reviewComment: args.comment?.trim() || undefined,
       updatedAt: now,
       updatedBy: user._id,
     });
@@ -123,6 +133,115 @@ export const review = mutation({
       entityId: args.id,
       previousStatus: doc.status,
       newStatus: args.status,
+      metadata: args.comment ? { comment: args.comment } : undefined,
+    });
+  },
+});
+
+/** Update declaration fields */
+export const update = mutation({
+  args: {
+    id: v.id("declarationsOfConformity"),
+    version: v.optional(v.string()),
+    issuedAt: v.optional(v.number()),
+    validFrom: v.optional(v.number()),
+    validUntil: v.optional(v.number()),
+    notifiedBody: v.optional(v.string()),
+    certificateNumber: v.optional(v.string()),
+    externalUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "declarations:upload");
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Konformitätserklärung nicht gefunden");
+
+    // Don't allow editing terminal states
+    if (doc.status === "WITHDRAWN" || doc.status === "SUPERSEDED") {
+      throw new Error("Konformitätserklärungen im Status 'Zurückgezogen' oder 'Ersetzt' können nicht bearbeitet werden");
+    }
+
+    const { id, ...updates } = args;
+    const now = Date.now();
+
+    // Build patch — only include provided fields
+    const patch: Record<string, any> = {
+      updatedAt: now,
+      updatedBy: user._id,
+    };
+
+    if (updates.version !== undefined) patch.version = updates.version;
+    if (updates.issuedAt !== undefined) patch.issuedAt = updates.issuedAt;
+    if (updates.validFrom !== undefined) patch.validFrom = updates.validFrom;
+    if (updates.validUntil !== undefined) patch.validUntil = updates.validUntil;
+    if (updates.notifiedBody !== undefined) patch.notifiedBody = updates.notifiedBody || undefined;
+    if (updates.certificateNumber !== undefined) patch.certificateNumber = updates.certificateNumber || undefined;
+    if (updates.externalUrl !== undefined) {
+      patch.externalUrl = updates.externalUrl || undefined;
+      patch.urlStatus = updates.externalUrl ? "UNCHECKED" : undefined;
+    }
+
+    await ctx.db.patch(id, patch);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "declarationsOfConformity",
+      entityId: id,
+      metadata: { updatedFields: Object.keys(updates).filter((k) => (updates as any)[k] !== undefined) },
+    });
+  },
+});
+
+/** Soft-delete a declaration */
+export const archive = mutation({
+  args: { id: v.id("declarationsOfConformity") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "declarations:upload");
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Konformitätserklärung nicht gefunden");
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      isArchived: true,
+      archivedAt: now,
+      archivedBy: user._id,
+      updatedAt: now,
+      updatedBy: user._id,
+    });
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "ARCHIVE",
+      entityType: "declarationsOfConformity",
+      entityId: args.id,
+    });
+  },
+});
+
+/** Permanently delete a declaration (admin only) */
+export const permanentDelete = mutation({
+  args: { id: v.id("declarationsOfConformity") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "declarations:delete");
+    const doc = await ctx.db.get(args.id);
+    if (!doc) throw new Error("Konformitätserklärung nicht gefunden");
+
+    // Delete associated file from storage
+    if (doc.fileId) {
+      await ctx.storage.delete(doc.fileId);
+    }
+
+    await ctx.db.delete(args.id);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "PERMANENT_DELETE",
+      entityType: "declarationsOfConformity",
+      entityId: args.id,
+      metadata: {
+        productId: doc.productId,
+        version: doc.version,
+      },
     });
   },
 });
