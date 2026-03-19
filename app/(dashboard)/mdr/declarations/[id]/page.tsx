@@ -22,13 +22,13 @@ import {
 } from "@/components/ui/dialog";
 import { DeclarationEditDialog } from "@/components/domain/products/declaration-edit-dialog";
 import { DeclarationStatusDialog } from "@/components/domain/products/declaration-status-dialog";
+import { PdfAnalysisCard } from "@/components/domain/products/pdf-analysis-card";
 import {
   ArrowLeft,
   Download,
   AlertTriangle,
   ExternalLink,
   FileText,
-  Eye,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -41,7 +41,6 @@ export default function DeclarationDetailPage() {
   const params = useParams();
   const { can } = usePermissions();
   const declarationId = params.id as string;
-  const [showPdfPreview, setShowPdfPreview] = useState(true);
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -193,22 +192,12 @@ export default function DeclarationDetailPage() {
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 pt-1">
             {pdfSource && (
-              <>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={pdfSource} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-1.5 h-4 w-4" />
-                    PDF herunterladen
-                  </a>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowPdfPreview(!showPdfPreview)}
-                >
-                  <Eye className="mr-1.5 h-4 w-4" />
-                  {showPdfPreview ? "Vorschau ausblenden" : "Vorschau anzeigen"}
-                </Button>
-              </>
+              <Button variant="outline" size="sm" asChild>
+                <a href={pdfSource} target="_blank" rel="noopener noreferrer">
+                  <Download className="mr-1.5 h-4 w-4" />
+                  PDF herunterladen
+                </a>
+              </Button>
             )}
             {!pdfSource && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -253,32 +242,41 @@ export default function DeclarationDetailPage() {
         </CardContent>
       </Card>
 
-      {/* PDF Preview */}
-      {pdfSource && showPdfPreview && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Dokumentvorschau
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-hidden bg-muted/20">
-              <iframe
-                src={pdfSource}
-                className="w-full h-[700px]"
-                title={`PDF Vorschau: ${declaration.fileName ?? "Konformitätserklärung"}`}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Tabs: History */}
-      <Tabs defaultValue="history">
+      {/* Tabs: Analysis, Preview, History */}
+      <Tabs defaultValue="analysis">
         <TabsList>
+          <TabsTrigger value="analysis">MDR-Prüfung</TabsTrigger>
+          <TabsTrigger value="preview">Vorschau</TabsTrigger>
           <TabsTrigger value="history">Verlauf</TabsTrigger>
         </TabsList>
+        <TabsContent value="analysis" className="mt-4">
+          {pdfSource ? (
+            <PdfAnalysisCard pdfUrl={pdfSource} />
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">
+              Kein PDF hinterlegt — bitte laden Sie eine Datei hoch oder fügen Sie eine externe URL hinzu.
+            </p>
+          )}
+        </TabsContent>
+        <TabsContent value="preview" className="mt-4">
+          {pdfSource ? (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="rounded-md border overflow-hidden bg-muted/20">
+                  <iframe
+                    src={pdfSource}
+                    className="w-full h-[700px]"
+                    title={`PDF Vorschau: ${declaration.fileName ?? "Konformitätserklärung"}`}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">
+              Kein Dokument zum Anzeigen vorhanden.
+            </p>
+          )}
+        </TabsContent>
         <TabsContent value="history" className="mt-4">
           <AuditHistory
             entityType="declarationsOfConformity"
