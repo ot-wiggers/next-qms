@@ -621,16 +621,14 @@ export default function ProductDetailPage() {
       </Dialog>
 
       {/* Conformity Search Dialog */}
-      {user?.organizationId && (
-        <ConformitySearchDialog
-          open={conformitySearchOpen}
-          onOpenChange={setConformitySearchOpen}
-          productId={productId}
-          productName={product.name}
-          manufacturerName={manufacturer?.name ?? ""}
-          manufacturerWebsite={manufacturer?.website}
-          organizationId={user.organizationId}
-          onSelected={async (url) => {
+      <ConformitySearchDialog
+        open={conformitySearchOpen}
+        onOpenChange={setConformitySearchOpen}
+        productId={productId}
+        productName={product.name}
+        manufacturerName={manufacturer?.name ?? ""}
+        manufacturerWebsite={manufacturer?.website}
+        onSelected={async (url) => {
             try {
               await createDeclaration({
                 productId: productId as any,
@@ -645,8 +643,7 @@ export default function ProductDetailPage() {
               toast.error(err.message ?? "Fehler beim Erstellen");
             }
           }}
-        />
-      )}
+      />
     </div>
   );
 }

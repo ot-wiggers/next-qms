@@ -1,8 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { searchConformityDeclarations, searchConformityOnSite, ConformitySearchResult } from "@/lib/hmv/api-client";
+import { searchConformityDeclarations, searchConformityOnSite, ConformitySearchResult, fetchSerperBalance } from "@/lib/hmv/api-client";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, ExternalLink, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 interface Props {
@@ -23,7 +21,6 @@ interface Props {
   productName: string;
   manufacturerName: string;
   manufacturerWebsite?: string;
-  organizationId: string;
   onSelected: (url: string) => void;
 }
 
@@ -34,7 +31,6 @@ export function ConformitySearchDialog({
   productName,
   manufacturerName,
   manufacturerWebsite,
-  organizationId,
   onSelected,
 }: Props) {
   const [manufacturer, setManufacturer] = useState(manufacturerName);
@@ -43,11 +39,21 @@ export function ConformitySearchDialog({
   const [webResults, setWebResults] = useState<ConformitySearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
 
-  const incrementQuota = useMutation(api.searchQuota.incrementQuota);
-  const quota = useQuery(api.searchQuota.getQuota, {
-    organizationId: organizationId as any,
-  });
+  // Sync state when dialog opens or props change
+  useEffect(() => {
+    if (open) {
+      setManufacturer(manufacturerName);
+      setProduct(productName);
+      setSiteResults([]);
+      setWebResults([]);
+      setHasSearched(false);
+      fetchSerperBalance()
+        .then((data) => setBalance(data.balance))
+        .catch(() => setBalance(null));
+    }
+  }, [open, manufacturerName, productName]);
 
   const handleSearch = async () => {
     if (!manufacturer.trim() && !product.trim()) {
@@ -55,8 +61,8 @@ export function ConformitySearchDialog({
       return;
     }
 
-    if (quota && quota.remaining <= 0) {
-      toast.error("Tageslimit für Suchen erreicht");
+    if (balance !== null && balance <= 0) {
+      toast.error("Serper-Guthaben aufgebraucht");
       return;
     }
 
@@ -68,7 +74,6 @@ export function ConformitySearchDialog({
     try {
       // Phase 1: Search manufacturer website first (if available)
       if (manufacturerWebsite) {
-        await incrementQuota({ organizationId: organizationId as any });
         try {
           const siteData = await searchConformityOnSite(manufacturer, product, manufacturerWebsite);
           setSiteResults(siteData.results);
@@ -78,9 +83,13 @@ export function ConformitySearchDialog({
       }
 
       // Phase 2: Search the entire web
-      await incrementQuota({ organizationId: organizationId as any });
       const webData = await searchConformityDeclarations(manufacturer, product);
       setWebResults(webData.results);
+
+      // Refresh balance after search
+      fetchSerperBalance()
+        .then((data) => setBalance(data.balance))
+        .catch(() => {});
     } catch (err: any) {
       toast.error(err.message ?? "Fehler bei der Suche");
       setWebResults([]);
@@ -94,41 +103,51 @@ export function ConformitySearchDialog({
     onOpenChange(false);
   };
 
-  const renderResultCard = (result: ConformitySearchResult, idx: number) => (
-    <div
-      key={idx}
-      className="rounded-lg border p-4 space-y-2"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium leading-snug">
-            {result.title}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-            {result.snippet}
-          </p>
-          <a
-            href={result.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+  const renderResultCard = (result: ConformitySearchResult, idx: number) => {
+    const isPdf = result.fileFormat === "PDF";
+    return (
+      <div
+        key={idx}
+        className={`rounded-lg border p-4 space-y-2 ${isPdf ? "border-green-200 bg-green-50/50" : ""}`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {isPdf && (
+                <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 uppercase">
+                  PDF
+                </span>
+              )}
+              <p className="text-sm font-medium leading-snug">
+                {result.title}
+              </p>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+              {result.snippet}
+            </p>
+            <a
+              href={result.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {result.url.length > 70
+                ? result.url.slice(0, 70) + "..."
+                : result.url}
+            </a>
+          </div>
+          <Button
+            variant={isPdf ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleSelect(result.url)}
           >
-            <ExternalLink className="h-3 w-3" />
-            {result.url.length > 60
-              ? result.url.slice(0, 60) + "..."
-              : result.url}
-          </a>
+            Übernehmen
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleSelect(result.url)}
-        >
-          Übernehmen
-        </Button>
       </div>
-    </div>
-  );
+    );
+  };
 
   const allResults = siteResults.length + webResults.length;
 
@@ -138,9 +157,9 @@ export function ConformitySearchDialog({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>Konformitätserklärung suchen</DialogTitle>
-            {quota && (
+            {balance !== null && (
               <span className="text-xs text-muted-foreground rounded-full border px-2 py-0.5">
-                {quota.used}/{quota.max} Suchen heute
+                Guthaben: {balance} Suchen
               </span>
             )}
           </div>
@@ -168,7 +187,7 @@ export function ConformitySearchDialog({
 
           <Button
             onClick={handleSearch}
-            disabled={loading || (quota !== undefined && quota.remaining <= 0)}
+            disabled={loading || (balance !== null && balance <= 0)}
             className="w-full"
           >
             {loading ? (
