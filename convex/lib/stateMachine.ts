@@ -36,10 +36,13 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
   },
   docStatus: {
     MISSING: ["IN_REVIEW"],
-    IN_REVIEW: ["VALID"],
-    VALID: ["EXPIRING"],
-    EXPIRING: ["EXPIRED", "VALID"],
-    EXPIRED: ["IN_REVIEW"],
+    IN_REVIEW: ["VALID", "REJECTED"],
+    VALID: ["EXPIRING", "WITHDRAWN", "SUPERSEDED"],
+    EXPIRING: ["EXPIRED", "VALID", "WITHDRAWN"],
+    EXPIRED: ["IN_REVIEW", "WITHDRAWN"],
+    REJECTED: ["IN_REVIEW", "WITHDRAWN"],
+    WITHDRAWN: [],
+    SUPERSEDED: [],
   },
   taskStatus: {
     OPEN: ["IN_PROGRESS", "DONE", "CANCELLED"],
