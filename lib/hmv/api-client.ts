@@ -124,6 +124,29 @@ export async function fetchSerperBalance(): Promise<{ balance: number; rateLimit
   return response.json();
 }
 
+/** Scrape a manufacturer page for PDF links */
+export interface ScrapedPdf {
+  url: string;
+  text: string;
+  context: string;
+  score: number;
+}
+
+export async function scrapePdfLinks(
+  pageUrl: string,
+  productName?: string
+): Promise<{ pdfs: ScrapedPdf[]; pageTitle: string; totalFound: number }> {
+  const params = new URLSearchParams({ url: pageUrl });
+  if (productName) params.set("product", productName);
+
+  const response = await fetch(`/api/scrape-pdfs?${params.toString()}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `Scraper Fehler: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** Search for conformity declarations via Serper.dev (Google Search) */
 export async function searchConformityDeclarations(
   manufacturer: string,
