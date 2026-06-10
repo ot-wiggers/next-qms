@@ -86,6 +86,14 @@ const capaSourceType = v.union(
   v.literal("MGMT_REVIEW"), v.literal("MANUAL")
 );
 
+const complaintStatus = v.union(
+  v.literal("RECEIVED"), v.literal("IN_REVIEW"),
+  v.literal("IN_PROGRESS"), v.literal("CLOSED")
+);
+const complaintAssessment = v.union(
+  v.literal("JUSTIFIED"), v.literal("UNJUSTIFIED"), v.literal("GOODWILL")
+);
+
 const documentType = v.union(
   v.literal("qm_handbook"),
   v.literal("work_instruction"),
@@ -779,6 +787,41 @@ export default defineSchema({
   }).index("by_capa", ["capaId"]),
 
   // ============================================================
+  // PHASE 2 (QM-Jahreszyklus): Reklamationen (8.2.2, MDR Art. 87)
+  // ============================================================
+  complaints: defineTable({
+    complaintNumber: v.string(),         // "REK-2026-01"
+    year: v.number(),
+    seq: v.number(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    receivedAt: v.number(),              // Eingangsdatum
+    receivedVia: v.optional(v.string()), // Filiale, Telefon, E-Mail …
+    customerName: v.optional(v.string()),
+    productId: v.optional(v.id("products")),
+    productText: v.optional(v.string()), // Freitext, wenn Produkt nicht im Stamm
+    failureCategory: v.optional(v.string()), // Fehlerart (vgl. OTWin-Fehlerbücher)
+    assessment: v.optional(complaintAssessment), // Pflicht vor Abschluss
+    assessmentNote: v.optional(v.string()),
+    correctionNote: v.optional(v.string()),  // Sofortkorrektur
+    isVigilanceRelevant: v.boolean(),
+    vigilanceDeadline: v.optional(v.number()),     // berechnet: receivedAt + 15 Tage (überschreibbar)
+    vigilanceReportedAt: v.optional(v.number()),
+    vigilanceReportReference: v.optional(v.string()),
+    vigilanceReportChannel: v.optional(v.string()), // BfArM-Portal, Hersteller …
+    capaId: v.optional(v.id("capas")),   // autoritative Verknüpfung; capas.sourceId = Anzeige-Provenienz
+    assigneeId: v.optional(v.id("users")),
+    otwinRef: v.optional(v.string()),    // Abgleichschlüssel für spätere Sybase-Anbindung (OTWin)
+    status: complaintStatus,
+    closedAt: v.optional(v.number()),
+    ...auditFields,
+  })
+    .index("by_year", ["year"])
+    .index("by_status", ["status"])
+    .index("by_number", ["complaintNumber"])
+    .index("by_product", ["productId"]),
+
+  // ============================================================
   // PHASE 4: Placeholders (IN PLANUNG)
   // ============================================================
 
@@ -791,14 +834,6 @@ export default defineSchema({
     secondaryColor: v.optional(v.string()),
     ...auditFields,
   }).index("by_organization", ["organizationId"]),
-
-  // TODO: Phase 4 — Reklamationen
-  complaints: defineTable({
-    title: v.optional(v.string()),
-    status: v.literal("PLACEHOLDER"),
-    isVigilanceRelevant: v.optional(v.boolean()),
-    ...auditFields,
-  }),
 
   // TODO: Phase 4 — Wareneingang & Stichproben
   incomingGoodsChecks: defineTable({

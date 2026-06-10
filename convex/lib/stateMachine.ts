@@ -73,6 +73,12 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     CLOSED: [],
     CANCELLED: [],
   },
+  complaintStatus: {
+    RECEIVED: ["IN_REVIEW"],
+    IN_REVIEW: ["IN_PROGRESS", "CLOSED"],   // unberechtigt → direkt abschließbar
+    IN_PROGRESS: ["CLOSED"],
+    CLOSED: [],
+  },
 };
 
 /**
