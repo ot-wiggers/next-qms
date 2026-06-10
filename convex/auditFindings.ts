@@ -40,7 +40,10 @@ export const create = mutation({
     let chapter: string | undefined;
     if (args.answerId) {
       const answer = await ctx.db.get(args.answerId);
-      if (answer) chapter = answer.chapter;
+      if (!answer || answer.auditId !== args.auditId || answer.isArchived) {
+        throw new Error("Prüfpunkt gehört nicht zu diesem Audit");
+      }
+      chapter = answer.chapter;
     }
     const now = Date.now();
     const id = await ctx.db.insert("auditFindings", {
