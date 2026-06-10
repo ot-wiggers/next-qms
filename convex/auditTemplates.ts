@@ -182,6 +182,7 @@ export const activate = mutation({
     const template = await ctx.db.get(args.id);
     if (!template) throw new Error("Vorlage nicht gefunden");
     if (template.status !== "DRAFT") throw new Error("Nur Entwürfe können aktiviert werden");
+    if (template.isArchived) throw new Error("Archivierte Vorlagen können nicht aktiviert werden");
 
     const now = Date.now();
     const active = await ctx.db
@@ -218,6 +219,10 @@ export const seedFromImport = internalMutation({
     const existing = await ctx.db.query("auditChecklistTemplates").collect();
     if (existing.some((t) => t.version === args.version)) {
       return { skipped: true, reason: `Version ${args.version} existiert bereits` };
+    }
+    const maxVersion = existing.length === 0 ? 0 : Math.max(...existing.map((t) => t.version));
+    if (args.version < maxVersion) {
+      return { skipped: true, reason: `Neuere Version ${maxVersion} existiert bereits — Seed von v${args.version} würde sie ablösen` };
     }
     const now = Date.now();
     for (const prev of existing.filter((t) => t.status === "ACTIVE")) {
