@@ -36,8 +36,6 @@ import type * as lib_withAuth from "../lib/withAuth.js";
 import type * as notifications from "../notifications.js";
 import type * as organizationSettings from "../organizationSettings.js";
 import type * as organizations from "../organizations.js";
-import type * as placeholders_audits from "../placeholders/audits.js";
-import type * as placeholders_capa from "../placeholders/capa.js";
 import type * as placeholders_complaints from "../placeholders/complaints.js";
 import type * as placeholders_devices from "../placeholders/devices.js";
 import type * as placeholders_incomingGoods from "../placeholders/incomingGoods.js";
@@ -86,8 +84,6 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   organizationSettings: typeof organizationSettings;
   organizations: typeof organizations;
-  "placeholders/audits": typeof placeholders_audits;
-  "placeholders/capa": typeof placeholders_capa;
   "placeholders/complaints": typeof placeholders_complaints;
   "placeholders/devices": typeof placeholders_devices;
   "placeholders/incomingGoods": typeof placeholders_incomingGoods;
