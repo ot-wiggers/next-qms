@@ -420,16 +420,26 @@ export const seedFromImport = internalMutation({
     let inserted = 0;
     for (const item of args.items) {
       if (known.has(item.capaNumber)) continue;
+      known.add(item.capaNumber);
       const match = item.capaNumber.match(/^CAPA-(\d{4})-(\d+)$/);
       if (!match) throw new Error(`Ungültige CAPA-Nummer: ${item.capaNumber}`);
       await ctx.db.insert("capas", {
         ...item,
         year: Number(match[1]),
         seq: Number(match[2]),
+        closedAt: item.status === "CLOSED" ? now : undefined,
         isArchived: false,
         createdAt: now, updatedAt: now,
       });
       inserted++;
+    }
+    if (inserted > 0) {
+      await logAuditEvent(ctx, {
+        action: "CREATE",
+        entityType: "capas",
+        entityId: "seed",
+        metadata: { seed: true, inserted, skipped: args.items.length - inserted },
+      });
     }
     return { inserted, skipped: args.items.length - inserted };
   },
