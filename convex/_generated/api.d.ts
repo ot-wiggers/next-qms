@@ -36,6 +36,7 @@ import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_softDelete from "../lib/softDelete.js";
 import type * as lib_stateMachine from "../lib/stateMachine.js";
 import type * as lib_withAuth from "../lib/withAuth.js";
+import type * as managementReviews from "../managementReviews.js";
 import type * as notifications from "../notifications.js";
 import type * as organizationSettings from "../organizationSettings.js";
 import type * as organizations from "../organizations.js";
@@ -87,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "lib/softDelete": typeof lib_softDelete;
   "lib/stateMachine": typeof lib_stateMachine;
   "lib/withAuth": typeof lib_withAuth;
+  managementReviews: typeof managementReviews;
   notifications: typeof notifications;
   organizationSettings: typeof organizationSettings;
   organizations: typeof organizations;
