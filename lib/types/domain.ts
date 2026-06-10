@@ -33,4 +33,6 @@ export type PermissionAction =
   | "audits:list" | "audits:manage" | "audits:report"
   | "capa:list" | "capa:create" | "capa:manage" | "capa:close"
   | "complaints:list" | "complaints:create" | "complaints:manage" | "complaints:close"
+  | "qualityObjectives:list" | "qualityObjectives:manage"
+  | "mgmtReview:list" | "mgmtReview:manage" | "mgmtReview:approve"
   | "admin:settings" | "admin:featureFlags";

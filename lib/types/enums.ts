@@ -466,3 +466,60 @@ export const COMPLAINT_ASSESSMENT_LABELS: Record<ComplaintAssessment, string> = 
 
 // MDR Art. 87: Standard-Meldefrist 15 Tage; 2/10 Tage bei schweren Fällen (Frist überschreibbar)
 export const VIGILANCE_DEFAULT_DEADLINE_DAYS = 15;
+
+// ============================================================
+// Qualitätsziele (ISO 13485 Kap. 5.4.1) — Phase 3
+// ============================================================
+export const OBJECTIVE_TARGET_TYPES = ["MIN", "MAX"] as const;
+export type ObjectiveTargetType = (typeof OBJECTIVE_TARGET_TYPES)[number];
+export const OBJECTIVE_TARGET_TYPE_LABELS: Record<ObjectiveTargetType, string> = {
+  MIN: "min (mindestens erreichen)",
+  MAX: "max (höchstens erreichen)",
+};
+
+// Ampel-Konvention wie reale Bedarfsmatrix: ≥100 % GRÜN, ≥70 % GELB, <70 % ROT
+export const OBJECTIVE_STATUSES = ["GREEN", "YELLOW", "RED"] as const;
+export type ObjectiveStatus = (typeof OBJECTIVE_STATUSES)[number];
+export const OBJECTIVE_STATUS_LABELS: Record<ObjectiveStatus, string> = {
+  GREEN: "Grün", YELLOW: "Gelb", RED: "Rot",
+};
+
+// Registrierte Auto-KPIs (convex/kpis.ts) — Schlüssel für qualityObjectives.kpiKey
+export const KPI_KEYS = [
+  "complaintsYearCount",      // Anzahl Reklamationen im Jahr (App-Register)
+  "vigilanceOnTimeRate",      // % fristgerechte Vigilanz-Meldungen (100 wenn keine Fälle)
+  "capaClosedInYearCount",    // im Jahr abgeschlossene CAPAs
+  "capaOpenOverdueCount",     // offene CAPAs mit überschrittenem Termin
+  "auditsClosedInYearCount",  // abgeschlossene Audits im Jahr
+  "auditOpenFindingsCount",   // offene Audit-Findings
+] as const;
+export type KpiKey = (typeof KPI_KEYS)[number];
+export const KPI_KEY_LABELS: Record<KpiKey, string> = {
+  complaintsYearCount: "Reklamationen im Jahr (App-Register)",
+  vigilanceOnTimeRate: "Fristgerechte Vigilanz-Meldungen (%)",
+  capaClosedInYearCount: "Abgeschlossene CAPAs im Jahr",
+  capaOpenOverdueCount: "Überfällige offene CAPAs",
+  auditsClosedInYearCount: "Abgeschlossene Audits im Jahr",
+  auditOpenFindingsCount: "Offene Audit-Findings",
+};
+
+// ============================================================
+// Managementbewertung (ISO 13485 Kap. 5.6) — Phase 3
+// ============================================================
+export const MGMT_REVIEW_STATUSES = ["DRAFT", "APPROVED"] as const;
+export type MgmtReviewStatus = (typeof MGMT_REVIEW_STATUSES)[number];
+export const MGMT_REVIEW_STATUS_LABELS: Record<MgmtReviewStatus, string> = {
+  DRAFT: "Entwurf", APPROVED: "Freigegeben",
+};
+
+// Abschnitte exakt nach FB 5.6.0 Rev. 8 (2.1–2.8)
+export const MGMT_REVIEW_SECTIONS = [
+  { key: "audits", title: "2.1 Audits" },
+  { key: "complaints", title: "2.2 Kundenfeedback / Reklamationen" },
+  { key: "pms", title: "2.3 PMS" },
+  { key: "processes", title: "2.4 Prozesse" },
+  { key: "capa", title: "2.5 CAPA" },
+  { key: "changes", title: "2.6 Änderungen" },
+  { key: "resources", title: "2.7 Ressourcen" },
+  { key: "risks", title: "2.8 Risiken & Chancen" },
+] as const;

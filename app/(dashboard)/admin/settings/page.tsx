@@ -32,6 +32,14 @@ const FLAG_LABELS: Record<string, { title: string; description: string }> = {
     title: "Reklamationen",
     description: "Reklamationsmanagement aktivieren (Phase 4).",
   },
+  QUALITY_OBJECTIVES: {
+    title: "Qualitätsziele",
+    description: "Quartalsweise KPI-Ziele nach ISO 13485 Kap. 5.4.1",
+  },
+  MGMT_REVIEW: {
+    title: "Managementbewertung",
+    description: "Jährliche Bewertung durch die Leitung nach Kap. 5.6",
+  },
   INCOMING_GOODS: {
     title: "Wareneingang",
     description: "Wareneingangsmodul aktivieren (Phase 4).",
