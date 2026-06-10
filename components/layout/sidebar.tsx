@@ -32,8 +32,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { useFeatureFlag } from "@/lib/hooks/useFeatureFlag";
 import type { PermissionAction } from "@/lib/types/domain";
 import { useState } from "react";
 
@@ -100,13 +101,9 @@ const navSections: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-/** Renders a single nav item — placed in its own component so useFeatureFlag
- *  (which calls useQuery internally) can be called at the top level of a component,
- *  satisfying React's Rules of Hooks even when items are rendered in a list. */
+/** Renders a single nav item. Feature-flag filtering is handled upstream in
+ *  NavContent so section headings are only shown when there are visible items. */
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const flagEnabled = useFeatureFlag(item.featureFlag ?? "");
-  if (item.featureFlag && !flagEnabled) return null;
-
   const isActive = pathname === item.href ||
     (item.href !== "/" && pathname.startsWith(item.href));
 
@@ -134,6 +131,10 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
 function NavContent() {
   const pathname = usePathname();
   const { can } = usePermissions();
+  const flags = useQuery(api.featureFlags.list, {});
+  const enabledFlags = new Set(
+    (flags ?? []).filter((f) => f.enabled).map((f) => f.key)
+  );
 
   return (
     <ScrollArea className="h-full py-4">
@@ -145,6 +146,7 @@ function NavContent() {
         {navSections.map((section) => {
           const permittedItems = section.items.filter((item) => {
             if (item.permission && !can(item.permission as PermissionAction)) return false;
+            if (item.featureFlag && !enabledFlags.has(item.featureFlag)) return false;
             return true;
           });
           if (permittedItems.length === 0) return null;
