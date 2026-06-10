@@ -411,7 +411,45 @@ export const linkCapa = mutation({
 });
 
 // ============================================================
-// 8. seedFromImport — idempotenter Seed via year+seq
+// 8. seedReset — HART-Löschen aller Ziele + Readings eines Jahres (Seed-Korrektur)
+// ============================================================
+
+/** Seed-Korrektur (npx convex run): löscht ALLE Ziele + Readings eines Jahres HART.
+ *  Nur für die Korrektur fehlerhafter Seeds gedacht — produktive Daten werden
+ *  per archive() soft-gelöscht. Audit-Log-Marker dokumentiert den Reset. */
+export const seedReset = internalMutation({
+  args: { year: v.number() },
+  handler: async (ctx, args) => {
+    const objectives = await ctx.db
+      .query("qualityObjectives")
+      .withIndex("by_year", (q) => q.eq("year", args.year))
+      .collect();
+    let readingsDeleted = 0;
+    for (const obj of objectives) {
+      const readings = await ctx.db
+        .query("qualityObjectiveReadings")
+        .withIndex("by_objective", (q) => q.eq("objectiveId", obj._id))
+        .collect();
+      for (const r of readings) {
+        await ctx.db.delete(r._id);
+        readingsDeleted++;
+      }
+      await ctx.db.delete(obj._id);
+    }
+    if (objectives.length > 0) {
+      await logAuditEvent(ctx, {
+        action: "PERMANENT_DELETE",
+        entityType: "qualityObjectives",
+        entityId: "seed-reset",
+        metadata: { seedReset: true, year: args.year, objectives: objectives.length, readings: readingsDeleted },
+      });
+    }
+    return { objectivesDeleted: objectives.length, readingsDeleted };
+  },
+});
+
+// ============================================================
+// 9. seedFromImport — idempotenter Seed via year+seq
 // ============================================================
 
 export const seedFromImport = internalMutation({
