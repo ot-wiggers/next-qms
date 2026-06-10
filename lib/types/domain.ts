@@ -32,4 +32,5 @@ export type PermissionAction =
   | "dashboard:view" | "dashboard:view_all"
   | "audits:list" | "audits:manage" | "audits:report"
   | "capa:list" | "capa:create" | "capa:manage" | "capa:close"
+  | "complaints:list" | "complaints:create" | "complaints:manage" | "complaints:close"
   | "admin:settings" | "admin:featureFlags";

@@ -435,3 +435,28 @@ export const CAPA_SOURCE_TYPE_LABELS: Record<CapaSourceType, string> = {
 // Ergebnis der Wirksamkeitsprüfung (8.5.2 e) — bewusst ohne "PENDING": nur dokumentierbare Endergebnisse
 export const EFFECTIVENESS_RESULTS = ["EFFECTIVE", "INEFFECTIVE"] as const;
 export type EffectivenessResult = (typeof EFFECTIVENESS_RESULTS)[number];
+
+// ============================================================
+// Reklamationen (ISO 13485 Kap. 8.2.2, MDR Art. 87) — Phase 2
+// ============================================================
+export const COMPLAINT_STATUSES = [
+  "RECEIVED", "IN_REVIEW", "IN_PROGRESS", "CLOSED",
+] as const;
+export type ComplaintStatus = (typeof COMPLAINT_STATUSES)[number];
+export const COMPLAINT_STATUS_LABELS: Record<ComplaintStatus, string> = {
+  RECEIVED: "Eingegangen",
+  IN_REVIEW: "In Prüfung",
+  IN_PROGRESS: "In Bearbeitung",
+  CLOSED: "Abgeschlossen",
+};
+
+export const COMPLAINT_ASSESSMENTS = ["JUSTIFIED", "UNJUSTIFIED", "GOODWILL"] as const;
+export type ComplaintAssessment = (typeof COMPLAINT_ASSESSMENTS)[number];
+export const COMPLAINT_ASSESSMENT_LABELS: Record<ComplaintAssessment, string> = {
+  JUSTIFIED: "Berechtigt",
+  UNJUSTIFIED: "Unberechtigt",
+  GOODWILL: "Kulanz",
+};
+
+// MDR Art. 87: Standard-Meldefrist 15 Tage; 2/10 Tage bei schweren Fällen (Frist überschreibbar)
+export const VIGILANCE_DEFAULT_DEADLINE_DAYS = 15;
