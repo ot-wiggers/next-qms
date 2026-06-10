@@ -85,6 +85,9 @@ export const create = mutation({
       description: args.description?.trim() || undefined,
       customerName: args.customerName?.trim() || undefined,
       productText: args.productText?.trim() || undefined,
+      receivedVia: args.receivedVia?.trim() || undefined,
+      failureCategory: args.failureCategory?.trim() || undefined,
+      otwinRef: args.otwinRef?.trim() || undefined,
       complaintNumber, year, seq,
       isVigilanceRelevant: false,
       status: "RECEIVED",
@@ -214,6 +217,9 @@ export const recordVigilanceReport = mutation({
     if (!complaint) throw new Error("Reklamation nicht gefunden");
     if (!complaint.isVigilanceRelevant) {
       throw new Error("Reklamation ist nicht als vigilanzrelevant eingestuft");
+    }
+    if (complaint.status === "CLOSED") {
+      throw new Error("Abgeschlossene Reklamationen können nicht geändert werden");
     }
     await ctx.db.patch(args.id, {
       vigilanceReportedAt: args.vigilanceReportedAt,
