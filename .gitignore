@@ -40,3 +40,10 @@ yarn-error.log*
 
 # Worktrees
 .worktrees/
+
+# Reale QM-Dokumente (sensibel, nie committen)
+PDF/
+
+# Generierte Artefakte
+graphify-out/
+scripts/out/
