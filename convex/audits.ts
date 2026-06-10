@@ -49,11 +49,18 @@ export const getById = query({
       .withIndex("by_audit", (q) => q.eq("auditId", args.id))
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
+    const findingsWithCapa = await Promise.all(
+      findings.sort((a, b) => a.createdAt - b.createdAt).map(async (f) => {
+        if (!f.capaId) return { ...f, capaNumber: undefined as string | undefined };
+        const capa = await ctx.db.get(f.capaId);
+        return { ...f, capaNumber: capa?.capaNumber };
+      })
+    );
     const leadAuditor = audit.leadAuditorId ? await ctx.db.get(audit.leadAuditorId) : null;
     return {
       ...audit,
       answers: answers.sort((a, b) => a.sortOrder - b.sortOrder),
-      findings: findings.sort((a, b) => a.createdAt - b.createdAt),
+      findings: findingsWithCapa,
       leadAuditorName: leadAuditor ? `${leadAuditor.firstName} ${leadAuditor.lastName}` : null,
     };
   },
@@ -94,6 +101,7 @@ export const create = mutation({
     const now = Date.now();
     const auditId = await ctx.db.insert("audits", {
       ...args,
+      basis: args.basis ?? template.basis,
       status: "PLANNED",
       leadAuditorId: user._id,
       templateId: template._id,

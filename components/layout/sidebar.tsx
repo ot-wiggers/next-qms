@@ -34,6 +34,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useFeatureFlag } from "@/lib/hooks/useFeatureFlag";
+import type { PermissionAction } from "@/lib/types/domain";
 import { useState } from "react";
 
 interface NavItem {
@@ -61,8 +62,8 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Dokumenten-Graph", href: "/documents/graph", icon: GitBranch, permission: "documents:read" },
       { label: "Schulungen", href: "/trainings", icon: GraduationCap, permission: "trainings:list" },
       { label: "Schulungsanträge", href: "/training-requests", icon: MessageSquarePlus },
-      { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS" },
-      { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA" },
+      { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS", permission: "audits:list" },
+      { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA", permission: "capa:list" },
     ],
   },
   {
@@ -99,6 +100,37 @@ const navSections: { title: string; items: NavItem[] }[] = [
   },
 ];
 
+/** Renders a single nav item — placed in its own component so useFeatureFlag
+ *  (which calls useQuery internally) can be called at the top level of a component,
+ *  satisfying React's Rules of Hooks even when items are rendered in a list. */
+function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const flagEnabled = useFeatureFlag(item.featureFlag ?? "");
+  if (item.featureFlag && !flagEnabled) return null;
+
+  const isActive = pathname === item.href ||
+    (item.href !== "/" && pathname.startsWith(item.href));
+
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      <item.icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{item.label}</span>
+      {item.badge && (
+        <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0">
+          {item.badge}
+        </Badge>
+      )}
+    </Link>
+  );
+}
+
 function NavContent() {
   const pathname = usePathname();
   const { can } = usePermissions();
@@ -111,11 +143,11 @@ function NavContent() {
           <p className="text-xs text-muted-foreground">Qualitätsmanagementsystem</p>
         </div>
         {navSections.map((section) => {
-          const visibleItems = section.items.filter((item) => {
-            if (item.permission && !can(item.permission as any)) return false;
+          const permittedItems = section.items.filter((item) => {
+            if (item.permission && !can(item.permission as PermissionAction)) return false;
             return true;
           });
-          if (visibleItems.length === 0) return null;
+          if (permittedItems.length === 0) return null;
 
           return (
             <div key={section.title}>
@@ -123,30 +155,9 @@ function NavContent() {
                 {section.title}
               </h3>
               <div className="space-y-1">
-                {visibleItems.map((item) => {
-                  const isActive = pathname === item.href ||
-                    (item.href !== "/" && pathname.startsWith(item.href));
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )}
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                      {item.badge && (
-                        <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  );
-                })}
+                {permittedItems.map((item) => (
+                  <NavLink key={item.href} item={item} pathname={pathname} />
+                ))}
               </div>
             </div>
           );

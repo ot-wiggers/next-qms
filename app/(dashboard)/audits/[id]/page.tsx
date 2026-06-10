@@ -36,7 +36,7 @@ type Answer = {
 type Finding = {
   _id: Id<"auditFindings">;
   chapter?: string; classification: string; description: string;
-  capaId?: Id<"capas">; status: string;
+  capaId?: Id<"capas">; status: string; capaNumber?: string;
 };
 
 const RATING_COLOR: Record<string, string> = {
@@ -53,6 +53,7 @@ export default function AuditDetailPage() {
   const { can } = usePermissions();
 
   const audit = useQuery(api.audits.getById, { id: auditId });
+  const reportUrl = useQuery(api.audits.getReportUrl, { id: auditId });
   const setStatus = useMutation(api.audits.setStatus);
   const updateAnswer = useMutation(api.audits.updateAnswer);
   const updateSummary = useMutation(api.audits.updateSummary);
@@ -154,7 +155,7 @@ export default function AuditDetailPage() {
       chapterSummaries: audit!.chapterSummaries,
       answers: audit!.answers,
       findings: audit!.findings.map((f: Finding) => ({
-        chapter: f.chapter, classification: f.classification, description: f.description,
+        chapter: f.chapter, classification: f.classification, description: f.description, capaNumber: f.capaNumber,
       })),
     };
   }
@@ -304,6 +305,11 @@ export default function AuditDetailPage() {
               </Button>
               {audit.status === "REPORT_DRAFT" && canReport && (
                 <Button onClick={freezeReport}>PDF einfrieren (Nachweis)</Button>
+              )}
+              {audit.reportFileId && reportUrl && (
+                <Button variant="outline" asChild>
+                  <a href={reportUrl} target="_blank" rel="noopener noreferrer">Eingefrorenes PDF (Nachweis)</a>
+                </Button>
               )}
             </div>
           </CardContent>
