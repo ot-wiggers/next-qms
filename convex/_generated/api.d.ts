@@ -8,8 +8,12 @@
  * @module
  */
 
+import type * as auditFindings from "../auditFindings.js";
 import type * as auditLog from "../auditLog.js";
+import type * as auditTemplates from "../auditTemplates.js";
+import type * as audits from "../audits.js";
 import type * as auth from "../auth.js";
+import type * as capas from "../capas.js";
 import type * as calendarEvents from "../calendarEvents.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
@@ -54,8 +58,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auditFindings: typeof auditFindings;
   auditLog: typeof auditLog;
+  auditTemplates: typeof auditTemplates;
+  audits: typeof audits;
   auth: typeof auth;
+  capas: typeof capas;
   calendarEvents: typeof calendarEvents;
   crons: typeof crons;
   dashboard: typeof dashboard;
