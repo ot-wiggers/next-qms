@@ -431,3 +431,7 @@ export const CAPA_SOURCE_TYPE_LABELS: Record<CapaSourceType, string> = {
   MGMT_REVIEW: "Managementbewertung",
   MANUAL: "Manuell",
 };
+
+// Ergebnis der Wirksamkeitsprüfung (8.5.2 e) — bewusst ohne "PENDING": nur dokumentierbare Endergebnisse
+export const EFFECTIVENESS_RESULTS = ["EFFECTIVE", "INEFFECTIVE"] as const;
+export type EffectivenessResult = (typeof EFFECTIVENESS_RESULTS)[number];

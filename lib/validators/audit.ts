@@ -1,9 +1,14 @@
 import { z } from "zod";
+import {
+  AUDIT_TYPES,
+  AUDIT_RATINGS,
+  FINDING_CLASSIFICATIONS,
+} from "@/lib/types/enums";
 
 export const createAuditSchema = z.object({
   title: z.string().min(1, "Titel ist erforderlich").max(200),
-  auditYear: z.number().int().min(2020).max(2100),
-  auditType: z.enum(["INTERNAL", "EXTERNAL"]),
+  auditYear: z.number().int().min(2000).max(2100),
+  auditType: z.enum(AUDIT_TYPES, { message: "Ungültiger Audit-Typ" }),
   auditTeam: z.string().max(500).optional(),
   basis: z.string().max(1000).optional(),
   location: z.string().max(500).optional(),
@@ -12,9 +17,7 @@ export const createAuditSchema = z.object({
 });
 
 export const updateAnswerSchema = z.object({
-  rating: z
-    .enum(["KONFORM", "ABWEICHUNG", "FESTSTELLUNG", "EMPFEHLUNG", "NICHT_ANWENDBAR"])
-    .optional(),
+  rating: z.enum(AUDIT_RATINGS, { message: "Ungültige Bewertung" }).optional(),
   evidence: z.string().max(2000).optional(),
   sample: z.string().max(2000).optional(),
   interviewedWith: z.string().max(500).optional(),
@@ -22,7 +25,7 @@ export const updateAnswerSchema = z.object({
 });
 
 export const createFindingSchema = z.object({
-  classification: z.enum(["ABWEICHUNG", "FESTSTELLUNG", "EMPFEHLUNG"]),
+  classification: z.enum(FINDING_CLASSIFICATIONS, { message: "Ungültige Klassifizierung" }),
   description: z.string().min(1, "Beschreibung ist erforderlich").max(2000),
 });
 
