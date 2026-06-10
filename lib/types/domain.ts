@@ -30,4 +30,6 @@ export type PermissionAction =
   | "tasks:own" | "tasks:team" | "tasks:all"
   | "notifications:read" | "notifications:manage"
   | "dashboard:view" | "dashboard:view_all"
+  | "audits:list" | "audits:manage" | "audits:report"
+  | "capa:list" | "capa:create" | "capa:manage" | "capa:close"
   | "admin:settings" | "admin:featureFlags";

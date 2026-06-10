@@ -324,3 +324,102 @@ export const STATUS_LABELS: Record<string, string> = {
   HIGH: "Hoch",
   URGENT: "Dringend",
 };
+
+// ============================================================
+// Audits (ISO 13485 Kap. 8.2.4) — Phase 1
+// ============================================================
+export const AUDIT_TYPES = ["INTERNAL", "EXTERNAL"] as const;
+export type AuditType = (typeof AUDIT_TYPES)[number];
+export const AUDIT_TYPE_LABELS: Record<AuditType, string> = {
+  INTERNAL: "Internes Audit",
+  EXTERNAL: "Externes Audit",
+};
+
+export const AUDIT_STATUSES = [
+  "PLANNED", "IN_PROGRESS", "REPORT_DRAFT", "CLOSED", "CANCELLED",
+] as const;
+export type AuditStatus = (typeof AUDIT_STATUSES)[number];
+export const AUDIT_STATUS_LABELS: Record<AuditStatus, string> = {
+  PLANNED: "Geplant",
+  IN_PROGRESS: "In Durchführung",
+  REPORT_DRAFT: "Berichtsentwurf",
+  CLOSED: "Abgeschlossen",
+  CANCELLED: "Abgebrochen",
+};
+
+// Bewertungslegende exakt nach FB 8.2.4 Auditcheckliste v5
+export const AUDIT_RATINGS = [
+  "KONFORM", "ABWEICHUNG", "FESTSTELLUNG", "EMPFEHLUNG", "NICHT_ANWENDBAR",
+] as const;
+export type AuditRating = (typeof AUDIT_RATINGS)[number];
+export const AUDIT_RATING_LABELS: Record<AuditRating, string> = {
+  KONFORM: "Konform",
+  ABWEICHUNG: "Abweichung",
+  FESTSTELLUNG: "Feststellung",
+  EMPFEHLUNG: "Empfehlung",
+  NICHT_ANWENDBAR: "nicht anwendbar",
+};
+export const AUDIT_RATING_DESCRIPTIONS: Record<AuditRating, string> = {
+  KONFORM: "Anforderung vollständig erfüllt",
+  ABWEICHUNG: "Erhebliche Nichterfüllung der Anforderung",
+  FESTSTELLUNG: "Geringfügige Abweichung / Handlungsbedarf",
+  EMPFEHLUNG: "Hinweis zur Verbesserung ohne Abweichung",
+  NICHT_ANWENDBAR: "Ausschluss laut QM-Handbuch Kap. 4.3",
+};
+
+export const FINDING_CLASSIFICATIONS = [
+  "ABWEICHUNG", "FESTSTELLUNG", "EMPFEHLUNG",
+] as const;
+export type FindingClassification = (typeof FINDING_CLASSIFICATIONS)[number];
+export const FINDING_CLASSIFICATION_LABELS: Record<FindingClassification, string> = {
+  ABWEICHUNG: "Abweichung",
+  FESTSTELLUNG: "Feststellung",
+  EMPFEHLUNG: "Empfehlung",
+};
+
+export const CHECKLIST_TEMPLATE_STATUSES = ["DRAFT", "ACTIVE", "SUPERSEDED"] as const;
+export type ChecklistTemplateStatus = (typeof CHECKLIST_TEMPLATE_STATUSES)[number];
+export const CHECKLIST_TEMPLATE_STATUS_LABELS: Record<ChecklistTemplateStatus, string> = {
+  DRAFT: "Entwurf",
+  ACTIVE: "Aktiv",
+  SUPERSEDED: "Abgelöst",
+};
+
+// ============================================================
+// CAPA (ISO 13485 Kap. 8.5.2 / 8.5.3) — Phase 1
+// ============================================================
+export const CAPA_TYPES = ["CORRECTIVE", "PREVENTIVE"] as const;
+export type CapaType = (typeof CAPA_TYPES)[number];
+export const CAPA_TYPE_LABELS: Record<CapaType, string> = {
+  CORRECTIVE: "Korrekturmaßnahme (8.5.2)",
+  PREVENTIVE: "Vorbeugemaßnahme (8.5.3)",
+};
+
+export const CAPA_STATUSES = [
+  "OPEN", "ANALYSIS", "MEASURES_DEFINED", "IN_PROGRESS",
+  "EFFECTIVENESS_CHECK", "CLOSED", "CANCELLED",
+] as const;
+export type CapaStatus = (typeof CAPA_STATUSES)[number];
+export const CAPA_STATUS_LABELS: Record<CapaStatus, string> = {
+  OPEN: "Offen",
+  ANALYSIS: "Ursachenanalyse",
+  MEASURES_DEFINED: "Maßnahmen definiert",
+  IN_PROGRESS: "In Umsetzung",
+  EFFECTIVENESS_CHECK: "Wirksamkeitsprüfung",
+  CLOSED: "Abgeschlossen",
+  CANCELLED: "Abgebrochen",
+};
+
+export const CAPA_SOURCE_TYPES = [
+  "AUDIT", "COMPLAINT", "TRAINING", "RISK", "QUALITY_OBJECTIVE", "MGMT_REVIEW", "MANUAL",
+] as const;
+export type CapaSourceType = (typeof CAPA_SOURCE_TYPES)[number];
+export const CAPA_SOURCE_TYPE_LABELS: Record<CapaSourceType, string> = {
+  AUDIT: "Audit",
+  COMPLAINT: "Reklamation",
+  TRAINING: "Schulung",
+  RISK: "Risiko",
+  QUALITY_OBJECTIVE: "Qualitätsziel",
+  MGMT_REVIEW: "Managementbewertung",
+  MANUAL: "Manuell",
+};
