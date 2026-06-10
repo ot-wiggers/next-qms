@@ -249,3 +249,15 @@ function computePercentAndStatus(targetType: "MIN" | "MAX", soll: number, ist: n
 - Abdeckung: 14-Ziele-Raster ✓ (Schema seq/area/Typ/Quartals-Readings), Prozent-Logik aus realem FB verifiziert ✓ (max: SOLL/IST), Ampel-Konvention dokumentiert ✓, Gelb/Rot→CAPA soft-enforced + UI-Pfad ✓, Phasenmodell als Flag + Meilenstein-SOLL ✓, Mgmt-Review exakt nach FB-Gliederung 1–5 ✓, Auto-Snapshot nur wo echte Daten existieren (changes/resources/processes/risks bewusst leer) ✓, Freigabe-Gate „erst PDF, dann approve" ✓, Seed mit capaNumber-Join ✓.
 - Typ-Konsistenz: GREEN/YELLOW/RED + DRAFT/APPROVED in enums/schema/Modulen identisch; KPI_KEYS einzige Registry.
 - Bewusst nicht: Notifications (kein Bedarf), eigene Perioden-Tabelle (YAGNI), PMS-Snapshot-Daten (Phase 6), Quartals-Erinnerungen (Phase 7).
+
+---
+
+## Übergabe — Stand 2026-06-11, Implementierung abgeschlossen
+
+Schema, Funktionen und Seeds sind bereits LIVE deployed (Convex-Zugriff vorhanden). Die 15 Qualitätsziele 2026 (das FB hat 15 Zeilen: 1–9, 10a, 10b, 11–14) sind nach unabhängigem Daten-Review formblattgetreu geseedet — ein erster Seed enthielt 4 fehlerhafte Werte (u.a. ein fabrizierter Rot-Status auf Ziel 1 Q2), die per Positions-Extraktion gefunden und per `seedReset` + korrigiertem Re-Seed behoben wurden. Das CAPA-Mapping nutzt Inhalts-Zuordnung, weil die CAPA-Nummern im FB 5.4.1 gegenüber FB 8.5.2/8.5.3 um +1 verschoben sind (FB-interner Versatz; „Gleitschleifen" = CAPA-2026-01 kommt in den Zielen nicht vor) — bitte im Walkthrough bestätigen.
+
+**Nutzer-Schritte:**
+1. Admin → Einstellungen: Flags „Qualitätsziele" und „Managementbewertung" aktivieren (ggf. auch „Reklamationen" — ist aktuell aus)
+2. Walkthrough gemäß Final-Review-Checkliste: 15 Ziele prüfen (Ziel 1 Q1 = 120 % grün; Ziel 15 IST 0 → „100 %"), kpiKey über Bearbeiten-Dialog setzen (Seed vergibt keine — z.B. Ziel 1 → „Reklamationen im Jahr", Ziel 15 → „Fristgerechte Vigilanz-Meldungen"), IST mit App-Vorschlag erfassen, Gelb-Fall → CAPA-Pfad, Managementbewertung 2026 anlegen → Auto-Snapshot prüfen → Maßnahme → CAPA → PDF einfrieren → freigeben. Gegentests: zweiter Entwurf 2026 scheitert; Freigabe ohne PDF scheitert; Inhaltsänderung nach Einfrieren entfernt das PDF (erneut einfrieren nötig); Bearbeitung nach Freigabe scheitert.
+
+**Dokumentierte Folgepunkte:** Archiv-UI für Ziele/Reviews (Mutationen existieren), Jahr-Selector zeigt nur ±1 Jahr (ab 2028 erweitern), Re-Freeze hinterlässt verwaiste Storage-Blobs (Audit-Trail dokumentiert previousFileId), `scripts/out/qziele-2026.json` ist lokal/gitignored (Re-Seed anderer Umgebungen braucht die Datei oder Neu-Kuratierung).
