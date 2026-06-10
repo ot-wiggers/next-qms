@@ -114,6 +114,68 @@ export const create = mutation({
   },
 });
 
+/** Halbautomatik: vorausgefüllte CAPA aus einer Reklamation erzeugen */
+export const createFromComplaint = mutation({
+  args: {
+    complaintId: v.id("complaints"),
+    capaType: capaTypeArg,
+    assigneeId: v.optional(v.id("users")),
+    dueAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "capa:create");
+    const complaint = await ctx.db.get(args.complaintId);
+    if (!complaint) throw new Error("Reklamation nicht gefunden");
+    if (complaint.isArchived) throw new Error("Reklamation ist archiviert");
+    if (complaint.capaId) {
+      const linked = await ctx.db.get(complaint.capaId);
+      // Ersatz-CAPA nur erlaubt, wenn die verknüpfte CAPA abgebrochen oder archiviert wurde
+      if (linked && linked.status !== "CANCELLED" && !linked.isArchived) {
+        throw new Error("Für diese Reklamation existiert bereits eine CAPA");
+      }
+    }
+    // UTC-Jahresgrenze bewusst akzeptiert (Convex läuft UTC)
+    const year = new Date().getFullYear();
+    const { seq, capaNumber } = await nextCapaNumber(ctx, year);
+    const now = Date.now();
+    const id = await ctx.db.insert("capas", {
+      capaNumber, year, seq,
+      title: `${complaint.complaintNumber}: ${complaint.title.slice(0, 120)}`,
+      description: [
+        `Quelle: Reklamation ${complaint.complaintNumber}`,
+        "",
+        complaint.description ?? complaint.title,
+      ].join("\n"),
+      capaType: args.capaType,
+      sourceType: "COMPLAINT",
+      sourceId: args.complaintId as string,
+      status: "OPEN",
+      assigneeId: args.assigneeId,
+      dueAt: args.dueAt,
+      isArchived: false,
+      createdAt: now, createdBy: user._id,
+      updatedAt: now, updatedBy: user._id,
+    });
+    await ctx.db.patch(args.complaintId, { capaId: id, updatedAt: now, updatedBy: user._id });
+    await logAuditEvent(ctx, {
+      userId: user._id, action: "CREATE",
+      entityType: "capas", entityId: id,
+      metadata: { capaNumber, fromComplaint: args.complaintId },
+    });
+    if (args.assigneeId && args.assigneeId !== user._id) {
+      await createNotification(ctx, {
+        userId: args.assigneeId,
+        type: "CAPA_ASSIGNED",
+        title: `CAPA zugewiesen: ${capaNumber}`,
+        message: complaint.title.slice(0, 200),
+        resourceType: "capa",
+        resourceId: id,
+      });
+    }
+    return id;
+  },
+});
+
 /** Halbautomatik: vorausgefüllte CAPA aus einem Audit-Finding erzeugen */
 export const createFromFinding = mutation({
   args: {

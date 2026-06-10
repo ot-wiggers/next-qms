@@ -96,6 +96,8 @@ function resourceTypeToPath(resourceType: string): string {
       return "tasks";
     case "capa":
       return "capa";
+    case "complaints":
+      return "complaints";
     default:
       return "";
   }

@@ -58,6 +58,8 @@ function getResourceHref(resourceType?: string, resourceId?: string): string | n
       return `/tasks`;
     case "capa":
       return `/capa/${resourceId}`;
+    case "complaints":
+      return `/complaints/${resourceId}`;
     default:
       return null;
   }

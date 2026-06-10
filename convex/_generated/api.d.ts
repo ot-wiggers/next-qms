@@ -15,6 +15,7 @@ import type * as audits from "../audits.js";
 import type * as auth from "../auth.js";
 import type * as capas from "../capas.js";
 import type * as calendarEvents from "../calendarEvents.js";
+import type * as complaints from "../complaints.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as declarations from "../declarations.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   capas: typeof capas;
   calendarEvents: typeof calendarEvents;
+  complaints: typeof complaints;
   crons: typeof crons;
   dashboard: typeof dashboard;
   declarations: typeof declarations;
