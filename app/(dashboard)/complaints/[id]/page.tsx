@@ -142,10 +142,13 @@ export default function ComplaintDetailPage() {
   }
 
   async function handleVigilanceReport() {
+    if (!vigilanceForm.reportedAt) { toast.error("Meldedatum ist erforderlich"); return; }
+    const reportedAtMs = new Date(vigilanceForm.reportedAt).getTime();
+    if (!Number.isFinite(reportedAtMs)) { toast.error("Ungültiges Datum"); return; }
     try {
       await recordVigilanceReport({
         id: complaintId,
-        vigilanceReportedAt: new Date(vigilanceForm.reportedAt).getTime(),
+        vigilanceReportedAt: reportedAtMs,
         vigilanceReportReference: vigilanceForm.reference.trim() || undefined,
         vigilanceReportChannel: vigilanceForm.channel.trim() || undefined,
       });

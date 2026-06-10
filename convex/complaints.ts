@@ -74,6 +74,7 @@ export const create = mutation({
     const user = await requirePermission(ctx, "complaints:create");
     const title = args.title.trim();
     if (!title) throw new Error("Titel ist erforderlich");
+    if (!Number.isFinite(args.receivedAt)) throw new Error("Ungültiges Eingangsdatum");
     if (args.receivedAt > Date.now()) throw new Error("Eingangsdatum liegt in der Zukunft");
     // UTC-Jahresgrenze bewusst akzeptiert (Convex läuft UTC)
     const year = new Date(args.receivedAt).getFullYear();
@@ -178,6 +179,7 @@ export const assess = mutation({
     if (complaint.status === "CLOSED") {
       throw new Error("Abgeschlossene Reklamationen können nicht geändert werden");
     }
+    if (args.vigilanceDeadline !== undefined && !Number.isFinite(args.vigilanceDeadline)) throw new Error("Ungültige Frist");
     const patch: Partial<Doc<"complaints">> = {
       assessment: args.assessment,
       assessmentNote: args.assessmentNote?.trim() || undefined,
@@ -213,6 +215,7 @@ export const recordVigilanceReport = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "complaints:manage");
+    if (!Number.isFinite(args.vigilanceReportedAt)) throw new Error("Ungültiges Meldedatum");
     const complaint = await ctx.db.get(args.id);
     if (!complaint) throw new Error("Reklamation nicht gefunden");
     if (!complaint.isVigilanceRelevant) {

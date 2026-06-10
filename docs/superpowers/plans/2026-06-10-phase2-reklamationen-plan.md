@@ -572,3 +572,27 @@ Aufbau analog `app/(dashboard)/capa/[id]/page.tsx` (PageHeader-actions: Status-B
 - **Spec-Abdeckung:** manuelles Register ✓ (create/update), Nummernkreis REK ✓, Bewertungs-Gate ✓ (setStatus), Vigilanz-Frist + Override + Meldefelder ✓ (assess/recordVigilanceReport), Vigilanz-Abschluss-Gate ✓, CAPA-Quelle ✓ (createFromComplaint + Back-Link), otwinRef ✓, Deep-Links ✓, RBAC-Leiter ✓, Soft-Delete + Audit-Trail ✓. Bewusst NICHT: Zod-Validatoren (Phase-1-Lektion), Produkt-Picker im Create-Dialog (Detail reicht), Vigilanz-Cron (Phase 7), OTWin-Import (späteres Vorhaben, Sybase).
 - **Typ-Konsistenz:** Literale RECEIVED/IN_REVIEW/IN_PROGRESS/CLOSED und JUSTIFIED/UNJUSTIFIED/GOODWILL identisch in enums/schema/Modul; `complaints`-Tabelle trägt year/seq analog capas; `resourceType: "complaints"` konsistent in Notification + E-Mail + UI-Case.
 - **Anpassungspunkte:** UI-Tasks 4/5 beschreiben Struktur statt Vollcode — Implementierer überträgt das erprobte capa-Seitenmuster (Phase-1-Dateien als direkte Vorlage im Repo).
+
+---
+
+## Übergabe — verbleibende Nutzer-Schritte (Stand 2026-06-10, Implementierung abgeschlossen)
+
+Implementiert auf Branch `feature/qm-phase2-reklamationen` (Tasks 1–6, Build grün). Wie in Phase 1 brauchen Schema-Push und Browser-Walkthrough ein interaktives Terminal:
+
+```bash
+# 1. Schema + Funktionen deployen
+npx convex dev --once
+
+# 2. Feature-Flag aktivieren: Admin → Einstellungen → "Interne Audits"/"CAPA"/"Reklamationen"
+#    (Flag-Keys sind jetzt mit der Sidebar harmonisiert: AUDITS, CAPA, COMPLAINTS, …)
+```
+
+Danach den Runtime-Walkthrough aus dem Final-Review durchspielen: Happy Path (REK-Nummernkreis, Prüfung → Bewertung mit Vigilanz-Haken → Frist-Vorbelegung → Meldung → Abschluss; CAPA aus Reklamation) und Gegentests (Abschluss ohne Bewertung scheitert; vigilanzrelevant ohne Meldung scheitert; Zukunfts-/leeres Eingangsdatum abgewiesen; Statussprung RECEIVED→CLOSED abgewiesen; Rollen: employee erfasst aber bewertet nicht, auditor nur lesend; Überfälligkeits-Badge bei Frist in der Vergangenheit).
+
+**Dokumentierte Folgepunkte (bewusst nicht in Phase 2):**
+- Assignee-Auswahl im UI (`update.assigneeId` + COMPLAINT_ASSIGNED-Notification existieren serverseitig)
+- Ersatz-CAPA-Button im UI, wenn die verknüpfte CAPA abgebrochen/archiviert wurde (Server erlaubt es bereits)
+- Archiv-Button im UI (`complaints.archive` existiert)
+- ICON_MAP-Einträge für CAPA_/COMPLAINT_ASSIGNED (aktuell Bell-Fallback)
+- UI sollte `VIGILANCE_DEFAULT_DEADLINE_DAYS` aus enums.ts nutzen statt hartem 15-Tage-Wert
+- OTWin-Anbindung (Sybase SQL Anywhere) als eigenes späteres Vorhaben — `otwinRef` ist vorbereitet

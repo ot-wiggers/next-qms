@@ -20,27 +20,27 @@ const FLAG_LABELS: Record<string, { title: string; description: string }> = {
     description:
       "Wenn aktiviert, können Produkte nur als AKTIV gesetzt werden, wenn eine gültige Konformitätserklärung vorliegt.",
   },
-  audits_enabled: {
+  AUDITS: {
     title: "Interne Audits",
     description: "Modul für interne Audits aktivieren (Phase 4).",
   },
-  capa_enabled: {
+  CAPA: {
     title: "CAPA",
     description: "CAPA-Modul aktivieren (Phase 4).",
   },
-  complaints_enabled: {
+  COMPLAINTS: {
     title: "Reklamationen",
     description: "Reklamationsmanagement aktivieren (Phase 4).",
   },
-  incoming_goods_enabled: {
+  INCOMING_GOODS: {
     title: "Wareneingang",
     description: "Wareneingangsmodul aktivieren (Phase 4).",
   },
-  devices_enabled: {
+  DEVICES: {
     title: "Prüfmittel",
     description: "Prüfmittelverwaltung aktivieren (Phase 4).",
   },
-  reports_enabled: {
+  REPORTS: {
     title: "Berichte",
     description: "Berichtsmodul aktivieren (Phase 4).",
   },
@@ -56,8 +56,8 @@ export default function AdminSettingsPage() {
       toast.success(
         `${FLAG_LABELS[key]?.title ?? key}: ${enabled ? "Aktiviert" : "Deaktiviert"}`
       );
-    } catch (err: any) {
-      toast.error(err.message ?? "Fehler beim Aktualisieren");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Fehler beim Aktualisieren");
     }
   };
 

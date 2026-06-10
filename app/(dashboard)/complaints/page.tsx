@@ -66,7 +66,9 @@ export default function ComplaintsPage() {
 
   async function handleCreate() {
     if (!form.title.trim()) { toast.error("Titel ist erforderlich"); return; }
+    if (!form.receivedAt) { toast.error("Eingangsdatum ist erforderlich"); return; }
     const receivedAtMs = new Date(form.receivedAt).getTime();
+    if (!Number.isFinite(receivedAtMs)) { toast.error("Ungültiges Eingangsdatum"); return; }
     if (receivedAtMs > Date.now()) { toast.error("Eingangsdatum liegt in der Zukunft"); return; }
     try {
       const id = await createComplaint({
