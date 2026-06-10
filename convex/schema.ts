@@ -59,6 +59,33 @@ const taskPriority = v.union(
   v.literal("URGENT")
 );
 
+const auditType = v.union(v.literal("INTERNAL"), v.literal("EXTERNAL"));
+const auditStatusEnum = v.union(
+  v.literal("PLANNED"), v.literal("IN_PROGRESS"), v.literal("REPORT_DRAFT"),
+  v.literal("CLOSED"), v.literal("CANCELLED")
+);
+const auditRating = v.union(
+  v.literal("KONFORM"), v.literal("ABWEICHUNG"), v.literal("FESTSTELLUNG"),
+  v.literal("EMPFEHLUNG"), v.literal("NICHT_ANWENDBAR")
+);
+const findingClassification = v.union(
+  v.literal("ABWEICHUNG"), v.literal("FESTSTELLUNG"), v.literal("EMPFEHLUNG")
+);
+const checklistTemplateStatus = v.union(
+  v.literal("DRAFT"), v.literal("ACTIVE"), v.literal("SUPERSEDED")
+);
+const capaStatusEnum = v.union(
+  v.literal("OPEN"), v.literal("ANALYSIS"), v.literal("MEASURES_DEFINED"),
+  v.literal("IN_PROGRESS"), v.literal("EFFECTIVENESS_CHECK"),
+  v.literal("CLOSED"), v.literal("CANCELLED")
+);
+const capaTypeEnum = v.union(v.literal("CORRECTIVE"), v.literal("PREVENTIVE"));
+const capaSourceType = v.union(
+  v.literal("AUDIT"), v.literal("COMPLAINT"), v.literal("TRAINING"),
+  v.literal("RISK"), v.literal("QUALITY_OBJECTIVE"),
+  v.literal("MGMT_REVIEW"), v.literal("MANUAL")
+);
+
 const documentType = v.union(
   v.literal("qm_handbook"),
   v.literal("work_instruction"),
@@ -641,23 +668,116 @@ export default defineSchema({
     .index("by_org_date", ["organizationId", "date"]),
 
   // ============================================================
-  // PHASE 4: Placeholders (IN PLANUNG)
+  // PHASE 1 (QM-Jahreszyklus): Interne Audits (8.2.4) + CAPA (8.5.2/8.5.3)
+  // Design: docs/superpowers/plans/2026-06-10-qm-jahreszyklus-design.md
   // ============================================================
 
-  // TODO: Phase 4 — Interne Audits (ISO 13485 Kap. 8.2.2)
-  audits: defineTable({
-    title: v.optional(v.string()),
-    status: v.literal("PLACEHOLDER"),
+  auditChecklistTemplates: defineTable({
+    name: v.string(),                    // z.B. "Auditcheckliste 2026"
+    formNumber: v.string(),              // "8.2.4"
+    version: v.number(),                 // 5
+    status: checklistTemplateStatus,
+    basis: v.optional(v.string()),       // Normen/QMH-Bezug
     ...auditFields,
-  }),
+  }).index("by_status", ["status"]),
 
-  // TODO: Phase 4 — Audit-Findings
-  auditFindings: defineTable({
-    title: v.optional(v.string()),
-    auditId: v.optional(v.id("audits")),
-    status: v.literal("PLACEHOLDER"),
+  auditChecklistTemplateItems: defineTable({
+    templateId: v.id("auditChecklistTemplates"),
+    chapter: v.string(),                 // "4.1.1"
+    chapterTitle: v.string(),            // "Regulatorische Anforderungen & Rollen"
+    requirements: v.string(),            // Prüfpunkte/Anforderungen
+    sortOrder: v.number(),
     ...auditFields,
-  }),
+  }).index("by_template", ["templateId"]),
+
+  audits: defineTable({
+    title: v.string(),                   // "Internes Audit 2026"
+    auditYear: v.number(),
+    auditType: auditType,
+    status: auditStatusEnum,
+    leadAuditorId: v.optional(v.id("users")),
+    auditTeam: v.optional(v.string()),   // Auditor/Fachexperte/Mitarbeiter des Bereichs
+    basis: v.optional(v.string()),
+    location: v.optional(v.string()),
+    reportingPeriod: v.optional(v.string()),
+    plannedFor: v.optional(v.string()),  // z.B. "05/2026"
+    auditDate: v.optional(v.number()),
+    templateId: v.optional(v.id("auditChecklistTemplates")),
+    templateVersion: v.optional(v.number()),
+    summaryResult: v.optional(v.string()),   // Zusammenfassendes Ergebnis
+    chapterSummaries: v.optional(v.array(v.object({
+      chapter: v.string(),               // "Kapitel 4 – Qualitätsmanagementsystem"
+      summary: v.string(),
+    }))),
+    reportFileId: v.optional(v.id("_storage")),
+    closedAt: v.optional(v.number()),
+    ...auditFields,
+  })
+    .index("by_year", ["auditYear"])
+    .index("by_status", ["status"]),
+
+  auditChecklistAnswers: defineTable({
+    auditId: v.id("audits"),
+    chapter: v.string(),                 // eingefrorene Kopie aus der Vorlage
+    chapterTitle: v.string(),
+    requirements: v.string(),
+    sortOrder: v.number(),
+    rating: v.optional(auditRating),
+    evidence: v.optional(v.string()),    // Nachweis (PA/AA/FB/QMH inkl. Rev.)
+    sample: v.optional(v.string()),      // Stichprobe (konkrete Aufzeichnung)
+    interviewedWith: v.optional(v.string()),
+    comments: v.optional(v.string()),
+    ...auditFields,
+  }).index("by_audit", ["auditId"]),
+
+  auditFindings: defineTable({
+    auditId: v.id("audits"),
+    answerId: v.optional(v.id("auditChecklistAnswers")),
+    chapter: v.optional(v.string()),
+    classification: findingClassification,
+    description: v.string(),
+    capaId: v.optional(v.id("capas")),
+    status: v.union(v.literal("OPEN"), v.literal("RESOLVED")),
+    ...auditFields,
+  }).index("by_audit", ["auditId"]),
+
+  capas: defineTable({
+    capaNumber: v.string(),              // "CAPA-2026-11" (reales Format)
+    year: v.number(),
+    seq: v.number(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    capaType: capaTypeEnum,
+    sourceType: capaSourceType,
+    sourceId: v.optional(v.string()),    // z.B. auditFindings-Id als String
+    rootCauseAnalysis: v.optional(v.string()),
+    status: capaStatusEnum,
+    assigneeId: v.optional(v.id("users")),
+    responsible: v.optional(v.string()),          // Freitext-Rollen wie im echten FB ("BDL / IT", "GF / BDL")
+    dueAt: v.optional(v.number()),
+    effectivenessCriterion: v.optional(v.string()), // vorab definiert, wie im FB: "Wirksam: Q3/Q4-Auswertung ≥ 95 %"
+    effectivenessDueAt: v.optional(v.number()),
+    effectivenessResult: v.optional(v.union(v.literal("EFFECTIVE"), v.literal("INEFFECTIVE"))),
+    effectivenessNote: v.optional(v.string()),
+    closedAt: v.optional(v.number()),
+    ...auditFields,
+  })
+    .index("by_year", ["year"])
+    .index("by_status", ["status"]),
+
+  capaMeasures: defineTable({
+    capaId: v.id("capas"),
+    description: v.string(),
+    assigneeId: v.optional(v.id("users")),
+    dueAt: v.optional(v.number()),
+    status: v.union(v.literal("OPEN"), v.literal("DONE")),
+    doneAt: v.optional(v.number()),
+    ...auditFields,
+  }).index("by_capa", ["capaId"]),
+
+  // ============================================================
+  // PHASE 4: Placeholders (IN PLANUNG)
+  // ============================================================
 
   // Organization-specific settings (branding, logo, etc.)
   organizationSettings: defineTable({
@@ -668,15 +788,6 @@ export default defineSchema({
     secondaryColor: v.optional(v.string()),
     ...auditFields,
   }).index("by_organization", ["organizationId"]),
-
-  // TODO: Phase 4 — CAPA (Corrective & Preventive Actions)
-  capaActions: defineTable({
-    title: v.optional(v.string()),
-    status: v.literal("PLACEHOLDER"),
-    sourceType: v.optional(v.string()), // "audit", "complaint", "training"
-    sourceId: v.optional(v.string()),
-    ...auditFields,
-  }),
 
   // TODO: Phase 4 — Reklamationen
   complaints: defineTable({

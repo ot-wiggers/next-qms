@@ -55,6 +55,22 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     APPROVED: [],
     CHANGES_REQUESTED: [],
   },
+  auditStatus: {
+    PLANNED: ["IN_PROGRESS", "CANCELLED"],
+    IN_PROGRESS: ["REPORT_DRAFT", "CANCELLED"],
+    REPORT_DRAFT: ["CLOSED", "IN_PROGRESS"],
+    CLOSED: [],
+    CANCELLED: [],
+  },
+  capaStatus: {
+    OPEN: ["ANALYSIS", "CANCELLED"],
+    ANALYSIS: ["MEASURES_DEFINED", "CANCELLED"],
+    MEASURES_DEFINED: ["IN_PROGRESS", "CANCELLED"],
+    IN_PROGRESS: ["EFFECTIVENESS_CHECK", "CANCELLED"],
+    EFFECTIVENESS_CHECK: ["CLOSED", "IN_PROGRESS"],
+    CLOSED: [],
+    CANCELLED: [],
+  },
 };
 
 /**
