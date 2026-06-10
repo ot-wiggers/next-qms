@@ -94,6 +94,8 @@ function resourceTypeToPath(resourceType: string): string {
       return "training-requests";
     case "tasks":
       return "tasks";
+    case "capa":
+      return "capa";
     default:
       return "";
   }

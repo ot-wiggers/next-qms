@@ -22,7 +22,7 @@ async function nextCapaNumber(ctx: MutationCtx, year: number) {
     .withIndex("by_year", (q) => q.eq("year", year))
     .collect();
   const seq = existing.length === 0 ? 1 : Math.max(...existing.map((c) => c.seq)) + 1;
-  return { seq, capaNumber: `CAPA-${year}-${seq}` };
+  return { seq, capaNumber: `CAPA-${year}-${String(seq).padStart(2, "0")}` };
 }
 
 /** CAPAs auflisten (optional nach Status/Jahr) */
@@ -79,6 +79,7 @@ export const create = mutation({
     // QA-1: trim title and guard empty
     const title = args.title.trim();
     if (!title) throw new Error("Titel ist erforderlich");
+    // UTC-Jahresgrenze bewusst akzeptiert (Convex läuft UTC)
     const year = new Date().getFullYear();
     const { seq, capaNumber } = await nextCapaNumber(ctx, year);
     const now = Date.now();
@@ -124,14 +125,22 @@ export const createFromFinding = mutation({
     if (!finding) throw new Error("Finding nicht gefunden");
     // QA-7: guard archived finding
     if (finding.isArchived) throw new Error("Finding ist archiviert");
-    if (finding.capaId) throw new Error("Für dieses Finding existiert bereits eine CAPA");
+    if (finding.capaId) {
+      const linked = await ctx.db.get(finding.capaId);
+      // Ersatz-CAPA nur erlaubt, wenn die verknüpfte CAPA abgebrochen oder archiviert wurde
+      if (linked && linked.status !== "CANCELLED" && !linked.isArchived) {
+        throw new Error("Für dieses Finding existiert bereits eine CAPA");
+      }
+    }
     const audit = await ctx.db.get(finding.auditId);
 
+    // UTC-Jahresgrenze bewusst akzeptiert (Convex läuft UTC)
     const year = new Date().getFullYear();
     const { seq, capaNumber } = await nextCapaNumber(ctx, year);
     const now = Date.now();
     const id = await ctx.db.insert("capas", {
       capaNumber, year, seq,
+      // EMPFEHLUNG→CAPA ist serverseitig bewusst erlaubt (präventive Maßnahme aus Verbesserungshinweis)
       title: `${finding.chapter ? `Kap. ${finding.chapter}: ` : ""}${finding.description.slice(0, 120)}`,
       description: [
         `Quelle: ${audit?.title ?? "Audit"} — Finding (${finding.classification})`,
@@ -192,9 +201,10 @@ export const update = mutation({
     // QA-2: per-field patch construction with typed partial
     const { id, ...changes } = args;
     const patch: Partial<Doc<"capas">> = {};
-    if (changes.title !== undefined) {
-      const trimmed = changes.title.trim();
-      if (trimmed) patch.title = trimmed;
+    if (args.title !== undefined) {
+      const title = args.title.trim();
+      if (!title) throw new Error("Titel ist erforderlich");
+      patch.title = title;
     }
     if (changes.description !== undefined) {
       patch.description = changes.description.trim() || undefined;
@@ -230,17 +240,35 @@ export const setStatus = mutation({
     const capa = await ctx.db.get(args.id);
     if (!capa) throw new Error("CAPA nicht gefunden");
     validateTransition("capaStatus", capa.status, args.status);
+    // ISO 13485 §8.5.2: Wirksamkeitsprüfung erst, wenn alle Maßnahmen umgesetzt sind
+    if (args.status === "EFFECTIVENESS_CHECK") {
+      const measures = await ctx.db
+        .query("capaMeasures")
+        .withIndex("by_capa", (q) => q.eq("capaId", args.id))
+        .filter((q) => q.eq(q.field("isArchived"), false))
+        .collect();
+      if (measures.length === 0) {
+        throw new Error("Wirksamkeitsprüfung erfordert mindestens eine definierte Maßnahme");
+      }
+      if (measures.some((m) => m.status === "OPEN")) {
+        throw new Error("Wirksamkeitsprüfung erst möglich, wenn alle Maßnahmen erledigt sind");
+      }
+    }
     if (args.status === "CLOSED" && capa.effectivenessResult !== "EFFECTIVE") {
       throw new Error("Abschluss nur nach dokumentiert wirksamer Wirksamkeitsprüfung");
     }
     const now = Date.now();
-    // QA-6: typed patch with cast — validateTransition hat den Wert geprüft
     const patch: Partial<Doc<"capas">> = {
+      // validateTransition hat den Wert geprüft
       status: args.status as Doc<"capas">["status"],
-      updatedAt: now,
-      updatedBy: user._id,
+      closedAt: args.status === "CLOSED" ? now : capa.closedAt,
+      updatedAt: now, updatedBy: user._id,
     };
-    if (args.status === "CLOSED") patch.closedAt = now;
+    if (capa.status === "EFFECTIVENESS_CHECK" && args.status === "IN_PROGRESS") {
+      // Reopen invalidiert das alte Prüfergebnis — Historie bleibt im Audit-Log
+      patch.effectivenessResult = undefined;
+      patch.effectivenessNote = undefined;
+    }
     await ctx.db.patch(args.id, patch);
     await logAuditEvent(ctx, {
       userId: user._id, action: "STATUS_CHANGE",
@@ -275,7 +303,7 @@ export const recordEffectiveness = mutation({
     await logAuditEvent(ctx, {
       userId: user._id, action: "UPDATE",
       entityType: "capas", entityId: args.id,
-      changes: { effectivenessResult: args.effectivenessResult },
+      changes: { effectivenessResult: args.effectivenessResult, effectivenessNote },
     });
   },
 });
