@@ -43,6 +43,7 @@ import type * as placeholders_devices from "../placeholders/devices.js";
 import type * as placeholders_incomingGoods from "../placeholders/incomingGoods.js";
 import type * as placeholders_reports from "../placeholders/reports.js";
 import type * as products from "../products.js";
+import type * as qualityObjectives from "../qualityObjectives.js";
 import type * as search from "../search.js";
 import type * as searchQuota from "../searchQuota.js";
 import type * as seed from "../seed.js";
@@ -93,6 +94,7 @@ declare const fullApi: ApiFromModules<{
   "placeholders/incomingGoods": typeof placeholders_incomingGoods;
   "placeholders/reports": typeof placeholders_reports;
   products: typeof products;
+  qualityObjectives: typeof qualityObjectives;
   search: typeof search;
   searchQuota: typeof searchQuota;
   seed: typeof seed;
