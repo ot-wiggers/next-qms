@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -70,6 +70,11 @@ export default function AuditDetailPage() {
     classification: "FESTSTELLUNG" as FindingClassification, description: "",
   });
   const [summary, setSummary] = useState<string | null>(null);
+
+  // Entwurfstext nicht über Audit-Grenzen hinweg mitnehmen (App Router remountet nicht bei Param-Wechsel)
+  useEffect(() => {
+    setSummary(null);
+  }, [auditId]);
 
   if (audit === undefined) return <div className="p-8 text-muted-foreground">Lade…</div>;
   if (audit === null) return <div className="p-8">Audit nicht gefunden.</div>;
@@ -145,7 +150,7 @@ export default function AuditDetailPage() {
       reportingPeriod: audit!.reportingPeriod,
       auditDate: audit!.auditDate,
       templateVersion: audit!.templateVersion,
-      summaryResult: audit!.summaryResult,
+      summaryResult: summary ?? audit!.summaryResult,
       chapterSummaries: audit!.chapterSummaries,
       answers: audit!.answers,
       findings: audit!.findings.map((f: Finding) => ({
@@ -156,6 +161,7 @@ export default function AuditDetailPage() {
 
   async function freezeReport() {
     try {
+      await updateSummary({ id: auditId, summaryResult: summary ?? audit!.summaryResult ?? "" });
       const blob = auditReportBlob(reportData());
       const postUrl = await generateUploadUrl();
       const res = await fetch(postUrl, {
@@ -163,6 +169,7 @@ export default function AuditDetailPage() {
         headers: { "Content-Type": "application/pdf" },
         body: blob,
       });
+      if (!res.ok) throw new Error("Upload fehlgeschlagen");
       const { storageId } = await res.json();
       await attachReport({ id: auditId, reportFileId: storageId });
       toast.success("Bericht-PDF am Audit eingefroren");
