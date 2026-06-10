@@ -100,6 +100,9 @@ export const create = mutation({
     const area = args.area.trim();
     if (!area) throw new Error("Bereich ist erforderlich");
 
+    // NaN-Guard für Zielwert
+    if (!Number.isFinite(args.targetValue)) throw new Error("Ungültiger Zielwert");
+
     // seq = max+1 im Jahr
     const existing = await ctx.db
       .query("qualityObjectives")
@@ -189,9 +192,16 @@ export const update = mutation({
     if (args.comment !== undefined) patch.comment = args.comment.trim() || undefined;
     // Settable non-text fields
     if (args.targetType !== undefined) patch.targetType = args.targetType;
-    if (args.targetValue !== undefined) patch.targetValue = args.targetValue;
+    if (args.targetValue !== undefined) {
+      if (!Number.isFinite(args.targetValue)) throw new Error("Ungültiger Zielwert");
+      patch.targetValue = args.targetValue;
+    }
     if (args.isPhaseModel !== undefined) patch.isPhaseModel = args.isPhaseModel;
-    if (args.capaId !== undefined) patch.capaId = args.capaId;
+    if (args.capaId !== undefined) {
+      const capa = await ctx.db.get(args.capaId);
+      if (!capa || capa.isArchived) throw new Error("CAPA nicht gefunden oder archiviert");
+      patch.capaId = args.capaId;
+    }
 
     await ctx.db.patch(args.id, { ...patch, updatedAt: Date.now(), updatedBy: user._id });
 
@@ -232,6 +242,9 @@ export const setQuarterTargets = mutation({
       if (!Number.isInteger(t.quarter) || t.quarter < 1 || t.quarter > 4) {
         throw new Error(`Ungültiges Quartal: ${t.quarter} — erlaubt 1–4`);
       }
+
+      // NaN-Guard für SOLL-Wert
+      if (!Number.isFinite(t.targetValue)) throw new Error("Ungültiger SOLL-Wert");
 
       // Bestehende Reading für dieses Quartal suchen
       const existing = await ctx.db
