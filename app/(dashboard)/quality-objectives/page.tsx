@@ -83,7 +83,7 @@ const QUARTER_DOT: Record<ObjectiveStatus, string> = {
   RED: "bg-red-500",
 };
 
-/** 999 = Sentinel f&#252;r IST 0 bei max-Ziel &#8212; FB zeigt 100&#160;% */
+/** 999 = Sentinel für IST 0 bei max-Ziel — FB zeigt 100 % */
 function displayPercent(percent: number): string {
   return percent === 999 ? "100 %" : `${percent} %`;
 }
@@ -161,9 +161,10 @@ export default function QualityObjectivesPage() {
   }
 
   async function handleObjectiveSubmit() {
+    if (objForm.targetValue.trim() === "") { toast.error("Zielwert ist erforderlich"); return; }
     const tv = Number(objForm.targetValue);
     if (!Number.isFinite(tv)) {
-      toast.error("Ung&#252;ltiger Zielwert");
+      toast.error("Ungültiger Zielwert");
       return;
     }
     if (!objForm.area.trim()) { toast.error("Bereich ist erforderlich"); return; }
@@ -187,7 +188,7 @@ export default function QualityObjectivesPage() {
           kpiKey: kpiKeyValue,
           comment: objForm.comment || undefined,
         });
-        toast.success("Qualit&#228;tsziel angelegt");
+        toast.success("Qualitätsziel angelegt");
       } else if (objDialog.id) {
         await updateObjective({
           id: objDialog.id,
@@ -203,7 +204,7 @@ export default function QualityObjectivesPage() {
           kpiKey: kpiKeyValue ?? "",
           comment: objForm.comment,
         });
-        toast.success("Qualit&#228;tsziel aktualisiert");
+        toast.success("Qualitätsziel aktualisiert");
       }
       setObjDialog({ open: false, mode: "create" });
     } catch (e) {
@@ -232,10 +233,11 @@ export default function QualityObjectivesPage() {
     if (!sollDialog.objective) return;
     const targets: { quarter: number; targetValue: number }[] = [];
     for (let q = 1; q <= 4; q++) {
+      if (sollValues[q].trim() === "") continue;
       const v = Number(sollValues[q]);
       if (Number.isFinite(v)) targets.push({ quarter: q, targetValue: v });
     }
-    if (targets.length === 0) { toast.error("Kein g&#252;ltiger SOLL-Wert eingegeben"); return; }
+    if (targets.length === 0) { toast.error("Mindestens ein SOLL-Wert erforderlich"); return; }
     try {
       await setQuarterTargets({ objectiveId: sollDialog.objective._id, targets });
       toast.success("Quartals-SOLL gespeichert");
@@ -264,8 +266,9 @@ export default function QualityObjectivesPage() {
 
   async function handleIstSubmit() {
     if (!istDialog.objective || !istDialog.quarter) return;
+    if (istValue.trim() === "") { toast.error("IST-Wert ist erforderlich"); return; }
     const av = Number(istValue);
-    if (!Number.isFinite(av)) { toast.error("Ung&#252;ltiger IST-Wert"); return; }
+    if (!Number.isFinite(av)) { toast.error("Ungültiger IST-Wert"); return; }
     try {
       const result = await recordReading({
         objectiveId: istDialog.objective._id,
@@ -276,7 +279,7 @@ export default function QualityObjectivesPage() {
       setIstDialog({ open: false });
       if (result.needsCapa) {
         toast.warning(
-          "Ziel steht auf Gelb/Rot — bitte CAPA verkn&#252;pfen (Pflicht laut FB&#160;5.4.1)"
+          "Ziel steht auf Gelb/Rot — bitte CAPA verknüpfen (Pflicht laut FB 5.4.1)"
         );
       } else {
         toast.success("IST-Wert erfasst");
@@ -301,7 +304,7 @@ export default function QualityObjectivesPage() {
         capaType: "CORRECTIVE",
       });
       await linkCapa({ objectiveId: obj._id, capaId });
-      toast.success("CAPA angelegt und verkn&#252;pft");
+      toast.success("CAPA angelegt und verknüpft");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Fehler");
     } finally {
@@ -318,14 +321,14 @@ export default function QualityObjectivesPage() {
   // ============================================================
 
   if (objectives === undefined) {
-    return <div className="p-8 text-muted-foreground">Lade&#8230;</div>;
+    return <div className="p-8 text-muted-foreground">Lade…</div>;
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Qualit&#228;tsziele"
-        description="Quartalsweise KPI-Ziele (ISO&#160;13485 Kap.&#160;5.4.1) &#8212; Ampel: &#8805;100&#160;% gr&#252;n, &#8805;70&#160;% gelb, &lt;70&#160;% rot"
+        title="Qualitätsziele"
+        description="Quartalsweise KPI-Ziele (ISO 13485 Kap. 5.4.1) — Ampel: ≥100 % grün, ≥70 % gelb, <70 % rot"
         actions={
           <div className="flex items-center gap-2">
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
@@ -349,7 +352,7 @@ export default function QualityObjectivesPage() {
 
       {objectives.length === 0 ? (
         <div className="rounded-md border p-8 text-center text-muted-foreground">
-          Keine Qualit&#228;tsziele f&#252;r {year}
+          Keine Qualitätsziele für {year}
         </div>
       ) : (
         <div className="space-y-4">
@@ -357,7 +360,6 @@ export default function QualityObjectivesPage() {
             <ObjectiveCard
               key={obj._id}
               obj={obj}
-              kpis={kpis}
               canManage={canManage}
               canCapaCreate={can("capa:create")}
               capaCreating={capaCreating.has(obj._id)}
@@ -385,7 +387,7 @@ export default function QualityObjectivesPage() {
                 id="obj-area"
                 value={objForm.area}
                 onChange={(e) => setObjForm({ ...objForm, area: e.target.value })}
-                placeholder="z.&#160;B. QM / Vertrieb"
+                placeholder="z. B. QM / Vertrieb"
               />
             </div>
             <div>
@@ -403,7 +405,7 @@ export default function QualityObjectivesPage() {
                 rows={2}
                 value={objForm.kpiDefinition}
                 onChange={(e) => setObjForm({ ...objForm, kpiDefinition: e.target.value })}
-                placeholder="Messgr&#246;&#223;e / Berechnungsformel"
+                placeholder="Messgröße / Berechnungsformel"
               />
             </div>
             <div>
@@ -412,7 +414,7 @@ export default function QualityObjectivesPage() {
                 id="obj-datasource"
                 value={objForm.dataSource}
                 onChange={(e) => setObjForm({ ...objForm, dataSource: e.target.value })}
-                placeholder="z.&#160;B. OTWin, App-Register"
+                placeholder="z. B. OTWin, App-Register"
               />
             </div>
             <div>
@@ -455,7 +457,7 @@ export default function QualityObjectivesPage() {
                 id="obj-unit"
                 value={objForm.unit}
                 onChange={(e) => setObjForm({ ...objForm, unit: e.target.value })}
-                placeholder="z.&#160;B. %, Stk, Tage"
+                placeholder="z. B. %, Stk, Tage"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -551,10 +553,10 @@ export default function QualityObjectivesPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* App-KPI-Vorschlag — NIE automatisch &#252;bernehmen */}
+            {/* App-KPI-Vorschlag — NIE automatisch übernehmen */}
             {istDialog.objective?.kpiKey && kpis && (
               <div className="rounded-md bg-muted p-3 text-sm">
-                <span className="text-muted-foreground">App-Wert ({KPI_KEY_LABELS[istDialog.objective.kpiKey as KpiKey]}):&#160;</span>
+                <span className="text-muted-foreground">App-Wert ({KPI_KEY_LABELS[istDialog.objective.kpiKey as KpiKey]}): </span>
                 <span className="font-medium">
                   {kpis[istDialog.objective.kpiKey as KpiKey]}
                 </span>
@@ -564,7 +566,7 @@ export default function QualityObjectivesPage() {
                   className="ml-3"
                   onClick={() => setIstValue(String(kpis![istDialog.objective!.kpiKey as KpiKey]))}
                 >
-                  &#252;bernehmen
+                  übernehmen
                 </Button>
               </div>
             )}
@@ -606,7 +608,6 @@ export default function QualityObjectivesPage() {
 
 interface ObjectiveCardProps {
   obj: Objective;
-  kpis: Record<KpiKey, number> | undefined;
   canManage: boolean;
   canCapaCreate: boolean;
   capaCreating: boolean;
@@ -635,7 +636,7 @@ function ObjectiveCard({
           {/* Number + area + title */}
           <div className="flex-1 min-w-0">
             <span className="text-xs text-muted-foreground">
-              Nr.&#160;{obj.seq}&#160;&#183;&#160;{obj.area}
+              Nr. {obj.seq} · {obj.area}
             </span>
             <p className="font-medium leading-tight">{obj.title}</p>
           </div>
@@ -660,7 +661,7 @@ function ObjectiveCard({
               <Badge className="bg-red-100 text-red-800" variant="secondary">
                 CAPA erforderlich!
               </Badge>
-              {canCapaCreate && (
+              {canCapaCreate && canManage && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -692,10 +693,10 @@ function ObjectiveCard({
 
         {/* Subline */}
         <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-          {obj.kpiDefinition && <>{obj.kpiDefinition} &#183; </>}
-          Typ {typeShort} &#183; Zielwert {obj.targetValue}{obj.unit ? ` ${obj.unit}` : ""}
-          {obj.responsible && <> &#183; Verantwortlich: {obj.responsible}</>}
-          {obj.dataSource && <> &#183; Quelle: {obj.dataSource}</>}
+          {obj.kpiDefinition && <>{obj.kpiDefinition} · </>}
+          Typ {typeShort} · Zielwert {obj.targetValue}{obj.unit ? ` ${obj.unit}` : ""}
+          {obj.responsible && <> · Verantwortlich: {obj.responsible}</>}
+          {obj.dataSource && <> · Quelle: {obj.dataSource}</>}
         </p>
       </CardHeader>
 
@@ -711,11 +712,10 @@ function ObjectiveCard({
                 reading={reading}
                 unit={obj.unit}
                 canManage={canManage}
-                hasReading={!!reading}
                 onClick={() => {
                   if (!canManage) return;
                   if (!reading) {
-                    // No reading yet &#8212; open SOLL dialog first
+                    // No reading yet — open SOLL dialog first
                     onSollClick();
                   } else {
                     onQuarterClick(q);
@@ -751,7 +751,6 @@ interface QuarterBoxProps {
   reading: Reading | undefined;
   unit: string | undefined;
   canManage: boolean;
-  hasReading: boolean;
   onClick: () => void;
 }
 
@@ -782,12 +781,12 @@ function QuarterBox({ quarter, reading, unit, canManage, onClick }: QuarterBoxPr
       {reading ? (
         <>
           <div className="text-muted-foreground">
-            SOLL&#160;{reading.targetValue}{unitSuffix}
+            SOLL {reading.targetValue}{unitSuffix}
           </div>
           <div>
-            IST&#160;{reading.actualValue !== undefined
+            IST {reading.actualValue !== undefined
               ? `${reading.actualValue}${unitSuffix}`
-              : <span className="text-muted-foreground">&#8212;</span>}
+              : <span className="text-muted-foreground">—</span>}
           </div>
           {reading.percent !== undefined && (
             <div className={reading.status ? `font-medium ${reading.status === "GREEN" ? "text-green-700" : reading.status === "YELLOW" ? "text-amber-700" : "text-red-700"}` : ""}>
@@ -796,7 +795,7 @@ function QuarterBox({ quarter, reading, unit, canManage, onClick }: QuarterBoxPr
           )}
         </>
       ) : (
-        <span className="text-muted-foreground">&#8212;</span>
+        <span className="text-muted-foreground">—</span>
       )}
     </button>
   );
