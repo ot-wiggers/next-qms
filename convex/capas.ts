@@ -465,6 +465,7 @@ export const seedFromImport = internalMutation({
       effectivenessCriterion: v.optional(v.string()),
       responsible: v.optional(v.string()),
       dueAt: v.optional(v.number()),
+      closedAt: v.optional(v.number()),
       capaType: v.union(v.literal("CORRECTIVE"), v.literal("PREVENTIVE")),
       sourceType: v.union(
         v.literal("AUDIT"), v.literal("COMPLAINT"), v.literal("TRAINING"),
@@ -492,7 +493,7 @@ export const seedFromImport = internalMutation({
         ...item,
         year: Number(match[1]),
         seq: Number(match[2]),
-        closedAt: item.status === "CLOSED" ? now : undefined,
+        closedAt: item.closedAt ?? (item.status === "CLOSED" ? now : undefined),
         isArchived: false,
         createdAt: now, updatedAt: now,
       });

@@ -9,7 +9,7 @@ import { KpiKey } from "../lib/types/enums";
  */
 export const compute = query({
   args: { year: v.number() },
-  handler: async (ctx, args): Promise<Record<KpiKey, number | null>> => {
+  handler: async (ctx, args): Promise<Record<KpiKey, number>> => {
     await requirePermission(ctx, "qualityObjectives:list");
 
     const { year } = args;
@@ -22,12 +22,14 @@ export const compute = query({
     // Volltabellen-Scan ok bei dieser Datenmenge (QMS einer 30-MA-Organisation)
     // ============================================================
 
-    // --- Reklamationen ---
-    const allComplaints = await ctx.db
-      .query("complaints")
-      .filter((q) => q.eq(q.field("isArchived"), false))
-      .collect();
+    const [allComplaints, allCapas, allAudits, allFindings] = await Promise.all([
+      ctx.db.query("complaints").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
+      ctx.db.query("capas").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
+      ctx.db.query("audits").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
+      ctx.db.query("auditFindings").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
+    ]);
 
+    // --- Reklamationen ---
     // complaintsYearCount: Anzahl nicht-archivierter Reklamationen mit receivedAt im Jahr
     const complaintsYearCount = allComplaints.filter(
       (c) => c.receivedAt >= yearStart && c.receivedAt < yearEnd
@@ -57,11 +59,6 @@ export const compute = query({
     }
 
     // --- CAPAs ---
-    const allCapas = await ctx.db
-      .query("capas")
-      .filter((q) => q.eq(q.field("isArchived"), false))
-      .collect();
-
     // capaClosedInYearCount: nicht-archivierte CAPAs mit Status CLOSED und closedAt im Jahr
     const capaClosedInYearCount = allCapas.filter(
       (c) =>
@@ -71,6 +68,8 @@ export const compute = query({
         c.closedAt < yearEnd
     ).length;
 
+    // Stichtags-KPIs: capaOpenOverdueCount und auditOpenFindingsCount sind bewusst
+    // JAHRESUNABHÄNGIG (aktueller Zustand) — das year-Argument wirkt nur auf die 4 Jahres-KPIs.
     // capaOpenOverdueCount: nicht-archivierte CAPAs, Status nicht CLOSED/CANCELLED, dueAt gesetzt und überschritten
     const now = Date.now();
     const capaOpenOverdueCount = allCapas.filter(
@@ -82,11 +81,6 @@ export const compute = query({
     ).length;
 
     // --- Audits ---
-    const allAudits = await ctx.db
-      .query("audits")
-      .filter((q) => q.eq(q.field("isArchived"), false))
-      .collect();
-
     // auditsClosedInYearCount: nicht-archivierte Audits mit Status CLOSED und closedAt im Jahr
     const auditsClosedInYearCount = allAudits.filter(
       (a) =>
@@ -97,11 +91,6 @@ export const compute = query({
     ).length;
 
     // --- Audit-Findings ---
-    const allFindings = await ctx.db
-      .query("auditFindings")
-      .filter((q) => q.eq(q.field("isArchived"), false))
-      .collect();
-
     // auditOpenFindingsCount: nicht-archivierte Audit-Findings mit Status OPEN
     const auditOpenFindingsCount = allFindings.filter(
       (f) => f.status === "OPEN"
