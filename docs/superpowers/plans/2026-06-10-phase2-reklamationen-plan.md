@@ -577,6 +577,8 @@ Aufbau analog `app/(dashboard)/capa/[id]/page.tsx` (PageHeader-actions: Status-B
 
 ## Übergabe — verbleibende Nutzer-Schritte (Stand 2026-06-10, Implementierung abgeschlossen)
 
+> **Hinweis Convex-Konto (2026-06-10):** Das Projekt läuft auf einem anderen Convex-Konto (Deployment `dev:frugal-greyhound-185`, Team `dev-bff7d`). Die Schritte unten erfordern entweder (a) `npx convex logout && npx convex login` mit dem besitzenden Konto, (b) eine Team-Einladung für das aktuell eingeloggte Konto, oder (c) einen Deploy Key des Dev-Deployments als `CONVEX_DEPLOY_KEY` in `.env.local` — Variante (c) macht die Kommandos non-interaktiv ausführbar (dann kann auch Claude sie übernehmen).
+
 Implementiert auf Branch `feature/qm-phase2-reklamationen` (Tasks 1–6, Build grün). Wie in Phase 1 brauchen Schema-Push und Browser-Walkthrough ein interaktives Terminal:
 
 ```bash
