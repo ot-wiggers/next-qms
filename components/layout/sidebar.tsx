@@ -55,17 +55,14 @@ const navSections: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "QM-Dokumente",
+    title: "Qualitätsmanagementsystem",
     items: [
       { label: "Dokumente", href: "/documents", icon: FileText, permission: "documents:read" },
       { label: "Dokumenten-Graph", href: "/documents/graph", icon: GitBranch, permission: "documents:read" },
-    ],
-  },
-  {
-    title: "Schulungen",
-    items: [
       { label: "Schulungen", href: "/trainings", icon: GraduationCap, permission: "trainings:list" },
       { label: "Schulungsanträge", href: "/training-requests", icon: MessageSquarePlus },
+      { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS" },
+      { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA" },
     ],
   },
   {
@@ -81,8 +78,6 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "In Planung",
     items: [
-      { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS", badge: "IN PLANUNG" },
-      { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA", badge: "IN PLANUNG" },
       { label: "Reklamationen", href: "/complaints", icon: MessageSquarePlus, featureFlag: "COMPLAINTS", badge: "IN PLANUNG" },
       { label: "Wareneingang", href: "/incoming-goods", icon: Truck, featureFlag: "INCOMING_GOODS", badge: "IN PLANUNG" },
       { label: "Prüfmittel", href: "/devices", icon: Wrench, featureFlag: "DEVICES", badge: "IN PLANUNG" },
