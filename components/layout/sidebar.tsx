@@ -9,7 +9,6 @@ import {
   Package,
   ClipboardList,
   Calendar,
-  Users,
   Settings,
   Shield,
   BookOpen,
@@ -25,7 +24,8 @@ import {
   MessageSquarePlus,
   Building2,
   Menu,
-  X,
+  Target,
+  FileCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,8 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS", permission: "audits:list" },
       { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA", permission: "capa:list" },
       { label: "Reklamationen", href: "/complaints", icon: MessageSquarePlus, permission: "complaints:list", featureFlag: "COMPLAINTS" },
+      { label: "Qualitätsziele", href: "/quality-objectives", icon: Target, permission: "qualityObjectives:list", featureFlag: "QUALITY_OBJECTIVES" },
+      { label: "Managementbewertung", href: "/management-review", icon: FileCheck, permission: "mgmtReview:list", featureFlag: "MGMT_REVIEW" },
     ],
   },
   {
