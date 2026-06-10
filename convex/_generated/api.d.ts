@@ -29,6 +29,7 @@ import type * as email from "../email.js";
 import type * as featureFlags from "../featureFlags.js";
 import type * as hmv from "../hmv.js";
 import type * as http from "../http.js";
+import type * as kpis from "../kpis.js";
 import type * as lib_auditLog from "../lib/auditLog.js";
 import type * as lib_notificationHelpers from "../lib/notificationHelpers.js";
 import type * as lib_permissions from "../lib/permissions.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   featureFlags: typeof featureFlags;
   hmv: typeof hmv;
   http: typeof http;
+  kpis: typeof kpis;
   "lib/auditLog": typeof lib_auditLog;
   "lib/notificationHelpers": typeof lib_notificationHelpers;
   "lib/permissions": typeof lib_permissions;
