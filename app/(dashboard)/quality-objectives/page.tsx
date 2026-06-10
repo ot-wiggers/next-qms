@@ -726,8 +726,10 @@ function ObjectiveCard({
           })}
         </div>
 
-        {/* SOLL festlegen button when no readings exist */}
-        {canManage && obj.readings.length === 0 && (
+        {/* SOLL festlegen button — immer erreichbar für canManage;
+            der Dialog füllt bestehende Werte vor, der Server berechnet
+            percent/status neu wenn SOLL sich ändert. */}
+        {canManage && (
           <Button
             variant="outline"
             size="sm"

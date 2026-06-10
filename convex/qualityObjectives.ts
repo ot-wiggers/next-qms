@@ -4,6 +4,7 @@ import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { archiveRecord } from "./lib/softDelete";
 import { Doc } from "./_generated/dataModel";
+import { KPI_KEYS } from "../lib/types/enums";
 
 // ============================================================
 // Ampel-Helper — exakt wie FB 5.4.1 Prozent-Logik
@@ -103,6 +104,11 @@ export const create = mutation({
     // NaN-Guard für Zielwert
     if (!Number.isFinite(args.targetValue)) throw new Error("Ungültiger Zielwert");
 
+    // kpiKey-Validierung gegen das Registry — leerer String bleibt erlaubt (kein Key)
+    if (args.kpiKey && !(KPI_KEYS as readonly string[]).includes(args.kpiKey)) {
+      throw new Error("Unbekannter KPI-Schlüssel");
+    }
+
     // seq = max+1 im Jahr
     const existing = await ctx.db
       .query("qualityObjectives")
@@ -188,7 +194,14 @@ export const update = mutation({
     if (args.dataSource !== undefined) patch.dataSource = args.dataSource.trim() || undefined;
     if (args.responsible !== undefined) patch.responsible = args.responsible.trim() || undefined;
     if (args.unit !== undefined) patch.unit = args.unit.trim() || undefined;
-    if (args.kpiKey !== undefined) patch.kpiKey = args.kpiKey.trim() || undefined;
+    if (args.kpiKey !== undefined) {
+      const trimmedKey = args.kpiKey.trim();
+      // Leerer String = Löschen erlaubt; nicht-leerer Schlüssel muss im Registry stehen
+      if (trimmedKey && !(KPI_KEYS as readonly string[]).includes(trimmedKey)) {
+        throw new Error("Unbekannter KPI-Schlüssel");
+      }
+      patch.kpiKey = trimmedKey || undefined;
+    }
     if (args.comment !== undefined) patch.comment = args.comment.trim() || undefined;
     // Settable non-text fields
     if (args.targetType !== undefined) patch.targetType = args.targetType;

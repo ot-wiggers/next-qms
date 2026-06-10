@@ -5,23 +5,16 @@ import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { QueryCtx, MutationCtx } from "./_generated/server";
+import { MGMT_REVIEW_SECTIONS } from "../lib/types/enums";
 
 // ============================================================
 // Section-Keys (exakt nach FB 5.6.0 Rev. 8, Abschnitte 2.1–2.8)
+// Abgeleitet aus dem zentralen Enum — keine Duplikation.
 // ============================================================
 
-const SECTION_KEYS = [
-  "audits",
-  "complaints",
-  "pms",
-  "processes",
-  "capa",
-  "changes",
-  "resources",
-  "risks",
-] as const;
+const SECTION_KEYS = MGMT_REVIEW_SECTIONS.map((s) => s.key);
 
-type SectionKey = (typeof SECTION_KEYS)[number];
+type SectionKey = (typeof MGMT_REVIEW_SECTIONS)[number]["key"];
 
 // ============================================================
 // buildAutoData — interner Helfer (kein Convex-Export)
@@ -199,6 +192,22 @@ async function buildAutoData(
 }
 
 // ============================================================
+// invalidateFrozenReport — Inhaltsänderungen nach dem Einfrieren
+// machen das Nachweis-PDF ungültig: reportFileId wird entfernt,
+// die Freigabe erzwingt damit ein erneutes Einfrieren.
+// Nur in Content-Mutations aufrufen — NICHT in attachReport/approve.
+// ============================================================
+
+function invalidateFrozenReport(
+  review: Doc<"managementReviews">,
+  patch: Partial<Doc<"managementReviews">>
+) {
+  if (review.reportFileId !== undefined) {
+    patch.reportFileId = undefined;
+  }
+}
+
+// ============================================================
 // 1. list — nicht-archivierte Managementbewertungen, nach Jahr desc
 // ============================================================
 
@@ -330,18 +339,22 @@ export const refreshAutoData = mutation({
       autoData: autoDataByKey[s.key as SectionKey] ?? s.autoData,
     }));
 
-    await ctx.db.patch(args.id, {
+    const patch: Partial<Doc<"managementReviews">> = {
       sections: updatedSections,
       updatedAt: Date.now(),
       updatedBy: user._id,
-    });
+    };
+    invalidateFrozenReport(review, patch);
+    const reportInvalidated = patch.reportFileId === undefined && review.reportFileId !== undefined;
+
+    await ctx.db.patch(args.id, patch);
 
     await logAuditEvent(ctx, {
       userId: user._id,
       action: "UPDATE",
       entityType: "managementReviews",
       entityId: args.id,
-      changes: { autoDataRefreshed: true },
+      changes: { autoDataRefreshed: true, ...(reportInvalidated && { reportInvalidated: true }) },
     });
   },
 });
@@ -377,18 +390,22 @@ export const updateSection = mutation({
         : s
     );
 
-    await ctx.db.patch(args.id, {
+    const patch: Partial<Doc<"managementReviews">> = {
       sections: updatedSections,
       updatedAt: Date.now(),
       updatedBy: user._id,
-    });
+    };
+    invalidateFrozenReport(review, patch);
+    const reportInvalidated = patch.reportFileId === undefined && review.reportFileId !== undefined;
+
+    await ctx.db.patch(args.id, patch);
 
     await logAuditEvent(ctx, {
       userId: user._id,
       action: "UPDATE",
       entityType: "managementReviews",
       entityId: args.id,
-      changes: { section: args.key },
+      changes: { section: args.key, ...(reportInvalidated && { reportInvalidated: true }) },
     });
   },
 });
@@ -437,6 +454,9 @@ export const updateGeneral = mutation({
       patch.improvements = args.improvements.trim() || undefined;
     }
 
+    invalidateFrozenReport(review, patch);
+    const reportInvalidated = patch.reportFileId === undefined && review.reportFileId !== undefined;
+
     await ctx.db.patch(args.id, patch);
 
     const { id: _id, ...changes } = args;
@@ -445,7 +465,7 @@ export const updateGeneral = mutation({
       action: "UPDATE",
       entityType: "managementReviews",
       entityId: args.id,
-      changes,
+      changes: { ...changes, ...(reportInvalidated && { reportInvalidated: true }) },
     });
   },
 });
@@ -482,18 +502,22 @@ export const addMeasure = mutation({
       effectivenessCheck: args.effectivenessCheck?.trim() || undefined,
     };
 
-    await ctx.db.patch(args.id, {
+    const patch: Partial<Doc<"managementReviews">> = {
       measures: [...review.measures, newMeasure],
       updatedAt: Date.now(),
       updatedBy: user._id,
-    });
+    };
+    invalidateFrozenReport(review, patch);
+    const reportInvalidated = patch.reportFileId === undefined && review.reportFileId !== undefined;
+
+    await ctx.db.patch(args.id, patch);
 
     await logAuditEvent(ctx, {
       userId: user._id,
       action: "UPDATE",
       entityType: "managementReviews",
       entityId: args.id,
-      changes: { addedMeasure: description.slice(0, 100) },
+      changes: { addedMeasure: description.slice(0, 100), ...(reportInvalidated && { reportInvalidated: true }) },
     });
   },
 });
@@ -557,18 +581,22 @@ export const updateMeasure = mutation({
       return updated;
     });
 
-    await ctx.db.patch(args.id, {
+    const patchMeasure: Partial<Doc<"managementReviews">> = {
       measures: updatedMeasures,
       updatedAt: Date.now(),
       updatedBy: user._id,
-    });
+    };
+    invalidateFrozenReport(review, patchMeasure);
+    const reportInvalidated = patchMeasure.reportFileId === undefined && review.reportFileId !== undefined;
+
+    await ctx.db.patch(args.id, patchMeasure);
 
     await logAuditEvent(ctx, {
       userId: user._id,
       action: "UPDATE",
       entityType: "managementReviews",
       entityId: args.id,
-      changes: { updatedMeasureIndex: args.index },
+      changes: { updatedMeasureIndex: args.index, ...(reportInvalidated && { reportInvalidated: true }) },
     });
   },
 });
@@ -601,18 +629,22 @@ export const removeMeasure = mutation({
     // Read-modify-write (Convex OCC, s. refreshAutoData)
     const updatedMeasures = review.measures.filter((_, i) => i !== args.index);
 
-    await ctx.db.patch(args.id, {
+    const patchRemove: Partial<Doc<"managementReviews">> = {
       measures: updatedMeasures,
       updatedAt: Date.now(),
       updatedBy: user._id,
-    });
+    };
+    invalidateFrozenReport(review, patchRemove);
+    const reportInvalidated = patchRemove.reportFileId === undefined && review.reportFileId !== undefined;
+
+    await ctx.db.patch(args.id, patchRemove);
 
     await logAuditEvent(ctx, {
       userId: user._id,
       action: "UPDATE",
       entityType: "managementReviews",
       entityId: args.id,
-      changes: { removedMeasureIndex: args.index },
+      changes: { removedMeasureIndex: args.index, ...(reportInvalidated && { reportInvalidated: true }) },
     });
   },
 });
