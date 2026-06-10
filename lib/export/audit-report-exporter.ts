@@ -111,7 +111,7 @@ export function buildAuditReportPdf(data: AuditReportData): jsPDF {
     prose("Keine Feststellungen.");
   }
   for (const f of data.findings) {
-    ensureSpace(10);
+    ensureSpace(16); // Label + mindestens eine Beschreibungszeile zusammenhalten
     doc.setFont("helvetica", "bold").setFontSize(10);
     const label = FINDING_CLASSIFICATION_LABELS[f.classification as FindingClassification] ?? f.classification;
     doc.text(
