@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { Doc } from "./_generated/dataModel";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
@@ -86,6 +87,10 @@ export const create = mutation({
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
 
+    if (items.length === 0) {
+      throw new Error("Aktive Vorlage enthält keine Prüfpunkte");
+    }
+
     const now = Date.now();
     const auditId = await ctx.db.insert("audits", {
       ...args,
@@ -140,11 +145,22 @@ export const updateHeader = mutation({
     if (audit.status === "CLOSED" || audit.status === "CANCELLED") {
       throw new Error("Abgeschlossene Audits können nicht geändert werden");
     }
-    const { id, ...changes } = args;
-    await ctx.db.patch(id, { ...changes, updatedAt: Date.now(), updatedBy: user._id });
+    const patch: Partial<Doc<"audits">> = {
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    };
+    if (args.title !== undefined && args.title.trim()) patch.title = args.title.trim();
+    if (args.auditTeam !== undefined) patch.auditTeam = args.auditTeam.trim() || undefined;
+    if (args.basis !== undefined) patch.basis = args.basis.trim() || undefined;
+    if (args.location !== undefined) patch.location = args.location.trim() || undefined;
+    if (args.reportingPeriod !== undefined) patch.reportingPeriod = args.reportingPeriod.trim() || undefined;
+    if (args.plannedFor !== undefined) patch.plannedFor = args.plannedFor.trim() || undefined;
+    if (args.auditDate !== undefined) patch.auditDate = args.auditDate;
+    await ctx.db.patch(args.id, patch);
+    const { id: _id, ...changes } = args;
     await logAuditEvent(ctx, {
       userId: user._id, action: "UPDATE",
-      entityType: "audits", entityId: id, changes,
+      entityType: "audits", entityId: args.id, changes,
     });
   },
 });
@@ -171,11 +187,20 @@ export const updateAnswer = mutation({
     if (audit.status !== "IN_PROGRESS") {
       throw new Error("Bewertungen nur möglich, während das Audit in Durchführung ist");
     }
-    const { id, ...changes } = args;
-    await ctx.db.patch(id, { ...changes, updatedAt: Date.now(), updatedBy: user._id });
+    const patch: Partial<Doc<"auditChecklistAnswers">> = {
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    };
+    if (args.rating !== undefined) patch.rating = args.rating;
+    if (args.evidence !== undefined) patch.evidence = args.evidence.trim() || undefined;
+    if (args.sample !== undefined) patch.sample = args.sample.trim() || undefined;
+    if (args.interviewedWith !== undefined) patch.interviewedWith = args.interviewedWith.trim() || undefined;
+    if (args.comments !== undefined) patch.comments = args.comments.trim() || undefined;
+    await ctx.db.patch(args.id, patch);
+    const { id: _id, ...changes } = args;
     await logAuditEvent(ctx, {
       userId: user._id, action: "UPDATE",
-      entityType: "auditChecklistAnswers", entityId: id, changes,
+      entityType: "auditChecklistAnswers", entityId: args.id, changes,
     });
   },
 });
@@ -190,8 +215,10 @@ export const setStatus = mutation({
     validateTransition("auditStatus", audit.status, args.status);
 
     const now = Date.now();
-    const patch: Record<string, unknown> = {
-      status: args.status, updatedAt: now, updatedBy: user._id,
+    const patch: Partial<Doc<"audits">> = {
+      status: args.status as Doc<"audits">["status"], // validateTransition hat den Wert geprüft
+      updatedAt: now,
+      updatedBy: user._id,
     };
     if (args.status === "IN_PROGRESS" && !audit.auditDate) patch.auditDate = now;
     if (args.status === "CLOSED") patch.closedAt = now;
@@ -226,7 +253,10 @@ export const updateSummary = mutation({
     await ctx.db.patch(id, { ...changes, updatedAt: Date.now(), updatedBy: user._id });
     await logAuditEvent(ctx, {
       userId: user._id, action: "UPDATE",
-      entityType: "audits", entityId: id, changes: { reportTexts: true },
+      entityType: "audits", entityId: id, changes: {
+        summaryResult: args.summaryResult !== undefined,
+        chapterSummaries: args.chapterSummaries !== undefined,
+      },
     });
   },
 });
@@ -247,6 +277,9 @@ export const attachReport = mutation({
     const user = await requirePermission(ctx, "audits:report");
     const audit = await ctx.db.get(args.id);
     if (!audit) throw new Error("Audit nicht gefunden");
+    if (audit.status !== "REPORT_DRAFT") {
+      throw new Error("Bericht-PDF kann nur im Berichtsentwurf eingefroren werden");
+    }
     await ctx.db.patch(args.id, {
       reportFileId: args.reportFileId,
       updatedAt: Date.now(), updatedBy: user._id,
@@ -254,7 +287,7 @@ export const attachReport = mutation({
     await logAuditEvent(ctx, {
       userId: user._id, action: "FILE_UPLOAD",
       entityType: "audits", entityId: args.id,
-      metadata: { kind: "auditReport" },
+      metadata: { kind: "auditReport", reportFileId: args.reportFileId, previousFileId: audit.reportFileId },
     });
   },
 });
