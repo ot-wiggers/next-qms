@@ -13,6 +13,7 @@ import type * as auditLog from "../auditLog.js";
 import type * as auditTemplates from "../auditTemplates.js";
 import type * as audits from "../audits.js";
 import type * as auth from "../auth.js";
+import type * as bootstrap from "../bootstrap.js";
 import type * as calendarEvents from "../calendarEvents.js";
 import type * as capas from "../capas.js";
 import type * as complaints from "../complaints.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   auditTemplates: typeof auditTemplates;
   audits: typeof audits;
   auth: typeof auth;
+  bootstrap: typeof bootstrap;
   calendarEvents: typeof calendarEvents;
   capas: typeof capas;
   complaints: typeof complaints;
