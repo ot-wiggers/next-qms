@@ -448,10 +448,11 @@ All transitions validated by `validateTransition()` in `convex/lib/stateMachine.
 
 ## 9. Feature Flags
 
-Three levels:
-1. **Environment variables** (build-time): `NEXT_PUBLIC_FF_AUDITS_ENABLED=false`
-2. **Convex featureFlags table** (runtime): `enforceDocForActiveProduct`, changeable by admin
-3. **UI Hook** `useFeatureFlag(key)`: combines both, controls navigation and badges
+Two levels:
+1. **Convex featureFlags table** (runtime): `enforceDocForActiveProduct`, changeable by admin
+2. **UI Hook** `useFeatureFlag(key)`: reads the Convex flag, controls navigation and badges
+
+> **Update (2026-06-10):** The originally planned build-time env-var layer (`NEXT_PUBLIC_FF_*_ENABLED`) was removed. Next.js only inlines *static* `NEXT_PUBLIC_*` accesses, so the dynamic-key lookup in the hook was always `undefined` in the browser — the env vars never had any effect. Convex is the single source of truth.
 
 ---
 

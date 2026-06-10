@@ -72,6 +72,8 @@ NEXT_PUBLIC_FF_DEVICES_ENABLED=false
 NEXT_PUBLIC_FF_REPORTS_ENABLED=false
 ```
 
+> **Update (2026-06-10):** The `NEXT_PUBLIC_FF_*_ENABLED` entries were removed from `.env.local` again — Next.js only inlines static `NEXT_PUBLIC_*` accesses, so the dynamic lookup in `useFeatureFlag` never worked in the browser. Feature flags live solely in the Convex `featureFlags` table (see Section 9 of the system design).
+
 **Step 5: Commit**
 
 ```bash
@@ -2342,6 +2344,8 @@ export function useFeatureFlag(key: string): boolean {
   return flag?.enabled ?? false;
 }
 ```
+
+> **Update (2026-06-10):** The env-var path shown above was removed from the implemented hook. The dynamic `process.env[envKey]` access is never inlined by Next.js (only static `NEXT_PUBLIC_*` accesses are), so it always returned `undefined` in the browser; the early returns before `useQuery` also violated the Rules of Hooks. The hook now calls `useQuery` unconditionally and reads the Convex flag only.
 
 **Step 2: Write utilities**
 
