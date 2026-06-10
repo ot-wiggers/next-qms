@@ -38,6 +38,7 @@ export const compute = query({
     // vigilanceOnTimeRate: Fristgerechte Vigilanz-Meldungen unter den vigilanzrelevanten Reklamationen des Jahres
     // FB-Regel „KPI auch wenn IST = 0": 100 zurückgeben wenn keine vigilanzrelevanten Fälle im Jahr
     // Hinweis: noch nicht gemeldete Fälle ohne abgelaufene Frist werden konservativ als nicht-fristgerecht gezählt
+    // Logik gespiegelt in convex/managementReviews.ts buildAutoData (bewusste Duplikation, beide kommentiert)
     const vigilanceCases = allComplaints.filter(
       (c) =>
         c.isVigilanceRelevant &&

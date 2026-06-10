@@ -522,7 +522,7 @@ export const updateMeasure = mutation({
     }
 
     // Index-Bounds-Guard
-    if (args.index < 0 || args.index >= review.measures.length) {
+    if (!Number.isInteger(args.index) || args.index < 0 || args.index >= review.measures.length) {
       throw new Error(
         `Ungültiger Maßnahmen-Index: ${args.index} — vorhanden: ${review.measures.length}`
       );
@@ -592,7 +592,7 @@ export const removeMeasure = mutation({
     }
 
     // Index-Bounds-Guard
-    if (args.index < 0 || args.index >= review.measures.length) {
+    if (!Number.isInteger(args.index) || args.index < 0 || args.index >= review.measures.length) {
       throw new Error(
         `Ungültiger Maßnahmen-Index: ${args.index} — vorhanden: ${review.measures.length}`
       );
