@@ -120,6 +120,9 @@ export default function MgmtReviewDetailPage() {
     description: "", responsible: "", dueText: "", effectivenessCheck: "",
   });
 
+  // Double-click protection for "Als CAPA anlegen"
+  const [creatingCapaIndex, setCreatingCapaIndex] = useState<number | null>(null);
+
   // ── Loading / not found guards (hooks must be above these) ───────────────
   if (review === undefined) return <div className="p-8 text-muted-foreground">Lade…</div>;
   if (review === null) return <div className="p-8">Managementbewertung nicht gefunden.</div>;
@@ -337,6 +340,8 @@ export default function MgmtReviewDetailPage() {
   }
 
   async function handleCreateCapaFromMeasure(index: number) {
+    if (creatingCapaIndex !== null) return;
+    setCreatingCapaIndex(index);
     const measure = review!.measures[index] as EnrichedMeasure;
     try {
       const capaId = await createCapa({
@@ -350,6 +355,8 @@ export default function MgmtReviewDetailPage() {
       toast.success("CAPA angelegt und verknüpft");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Fehler beim Anlegen der CAPA");
+    } finally {
+      setCreatingCapaIndex(null);
     }
   }
 
@@ -411,7 +418,7 @@ export default function MgmtReviewDetailPage() {
           </div>
           {isDraft && canManage && (
             <div className="flex justify-end">
-              <Button onClick={saveGeneral}>Speichern</Button>
+              <Button onClick={saveGeneral} disabled={generalDraft === null || generalDraft.id !== reviewId}>Speichern</Button>
             </div>
           )}
         </CardContent>
@@ -477,13 +484,16 @@ export default function MgmtReviewDetailPage() {
       <Card>
         <CardHeader><CardTitle>3. Gesamtbewertung</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Textarea
-            id="mr-overall"
-            rows={5}
-            value={overallText !== null ? overallText : (review.overallAssessment ?? "")}
-            disabled={!isDraft || !canManage}
-            onChange={(e) => setOverallDraft({ id: reviewId, text: e.target.value })}
-          />
+          <div>
+            <Label htmlFor="overall">Bewertung</Label>
+            <Textarea
+              id="overall"
+              rows={5}
+              value={overallText !== null ? overallText : (review.overallAssessment ?? "")}
+              disabled={!isDraft || !canManage}
+              onChange={(e) => setOverallDraft({ id: reviewId, text: e.target.value })}
+            />
+          </div>
           {isDraft && canManage && (
             <div className="flex justify-end">
               <Button onClick={saveOverallAssessment} disabled={overallText === null}>Speichern</Button>
@@ -538,6 +548,7 @@ export default function MgmtReviewDetailPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleCreateCapaFromMeasure(index)}
+                      disabled={creatingCapaIndex !== null}
                     >
                       Als CAPA anlegen
                     </Button>
@@ -560,13 +571,16 @@ export default function MgmtReviewDetailPage() {
       <Card>
         <CardHeader><CardTitle>5. Verbesserungen</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Textarea
-            id="mr-improvements"
-            rows={4}
-            value={improvementsText !== null ? improvementsText : (review.improvements ?? "")}
-            disabled={!isDraft || !canManage}
-            onChange={(e) => setImprovementsDraft({ id: reviewId, text: e.target.value })}
-          />
+          <div>
+            <Label htmlFor="improvements">Verbesserungen</Label>
+            <Textarea
+              id="improvements"
+              rows={4}
+              value={improvementsText !== null ? improvementsText : (review.improvements ?? "")}
+              disabled={!isDraft || !canManage}
+              onChange={(e) => setImprovementsDraft({ id: reviewId, text: e.target.value })}
+            />
+          </div>
           {isDraft && canManage && (
             <div className="flex justify-end">
               <Button onClick={saveImprovements} disabled={improvementsText === null}>Speichern</Button>
