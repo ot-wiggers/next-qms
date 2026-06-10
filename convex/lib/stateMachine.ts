@@ -55,6 +55,8 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     APPROVED: [],
     CHANGES_REQUESTED: [],
   },
+  // REPORT_DRAFT/EFFECTIVENESS_CHECK können bewusst NICHT direkt abgebrochen werden —
+  // sobald Nachweise existieren, muss ein Abbruch über IN_PROGRESS erfolgen (bewusste Hürde).
   auditStatus: {
     PLANNED: ["IN_PROGRESS", "CANCELLED"],
     IN_PROGRESS: ["REPORT_DRAFT", "CANCELLED"],

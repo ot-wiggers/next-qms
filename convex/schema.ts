@@ -736,10 +736,12 @@ export default defineSchema({
     chapter: v.optional(v.string()),
     classification: findingClassification,
     description: v.string(),
-    capaId: v.optional(v.id("capas")),
+    capaId: v.optional(v.id("capas")), // autoritative Verknüpfung Finding→CAPA; capas.sourceId ist nur Anzeige-Provenienz
     status: v.union(v.literal("OPEN"), v.literal("RESOLVED")),
     ...auditFields,
-  }).index("by_audit", ["auditId"]),
+  })
+    .index("by_audit", ["auditId"])
+    .index("by_capa", ["capaId"]),
 
   capas: defineTable({
     capaNumber: v.string(),              // "CAPA-2026-11" (reales Format)
@@ -763,7 +765,8 @@ export default defineSchema({
     ...auditFields,
   })
     .index("by_year", ["year"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_number", ["capaNumber"]),
 
   capaMeasures: defineTable({
     capaId: v.id("capas"),
