@@ -65,6 +65,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Schulungsanträge", href: "/training-requests", icon: MessageSquarePlus },
       { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS", permission: "audits:list" },
       { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA", permission: "capa:list" },
+      { label: "Reklamationen", href: "/complaints", icon: MessageSquarePlus, permission: "complaints:list", featureFlag: "COMPLAINTS" },
     ],
   },
   {
@@ -80,7 +81,6 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "In Planung",
     items: [
-      { label: "Reklamationen", href: "/complaints", icon: MessageSquarePlus, featureFlag: "COMPLAINTS", badge: "IN PLANUNG" },
       { label: "Wareneingang", href: "/incoming-goods", icon: Truck, featureFlag: "INCOMING_GOODS", badge: "IN PLANUNG" },
       { label: "Prüfmittel", href: "/devices", icon: Wrench, featureFlag: "DEVICES", badge: "IN PLANUNG" },
       { label: "Berichte", href: "/reports", icon: BarChart3, featureFlag: "REPORTS", badge: "IN PLANUNG" },

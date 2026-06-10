@@ -160,6 +160,9 @@ export const NOTIFICATION_TYPES = [
   "TASK_ASSIGNED",
   "TASK_OVERDUE",
   "TASK_COMPLETED",
+  "CAPA_ASSIGNED",
+  "CAPA_MEASURE_ASSIGNED",
+  "COMPLAINT_ASSIGNED",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -180,6 +183,9 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   TASK_ASSIGNED: "Aufgabe zugewiesen",
   TASK_OVERDUE: "Aufgabe überfällig",
   TASK_COMPLETED: "Aufgabe abgeschlossen",
+  CAPA_ASSIGNED: "CAPA zugewiesen",
+  CAPA_MEASURE_ASSIGNED: "CAPA-Maßnahme zugewiesen",
+  COMPLAINT_ASSIGNED: "Reklamation zugewiesen",
 };
 
 // Review statuses

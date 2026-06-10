@@ -51,8 +51,8 @@ const NOTIFICATION_GROUPS = [
     ],
   },
   {
-    label: "Aufgaben",
-    types: ["TASK_ASSIGNED", "TASK_OVERDUE"],
+    label: "Aufgaben & Zuweisungen",
+    types: ["TASK_ASSIGNED", "TASK_OVERDUE", "CAPA_ASSIGNED", "CAPA_MEASURE_ASSIGNED", "COMPLAINT_ASSIGNED"],
   },
 ];
 

@@ -89,9 +89,8 @@ export default function ComplaintDetailPage() {
     channel: "",
   });
 
-  // Capture timestamp before render to avoid stale comparisons across re-renders
-  // eslint-disable-next-line react-hooks/purity
-  const now = Date.now();
+  // Capture timestamp once at mount to avoid stale comparisons across re-renders
+  const [now] = useState(() => Date.now());
 
   if (complaint === undefined) return <div className="p-8 text-muted-foreground">Lade&hellip;</div>;
   if (complaint === null) return <div className="p-8">Reklamation nicht gefunden.</div>;
@@ -410,14 +409,14 @@ export default function ComplaintDetailPage() {
           <DialogHeader><DialogTitle>Reklamation bewerten</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Bewertung</Label>
+              <Label htmlFor="assess-select">Bewertung</Label>
               <Select
                 value={assessForm.assessment}
                 onValueChange={(v) =>
                   setAssessForm({ ...assessForm, assessment: v as ComplaintAssessment })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="assess-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
