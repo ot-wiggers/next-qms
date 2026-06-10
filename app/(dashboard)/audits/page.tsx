@@ -63,9 +63,13 @@ export default function AuditsPage() {
       toast.error("Titel ist erforderlich");
       return;
     }
+    if (!Number.isInteger(form.auditYear) || form.auditYear < 2000 || form.auditYear > 2100) {
+      toast.error("Ungültiges Jahr");
+      return;
+    }
     try {
       const id = await createAudit({
-        title: form.title,
+        title: form.title.trim(),
         auditYear: form.auditYear,
         auditType: form.auditType,
         auditTeam: form.auditTeam || undefined,
