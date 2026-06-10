@@ -339,6 +339,7 @@ export const AUDIT_STATUSES = [
   "PLANNED", "IN_PROGRESS", "REPORT_DRAFT", "CLOSED", "CANCELLED",
 ] as const;
 export type AuditStatus = (typeof AUDIT_STATUSES)[number];
+// "In Durchführung" weicht bewusst von STATUS_LABELS["IN_PROGRESS"] ("In Bearbeitung") ab — Audit-Domäne
 export const AUDIT_STATUS_LABELS: Record<AuditStatus, string> = {
   PLANNED: "Geplant",
   IN_PROGRESS: "In Durchführung",
@@ -357,7 +358,7 @@ export const AUDIT_RATING_LABELS: Record<AuditRating, string> = {
   ABWEICHUNG: "Abweichung",
   FESTSTELLUNG: "Feststellung",
   EMPFEHLUNG: "Empfehlung",
-  NICHT_ANWENDBAR: "nicht anwendbar",
+  NICHT_ANWENDBAR: "nicht anwendbar", // klein geschrieben wie in der Formblatt-Legende (FB 8.2.4 v5)
 };
 export const AUDIT_RATING_DESCRIPTIONS: Record<AuditRating, string> = {
   KONFORM: "Anforderung vollständig erfüllt",
@@ -367,18 +368,24 @@ export const AUDIT_RATING_DESCRIPTIONS: Record<AuditRating, string> = {
   NICHT_ANWENDBAR: "Ausschluss laut QM-Handbuch Kap. 4.3",
 };
 
+// Findings sind die nicht-konformen Bewertungen der Legende — Subset von AuditRating,
+// per Extract typsicher gekoppelt, Labels aus AUDIT_RATING_LABELS wiederverwendet.
+export type FindingClassification = Extract<
+  AuditRating,
+  "ABWEICHUNG" | "FESTSTELLUNG" | "EMPFEHLUNG"
+>;
 export const FINDING_CLASSIFICATIONS = [
   "ABWEICHUNG", "FESTSTELLUNG", "EMPFEHLUNG",
-] as const;
-export type FindingClassification = (typeof FINDING_CLASSIFICATIONS)[number];
+] as const satisfies readonly FindingClassification[];
 export const FINDING_CLASSIFICATION_LABELS: Record<FindingClassification, string> = {
-  ABWEICHUNG: "Abweichung",
-  FESTSTELLUNG: "Feststellung",
-  EMPFEHLUNG: "Empfehlung",
+  ABWEICHUNG: AUDIT_RATING_LABELS.ABWEICHUNG,
+  FESTSTELLUNG: AUDIT_RATING_LABELS.FESTSTELLUNG,
+  EMPFEHLUNG: AUDIT_RATING_LABELS.EMPFEHLUNG,
 };
 
 export const CHECKLIST_TEMPLATE_STATUSES = ["DRAFT", "ACTIVE", "SUPERSEDED"] as const;
 export type ChecklistTemplateStatus = (typeof CHECKLIST_TEMPLATE_STATUSES)[number];
+// "Abgelöst" weicht bewusst von STATUS_LABELS["SUPERSEDED"] ("Ersetzt") ab — Checklisten-Vorlagen-Domäne
 export const CHECKLIST_TEMPLATE_STATUS_LABELS: Record<ChecklistTemplateStatus, string> = {
   DRAFT: "Entwurf",
   ACTIVE: "Aktiv",
@@ -400,6 +407,7 @@ export const CAPA_STATUSES = [
   "EFFECTIVENESS_CHECK", "CLOSED", "CANCELLED",
 ] as const;
 export type CapaStatus = (typeof CAPA_STATUSES)[number];
+// "In Umsetzung" weicht bewusst von STATUS_LABELS["IN_PROGRESS"] ("In Bearbeitung") ab — CAPA-Domäne
 export const CAPA_STATUS_LABELS: Record<CapaStatus, string> = {
   OPEN: "Offen",
   ANALYSIS: "Ursachenanalyse",
@@ -419,7 +427,7 @@ export const CAPA_SOURCE_TYPE_LABELS: Record<CapaSourceType, string> = {
   COMPLAINT: "Reklamation",
   TRAINING: "Schulung",
   RISK: "Risiko",
-  QUALITY_OBJECTIVE: "Qualitätsziel",
+  QUALITY_OBJECTIVE: "Qualitätsziel", // FB 5.4.1: Ziel Gelb/Rot → CAPA-Pflichtverknüpfung
   MGMT_REVIEW: "Managementbewertung",
   MANUAL: "Manuell",
 };
