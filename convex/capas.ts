@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
@@ -387,5 +387,50 @@ export const archive = mutation({
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "capa:manage");
     await archiveRecord(ctx, "capas", args.id, user._id);
+  },
+});
+
+/** Seed-Import der CAPA-Liste 2026 (npx convex run) — idempotent über capaNumber */
+export const seedFromImport = internalMutation({
+  args: {
+    items: v.array(v.object({
+      capaNumber: v.string(),          // "CAPA-2026-11"
+      title: v.string(),
+      description: v.optional(v.string()),
+      effectivenessCriterion: v.optional(v.string()),
+      responsible: v.optional(v.string()),
+      dueAt: v.optional(v.number()),
+      capaType: v.union(v.literal("CORRECTIVE"), v.literal("PREVENTIVE")),
+      sourceType: v.union(
+        v.literal("AUDIT"), v.literal("COMPLAINT"), v.literal("TRAINING"),
+        v.literal("RISK"), v.literal("QUALITY_OBJECTIVE"),
+        v.literal("MGMT_REVIEW"), v.literal("MANUAL")
+      ),
+      status: v.union(
+        v.literal("OPEN"), v.literal("ANALYSIS"), v.literal("MEASURES_DEFINED"),
+        v.literal("IN_PROGRESS"), v.literal("EFFECTIVENESS_CHECK"),
+        v.literal("CLOSED"), v.literal("CANCELLED")
+      ),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.query("capas").collect();
+    const known = new Set(existing.map((c) => c.capaNumber));
+    const now = Date.now();
+    let inserted = 0;
+    for (const item of args.items) {
+      if (known.has(item.capaNumber)) continue;
+      const match = item.capaNumber.match(/^CAPA-(\d{4})-(\d+)$/);
+      if (!match) throw new Error(`Ungültige CAPA-Nummer: ${item.capaNumber}`);
+      await ctx.db.insert("capas", {
+        ...item,
+        year: Number(match[1]),
+        seq: Number(match[2]),
+        isArchived: false,
+        createdAt: now, updatedAt: now,
+      });
+      inserted++;
+    }
+    return { inserted, skipped: args.items.length - inserted };
   },
 });
