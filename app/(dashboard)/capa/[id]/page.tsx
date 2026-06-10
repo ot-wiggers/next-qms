@@ -31,7 +31,8 @@ type Measure = {
   description: string; status: string; dueAt?: number; doneAt?: number;
 };
 
-// Übergänge gespiegelt zur capaStatus-State-Machine (convex/lib/stateMachine.ts)
+// Teilmenge der capaStatus-State-Machine (convex/lib/stateMachine.ts):
+// Abbruch ab ANALYSIS ist serverseitig erlaubt, in der UI bewusst (noch) nicht angeboten.
 const NEXT: Partial<Record<CapaStatus, { to: string; label: string }[]>> = {
   OPEN: [{ to: "ANALYSIS", label: "Ursachenanalyse starten" }, { to: "CANCELLED", label: "Abbrechen" }],
   ANALYSIS: [{ to: "MEASURES_DEFINED", label: "Maßnahmen definiert" }],

@@ -91,6 +91,9 @@ export const create = mutation({
       isArchived: false,
       createdAt: now, createdBy: user._id,
       updatedAt: now, updatedBy: user._id,
+      description: args.description?.trim() || undefined,
+      responsible: args.responsible?.trim() || undefined,
+      effectivenessCriterion: args.effectivenessCriterion?.trim() || undefined,
     });
     await logAuditEvent(ctx, {
       userId: user._id, action: "CREATE",
