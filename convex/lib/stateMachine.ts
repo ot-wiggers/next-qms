@@ -79,6 +79,10 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     IN_PROGRESS: ["CLOSED"],
     CLOSED: [],
   },
+  mgmtReviewStatus: {
+    DRAFT: ["APPROVED"],
+    APPROVED: [],
+  },
 };
 
 /**

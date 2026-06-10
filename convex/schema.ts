@@ -94,6 +94,12 @@ const complaintAssessment = v.union(
   v.literal("JUSTIFIED"), v.literal("UNJUSTIFIED"), v.literal("GOODWILL")
 );
 
+const objectiveTargetType = v.union(v.literal("MIN"), v.literal("MAX"));
+const objectiveStatusEnum = v.union(
+  v.literal("GREEN"), v.literal("YELLOW"), v.literal("RED")
+);
+const mgmtReviewStatus = v.union(v.literal("DRAFT"), v.literal("APPROVED"));
+
 const documentType = v.union(
   v.literal("qm_handbook"),
   v.literal("work_instruction"),
@@ -820,6 +826,62 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_number", ["complaintNumber"])
     .index("by_product", ["productId"]),
+
+  // === PHASE 3 (QM-Jahreszyklus): Qualitätsziele (5.4.1) + Managementbewertung (5.6) ===
+
+  qualityObjectives: defineTable({
+    year: v.number(),
+    seq: v.number(),                       // Nr. im Formblatt
+    area: v.string(),                      // Bereich
+    title: v.string(),                     // Qualitätsziel
+    kpiDefinition: v.optional(v.string()), // KPI-Definition / Messgröße
+    dataSource: v.optional(v.string()),    // OTWin, FB 6.2.0 …
+    responsible: v.optional(v.string()),   // Freitext-Rolle wie im FB
+    targetType: objectiveTargetType,
+    targetValue: v.number(),               // Zielwert Jahresende
+    unit: v.optional(v.string()),          // %, Anzahl …
+    isPhaseModel: v.boolean(),             // Phasenmodell (Q-Meilensteine 25/50/75/100)
+    kpiKey: v.optional(v.string()),        // Auto-KPI aus KPI_KEYS (Vorschlag, kein Zwang)
+    capaId: v.optional(v.id("capas")),     // Pflicht bei Gelb/Rot (soft enforced)
+    comment: v.optional(v.string()),
+    ...auditFields,
+  }).index("by_year", ["year"]),
+
+  qualityObjectiveReadings: defineTable({
+    objectiveId: v.id("qualityObjectives"),
+    quarter: v.number(),                   // 1–4
+    targetValue: v.number(),               // SOLL des Quartals
+    actualValue: v.optional(v.number()),   // IST (leer = noch nicht erfasst)
+    percent: v.optional(v.number()),       // berechnet bei Erfassung
+    status: v.optional(objectiveStatusEnum), // Ampel, berechnet bei Erfassung
+    note: v.optional(v.string()),
+    ...auditFields,
+  }).index("by_objective", ["objectiveId"]),
+
+  managementReviews: defineTable({
+    year: v.number(),
+    reportingPeriod: v.string(),           // "01.01.2026 – 31.12.2026"
+    participants: v.optional(v.string()),
+    companyNote: v.optional(v.string()),   // "Sanitätshaus mit ca. 30 MA an 4 Standorten"
+    status: mgmtReviewStatus,
+    sections: v.array(v.object({
+      key: v.string(),                     // audits|complaints|pms|processes|capa|changes|resources|risks
+      autoData: v.optional(v.string()),    // Daten-Snapshot (beim Anlegen generiert, einfrierbar)
+      assessment: v.optional(v.string()),  // Prosa "Bewertung: …"
+    })),
+    overallAssessment: v.optional(v.string()), // 3. Gesamtbewertung
+    measures: v.array(v.object({
+      description: v.string(),
+      responsible: v.optional(v.string()),
+      dueText: v.optional(v.string()),       // "Q4 2026", "laufend"
+      effectivenessCheck: v.optional(v.string()), // "Audit", "Stichproben"
+      capaId: v.optional(v.id("capas")),
+    })),
+    improvements: v.optional(v.string()),  // 5. Verbesserungen
+    reportFileId: v.optional(v.id("_storage")),
+    approvedAt: v.optional(v.number()),
+    ...auditFields,
+  }).index("by_year", ["year"]),
 
   // ============================================================
   // PHASE 4: Placeholders (IN PLANUNG)
