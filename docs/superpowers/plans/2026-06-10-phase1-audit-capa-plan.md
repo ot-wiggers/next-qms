@@ -3037,3 +3037,36 @@ git commit -m "feat(audit/capa): Phase 1 QM-Jahreszyklus abgeschlossen"
 
 **2026-06-10 (Rev. 3):** Checklisten-xlsx nachgeliefert (`PDF/8 2 4 Auditcheckliste_2026_v5.xlsx` — Leerzeichen statt Unterstriche). Dry-Run der Import-Logik gegen die echte Datei bestanden: 60 Prüfpunkte, Spaltenlayout bestätigt, Deckblatt-Blatt mit Kopfdaten vorhanden. Task 9 auf den tatsächlichen Pfad und die verifizierte Erwartung aktualisiert; PDF-Fallback (Variante B) obsolet.
 
+
+---
+
+## Übergabe — verbleibende Nutzer-Schritte (Stand 2026-06-10, Implementierung abgeschlossen)
+
+Implementiert auf Branch `feature/qm-phase1-audit-capa` (Tasks 1–15, Build grün). Ohne Convex-Projektzugriff in der Implementierungs-Session konnten Schema-Push, Seeding und Browser-Walkthrough nicht ausgeführt werden — diese Schritte macht der Nutzer in einem interaktiven Terminal:
+
+```bash
+# 1. Schema + Funktionen deployen (regeneriert auch convex/_generated sauber)
+npx convex dev --once
+
+# 2. Checklisten-Vorlage v5 seeden (60 Prüfpunkte)
+node scripts/import-audit-checklist.mjs "PDF/8 2 4 Auditcheckliste_2026_v5.xlsx"
+node -e 'const d=require("./scripts/out/audit-checklist-v5.json");process.stdout.write(JSON.stringify(d.template))' > /tmp/seed-template.json
+npx convex run auditTemplates:seedFromImport "$(cat /tmp/seed-template.json)"
+# Erwartet: { skipped: false, items: 60 } — zweiter Lauf: { skipped: true }
+
+# 3. CAPA-Liste 2026 seeden — VOR dem ersten produktiven CAPA-Anlegen (Nummernkreis!)
+npx convex run capas:seedFromImport "$(cat scripts/out/capas-2026.json)"
+# Erwartet: { inserted: 11, skipped: 0 } — nächste neue CAPA wird CAPA-2026-12
+
+# 4. Feature-Flags AUDITS und CAPA in Admin → Einstellungen anlegen/aktivieren
+#    (Default ist AUS — die Sidebar-Einträge erscheinen erst nach Aktivierung)
+```
+
+Danach den **Runtime-Verifikations-Walkthrough** aus dem Final-Review durchspielen (Audit-Kette als QMB, CAPA-Workflow inkl. Gegentests, Bericht-PDF inkl. Einfrieren, Rollen-Tests als employee/auditor, Audit-Trail-Prüfung).
+
+**Dokumentierte Folgepunkte (bewusst nicht in Phase 1):**
+- Vorlagen-Verwaltungs-UI (v6 anlegen/aktivieren) — bis dahin per `npx convex run auditTemplates:*`
+- `audits.updateHeader`/`archive`, `auditFindings.resolve`, CAPA-Zuweisungs-Picker (`assigneeId`), `effectivenessDueAt` — Server-API existiert, UI folgt bei Bedarf
+- Audit-Abbruch ab IN_PROGRESS und CAPA-Abbruch ab ANALYSIS serverseitig erlaubt, in der UI bewusst nicht angeboten
+- Die extrahierten 2026er-Antworten (`answers` in audit-checklist-v5.json) sind ungenutzt — ein historischer Audit-Instanz-Seed wäre möglich, war aber nicht Seed-Scope
+- `lib/validators/*` für Audit/CAPA derzeit ungenutzt (UI validiert manuell, Server hat eigene Guards)
