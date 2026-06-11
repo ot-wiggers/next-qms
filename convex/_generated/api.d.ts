@@ -49,6 +49,7 @@ import type * as search from "../search.js";
 import type * as searchQuota from "../searchQuota.js";
 import type * as seed from "../seed.js";
 import type * as tasks from "../tasks.js";
+import type * as trainingMatrix from "../trainingMatrix.js";
 import type * as trainingRequests from "../trainingRequests.js";
 import type * as trainings from "../trainings.js";
 import type * as users from "../users.js";
@@ -101,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   searchQuota: typeof searchQuota;
   seed: typeof seed;
   tasks: typeof tasks;
+  trainingMatrix: typeof trainingMatrix;
   trainingRequests: typeof trainingRequests;
   trainings: typeof trainings;
   users: typeof users;

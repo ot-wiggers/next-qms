@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { requirePermission } from "./lib/withAuth";
-import { KpiKey } from "../lib/types/enums";
+import { KpiKey, MANDATORY_LEVELS } from "../lib/types/enums";
 
 /**
  * KPI-Engine für Qualitätsziele und Managementbewertung (ISO 13485 Kap. 5.4.1 / 5.6).
@@ -22,11 +22,14 @@ export const compute = query({
     // Volltabellen-Scan ok bei dieser Datenmenge (QMS einer 30-MA-Organisation)
     // ============================================================
 
-    const [allComplaints, allCapas, allAudits, allFindings] = await Promise.all([
+    const [allComplaints, allCapas, allAudits, allFindings, allRequirements, allFulfillments] = await Promise.all([
       ctx.db.query("complaints").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
       ctx.db.query("capas").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
       ctx.db.query("audits").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
       ctx.db.query("auditFindings").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
+      // Phase 4: nicht-archivierte Requirements — Funktion+Thema-Archivierung über Requirement-Archiv geprüft (einfach)
+      ctx.db.query("trainingRequirements").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
+      ctx.db.query("trainingFulfillments").filter((q) => q.eq(q.field("isArchived"), false)).collect(),
     ]);
 
     // --- Reklamationen ---
@@ -97,6 +100,30 @@ export const compute = query({
       (f) => f.status === "OPEN"
     ).length;
 
+    // --- Schulungsbedarfsmatrix (Phase 4) ---
+    // trainingFulfillmentRate: erfüllte Pflicht-Paare ÷ alle Pflicht-Paare × 100 (gerundet)
+    // Erfüllt = fulfilled===true UND (validUntil undefined ODER validUntil >= now) —
+    // abgelaufene Nachweise zählen NICHT als erfüllt (konsistent mit overview + planDraft)
+    // 100 zurückgeben wenn keine Pflicht-Paare (kein Soll = kein Makel — wie vigilanceOnTimeRate)
+    const mandatoryPairs = allRequirements.filter((r) =>
+      (MANDATORY_LEVELS as readonly string[]).includes(r.level),
+    );
+    let trainingFulfillmentRate: number;
+    if (mandatoryPairs.length === 0) {
+      // Keine Pflicht-Paare → 100 (kein Soll = kein Makel)
+      trainingFulfillmentRate = 100;
+    } else {
+      const fulfilledPairs = mandatoryPairs.filter((req) => {
+        const ff = allFulfillments.find(
+          (f) => f.functionId === req.functionId && f.topicId === req.topicId,
+        );
+        if (!ff || !ff.fulfilled) return false;
+        if (ff.validUntil !== undefined && ff.validUntil < now) return false;
+        return true;
+      }).length;
+      trainingFulfillmentRate = Math.round((fulfilledPairs / mandatoryPairs.length) * 100);
+    }
+
     return {
       complaintsYearCount,
       vigilanceOnTimeRate,
@@ -104,7 +131,7 @@ export const compute = query({
       capaOpenOverdueCount,
       auditsClosedInYearCount,
       auditOpenFindingsCount,
-      trainingFulfillmentRate: 0, // Phase-4-Stub — echte Berechnung folgt in Task 3
+      trainingFulfillmentRate,
     };
   },
 });
