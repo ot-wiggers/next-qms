@@ -35,4 +35,5 @@ export type PermissionAction =
   | "complaints:list" | "complaints:create" | "complaints:manage" | "complaints:close"
   | "qualityObjectives:list" | "qualityObjectives:manage"
   | "mgmtReview:list" | "mgmtReview:manage" | "mgmtReview:approve"
+  | "trainingMatrix:list" | "trainingMatrix:manage"
   | "admin:settings" | "admin:featureFlags";

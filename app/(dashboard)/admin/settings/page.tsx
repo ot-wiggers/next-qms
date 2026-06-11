@@ -40,6 +40,10 @@ const FLAG_LABELS: Record<string, { title: string; description: string }> = {
     title: "Managementbewertung",
     description: "Jährliche Bewertung durch die Leitung nach Kap. 5.6",
   },
+  TRAINING_MATRIX: {
+    title: "Schulungsmatrix",
+    description: "Funktionsbasierte Schulungsbedarfe mit Soll-Ist (Kap. 6.2)",
+  },
   INCOMING_GOODS: {
     title: "Wareneingang",
     description: "Wareneingangsmodul aktivieren (Phase 4).",

@@ -492,6 +492,7 @@ export const KPI_KEYS = [
   "capaOpenOverdueCount",     // offene CAPAs mit überschrittenem Termin
   "auditsClosedInYearCount",  // abgeschlossene Audits im Jahr
   "auditOpenFindingsCount",   // offene Audit-Findings
+  "trainingFulfillmentRate",  // Phase 4: erfüllte Pflicht-Themen ÷ Pflicht-Themen über alle Funktionen
 ] as const;
 export type KpiKey = (typeof KPI_KEYS)[number];
 export const KPI_KEY_LABELS: Record<KpiKey, string> = {
@@ -501,6 +502,7 @@ export const KPI_KEY_LABELS: Record<KpiKey, string> = {
   capaOpenOverdueCount: "Überfällige offene CAPAs",
   auditsClosedInYearCount: "Abgeschlossene Audits im Jahr",
   auditOpenFindingsCount: "Offene Audit-Findings",
+  trainingFulfillmentRate: "Erfüllungsgrad Pflichtschulungen (%)",
 };
 
 // ============================================================
@@ -522,4 +524,50 @@ export const MGMT_REVIEW_SECTIONS = [
   { key: "changes", title: "2.6 Änderungen" },
   { key: "resources", title: "2.7 Ressourcen" },
   { key: "risks", title: "2.8 Risiken & Chancen" },
+] as const;
+
+// ============================================================
+// Schulungsbedarfsmatrix (ISO 13485 Kap. 6.2, FB 6.2.0 Anhang) — Phase 4
+// ============================================================
+// Einstufungs-Legende exakt nach FB 6.2.0 Anhang Rev. 1
+export const REQUIREMENT_LEVELS = [
+  "REQUIRED_DEEP",    // ●●● Pflicht – tiefer Fachbedarf
+  "REQUIRED_BASIC",   // ●●  Pflicht – Grundlagen
+  "RECOMMENDED",      // ●   Empfohlen
+  "ON_DEMAND",        // ○   Bei Bedarf
+] as const;
+export type RequirementLevel = (typeof REQUIREMENT_LEVELS)[number];
+export const REQUIREMENT_LEVEL_LABELS: Record<RequirementLevel, string> = {
+  REQUIRED_DEEP: "Pflicht – tiefer Fachbedarf",
+  REQUIRED_BASIC: "Pflicht – Grundlagen",
+  RECOMMENDED: "Empfohlen",
+  ON_DEMAND: "Bei Bedarf",
+};
+export const REQUIREMENT_LEVEL_SYMBOLS: Record<RequirementLevel, string> = {
+  REQUIRED_DEEP: "●●●", REQUIRED_BASIC: "●●", RECOMMENDED: "●", ON_DEMAND: "○",
+};
+// Pflicht-Einstufungen für Soll-Zählung und Erfüllungsgrad
+export const MANDATORY_LEVELS: readonly RequirementLevel[] = ["REQUIRED_DEEP", "REQUIRED_BASIC"];
+
+// Besetzungsstatus exakt nach Blatt „Stand & Lücken"
+export const STAFFING_STATUSES = [
+  "FILLED",            // besetzt (grün)
+  "INTERNAL_DEVELOP",  // intern fortbilden / informell — formal nachzuholen (gelb)
+  "EXTERNAL_HIRE",     // extern neu zu besetzen (rot)
+  "IN_CLARIFICATION",  // Klärungsbedarf, z.B. Doppelrolle (blau)
+] as const;
+export type StaffingStatus = (typeof STAFFING_STATUSES)[number];
+export const STAFFING_STATUS_LABELS: Record<StaffingStatus, string> = {
+  FILLED: "Besetzt",
+  INTERNAL_DEVELOP: "Intern fortbilden",
+  EXTERNAL_HIRE: "Extern zu besetzen",
+  IN_CLARIFICATION: "In Klärung",
+};
+
+export const TOPIC_CLUSTERS = [
+  { key: "A", title: "A. QM & Regulatorik" },
+  { key: "B", title: "B. Führung & Personal" },
+  { key: "C", title: "C. IT & Datenschutz" },
+  { key: "D", title: "D. Versorgung & Werkstatt" },
+  { key: "E", title: "E. Reklamation & Vigilanz" },
 ] as const;

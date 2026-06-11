@@ -104,6 +104,7 @@ export const compute = query({
       capaOpenOverdueCount,
       auditsClosedInYearCount,
       auditOpenFindingsCount,
+      trainingFulfillmentRate: 0, // Phase-4-Stub — echte Berechnung folgt in Task 3
     };
   },
 });
