@@ -570,4 +570,6 @@ export const TOPIC_CLUSTERS = [
   { key: "C", title: "C. IT & Datenschutz" },
   { key: "D", title: "D. Versorgung & Werkstatt" },
   { key: "E", title: "E. Reklamation & Vigilanz" },
+  { key: "F", title: "F. Abrechnung & Verträge" },
+  { key: "G", title: "G. Allgemein-verbindlich" },
 ] as const;

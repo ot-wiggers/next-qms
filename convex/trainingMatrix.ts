@@ -459,9 +459,9 @@ export const createTopic = mutation({
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "trainingMatrix:manage");
 
-    // Cluster A–E validieren
-    if (!["A", "B", "C", "D", "E"].includes(args.cluster)) {
-      throw new Error("Ungültiger Cluster — erlaubt: A, B, C, D, E");
+    // Cluster A–G validieren (gespiegelt aus TOPIC_CLUSTERS in lib/types/enums.ts)
+    if (!["A", "B", "C", "D", "E", "F", "G"].includes(args.cluster)) {
+      throw new Error("Ungültiger Cluster — erlaubt: A, B, C, D, E, F, G");
     }
 
     const title = args.title.trim();

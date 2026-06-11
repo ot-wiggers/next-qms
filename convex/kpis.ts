@@ -5,7 +5,7 @@ import { KpiKey, MANDATORY_LEVELS } from "../lib/types/enums";
 
 /**
  * KPI-Engine für Qualitätsziele und Managementbewertung (ISO 13485 Kap. 5.4.1 / 5.6).
- * Berechnet alle 6 registrierten KPI-Schlüssel für ein gegebenes Jahr.
+ * Berechnet alle registrierten KPI-Schlüssel für ein gegebenes Jahr.
  */
 export const compute = query({
   args: { year: v.number() },

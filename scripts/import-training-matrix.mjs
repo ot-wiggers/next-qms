@@ -17,6 +17,14 @@ const wb = XLSX.readFile(SRC);
 
 // ── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
+/**
+ * Bereinigt einen Zell-String: entfernt Soft-Hyphens (U+00AD) und trimmt.
+ * Alle Texte aus der xlsx müssen durch diese Funktion laufen.
+ */
+function sanitize(raw) {
+  return String(raw ?? "").replace(/­/g, "").trim();
+}
+
 /** Wandelt Rohzelle in RequirementLevel-String oder null */
 function cellToLevel(raw) {
   const s = String(raw ?? "").trim();
@@ -64,7 +72,7 @@ const matrixRows = XLSX.utils.sheet_to_json(matrixSheet, {
 });
 
 // Header-Zeile (Zeile 0): Funktionsnamen ab Spalte 4
-const funcHeaderNames = matrixRows[0].slice(4, 13).map((s) => String(s).trim());
+const funcHeaderNames = matrixRows[0].slice(4, 13).map((s) => sanitize(s));
 
 const functions = []; // { name, sortOrder }
 for (let i = 0; i < funcHeaderNames.length; i++) {
@@ -80,10 +88,10 @@ let topicSortCounters = {}; // cluster → counter
 
 for (let rowIdx = 1; rowIdx < matrixRows.length; rowIdx++) {
   const row = matrixRows[rowIdx];
-  const col0 = String(row[0] ?? "").trim();
-  const col1 = String(row[1] ?? "").trim();
-  const col2 = String(row[2] ?? "").trim();
-  const col3 = String(row[3] ?? "").trim();
+  const col0 = sanitize(row[0]);
+  const col1 = sanitize(row[1]);
+  const col2 = sanitize(row[2]);
+  const col3 = sanitize(row[3]);
 
   // Cluster-Zeile: col0 nicht leer, col1 leer
   if (col0 && !col1) {
@@ -136,9 +144,9 @@ const staffingMap = new Map(); // Funktionsname → { holder, staffingStatus }
 for (let i = 4; i <= 12; i++) {
   const row = standRows[i];
   if (!row) continue;
-  const name = String(row[0] ?? "").trim();
-  const holder = String(row[1] ?? "").trim();
-  const statusText = String(row[2] ?? "").trim().toLowerCase();
+  const name = sanitize(row[0]);
+  const holder = sanitize(row[1]);
+  const statusText = sanitize(row[2]).toLowerCase();
 
   if (!name) continue;
 
@@ -160,7 +168,7 @@ for (let i = 4; i <= 12; i++) {
   staffingMap.set(name, {
     holder: holder || undefined,
     staffingStatus,
-    rawStatus: String(row[2] ?? "").trim(),
+    rawStatus: sanitize(row[2]),
   });
 }
 
@@ -179,16 +187,16 @@ const successionMap = new Map();
 for (let i = 4; i < nachfolgeRows.length; i++) {
   const row = nachfolgeRows[i];
   if (!row) continue;
-  const name = String(row[0] ?? "").trim();
+  const name = sanitize(row[0]);
   if (!name) continue;
 
   successionMap.set(name, {
-    successionPath: String(row[1] ?? "").trim() || undefined,
-    successionState: String(row[2] ?? "").trim() || undefined,
-    successionNextSteps: String(row[3] ?? "").trim() || undefined,
-    successionResponsible: String(row[4] ?? "").trim() || undefined,
-    successionDueText: String(row[5] ?? "").trim() || undefined,
-    successionStatus: String(row[6] ?? "").trim() || undefined,
+    successionPath: sanitize(row[1]) || undefined,
+    successionState: sanitize(row[2]) || undefined,
+    successionNextSteps: sanitize(row[3]) || undefined,
+    successionResponsible: sanitize(row[4]) || undefined,
+    successionDueText: sanitize(row[5]) || undefined,
+    successionStatus: sanitize(row[6]) || undefined,
   });
 }
 
