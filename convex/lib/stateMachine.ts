@@ -83,6 +83,10 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     DRAFT: ["APPROVED"],
     APPROVED: [],
   },
+  pmsReportStatus: {
+    DRAFT: ["APPROVED"],
+    APPROVED: [],
+  },
 };
 
 /**

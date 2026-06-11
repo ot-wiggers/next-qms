@@ -99,6 +99,7 @@ const objectiveStatusEnum = v.union(
   v.literal("GREEN"), v.literal("YELLOW"), v.literal("RED")
 );
 const mgmtReviewStatus = v.union(v.literal("DRAFT"), v.literal("APPROVED"));
+const pmsReportStatus = v.union(v.literal("DRAFT"), v.literal("APPROVED"));
 
 const requirementLevel = v.union(
   v.literal("REQUIRED_DEEP"), v.literal("REQUIRED_BASIC"),
@@ -964,6 +965,27 @@ export default defineSchema({
   })
     .index("by_number", ["riskNumber"])
     .index("by_seq", ["seq"]),
+
+  // ============================================================
+  // PHASE 6 (QM-Jahreszyklus): PMS-Bericht (7.1 / MDR Art. 85)
+  // ============================================================
+
+  pmsReports: defineTable({
+    year: v.number(),                      // Berichtsjahr (Ende des Zeitraums): 2025 für "01.01.2025 – 31.12.2025"
+    reportingPeriod: v.string(),           // "01.01.2025 – 31.12.2025"
+    revision: v.number(),                  // Revision des Berichts (real: 1)
+    standText: v.optional(v.string()),     // "01.2026" — Stand-Angabe wie im Original-Kopf
+    productGroup: v.string(),              // "Sonderanfertigungen der Klasse I (…)"
+    status: pmsReportStatus,
+    sections: v.array(v.object({
+      key: v.string(),                     // PmsSectionKey: goal|dataSources|metrics|riskAssessment|capa|pmsSystemAssessment|conclusion|recommendations
+      autoData: v.optional(v.string()),    // Daten-Snapshot aus der App (metrics/riskAssessment/capa)
+      text: v.optional(v.string()),        // Prosa des Abschnitts
+    })),
+    reportFileId: v.optional(v.id("_storage")),  // eingefrorenes Nachweis-PDF
+    approvedAt: v.optional(v.number()),
+    ...auditFields,
+  }).index("by_year", ["year"]),
 
   // ============================================================
   // AUSBLICK: Platzhalter (Wareneingang, Prüfmittel)
