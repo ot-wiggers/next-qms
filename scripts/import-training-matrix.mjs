@@ -43,10 +43,18 @@ function parseCluster(raw) {
 
 /**
  * Fuzzy-Match: sucht in einer Map (normalisierter Name → Wert) nach key.
- * Strategie: exakt → startsWith → includes
+ * Normalisierung: Klammerinhalt entfernen, Sonderzeichen/Whitespace entfernen,
+ * Kleinschreibung → exakt → startsWith → includes.
+ * Damit matchen z. B.:
+ *   "Rehatechniker (Wartung Pflegebetten / Lifter)" ↔ "Rehatechniker (neu, 2 MA)"
+ *   "Verantw. Person MDR (PRRC, Art. 15)"           ↔ "Verantw. Person MDR (PRRC)"
  */
 function fuzzyFind(map, search) {
-  const norm = (s) => s.toLowerCase().replace(/[­​ \s\/\-\.]/g, "");
+  const norm = (s) =>
+    sanitize(s)
+      .toLowerCase()
+      .replace(/\(.*?\)/g, "")
+      .replace(/[\s\/\-\.,:×]/g, "");
   const key = norm(search);
   // Exakt
   for (const [k, v] of map) {
@@ -198,6 +206,30 @@ for (let i = 4; i < nachfolgeRows.length; i++) {
     successionDueText: sanitize(row[5]) || undefined,
     successionStatus: sanitize(row[6]) || undefined,
   });
+}
+
+// Hartes Validierungs-Gate: jede Nachfolge-Zeile muss eine Funktion matchen
+{
+  const unmatchedNachfolge = [];
+  for (const [rowName] of successionMap) {
+    const match = fuzzyFind(
+      new Map(functions.map((fn) => [fn.name, fn])),
+      rowName
+    );
+    if (!match) unmatchedNachfolge.push(rowName);
+  }
+  if (unmatchedNachfolge.length > 0) {
+    console.error(
+      `FEHLER: Nachfolge-Zeile ohne Funktions-Match (${unmatchedNachfolge.length} von ${successionMap.size}):`
+    );
+    for (const n of unmatchedNachfolge) {
+      console.error(`  - "${n}"`);
+    }
+    process.exit(1);
+  }
+  console.log(
+    `Nachfolge-Matching: ${successionMap.size}/${successionMap.size} Zeilen zugeordnet ✓`
+  );
 }
 
 // ── 4. Zusammenführen: functions anreichern ──────────────────────────────────
