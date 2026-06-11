@@ -573,3 +573,43 @@ export const TOPIC_CLUSTERS = [
   { key: "F", title: "F. Abrechnung & Verträge" },
   { key: "G", title: "G. Allgemein-verbindlich" },
 ] as const;
+
+// ============================================================
+// Risikoregister (ISO 13485 Kap. 7.1, FB 7.1.0) — Phase 5
+// ============================================================
+// RPZ = Auftretenswahrscheinlichkeit × Schweregrad × Folgen; < 100 = akzeptabel (FB 7.1.0 Rev. 1)
+export const RPZ_ACCEPT_THRESHOLD = 100;
+
+export type RiskLevelBand = { min: number; max: number; label: string; hint?: string };
+
+// Bewertungskriterien exakt nach FB 7.1.0 (Legenden-Tabellen)
+// Auftretenswahrscheinlichkeit („Fehler kann vorkommen")
+export const RISK_OCCURRENCE_BANDS: readonly RiskLevelBand[] = [
+  { min: 1, max: 1, label: "Unwahrscheinlich", hint: "< 10⁻⁶" },
+  { min: 2, max: 3, label: "Fernliegend", hint: "< 10⁻⁵" },
+  { min: 4, max: 6, label: "Gelegentlich", hint: "< 10⁻⁴" },
+  { min: 7, max: 8, label: "Wahrscheinlich", hint: "< 10⁻³" },
+  { min: 9, max: 10, label: "Häufig", hint: "≥ 10⁻³" },
+];
+
+// Schweregrad / Bedeutung („Auswirkung auf den Patienten")
+export const RISK_SEVERITY_BANDS: readonly RiskLevelBand[] = [
+  { min: 1, max: 1, label: "Vernachlässigbar", hint: "Unannehmlichkeiten o. zeitweilige Beschwerden" },
+  { min: 2, max: 3, label: "Gering", hint: "Zeitweilige Schädigung o. Behinderung, kein sachkundiges Einschreiten erforderlich" },
+  { min: 4, max: 6, label: "Ernst", hint: "Führt zu Schädigung oder Behinderung, die ein Einschreiten erfordern" },
+  { min: 7, max: 8, label: "Kritisch", hint: "Führt zu dauernder Behinderung oder lebensbedrohlicher Schädigung" },
+  { min: 9, max: 10, label: "Katastrophal", hint: "Führt zum Ableben des Patienten" },
+];
+
+// Spalte „Folgen" = Wahrscheinlichkeit der ENTDECKUNG des Fehlers vor Auslieferung an die Anwender
+export const RISK_CONSEQUENCE_BANDS: readonly RiskLevelBand[] = [
+  { min: 1, max: 1, label: "hoch" },
+  { min: 2, max: 3, label: "mäßig" },
+  { min: 4, max: 6, label: "gering" },
+  { min: 7, max: 8, label: "sehr gering" },
+  { min: 9, max: 10, label: "unwahrscheinlich" },
+];
+
+export function riskBandLabel(bands: readonly RiskLevelBand[], value: number): string {
+  return bands.find((b) => value >= b.min && value <= b.max)?.label ?? String(value);
+}

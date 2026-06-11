@@ -36,4 +36,5 @@ export type PermissionAction =
   | "qualityObjectives:list" | "qualityObjectives:manage"
   | "mgmtReview:list" | "mgmtReview:manage" | "mgmtReview:approve"
   | "trainingMatrix:list" | "trainingMatrix:manage"
+  | "risks:list" | "risks:manage"
   | "admin:settings" | "admin:featureFlags";

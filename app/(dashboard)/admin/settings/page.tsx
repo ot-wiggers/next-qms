@@ -44,6 +44,10 @@ const FLAG_LABELS: Record<string, { title: string; description: string }> = {
     title: "Schulungsmatrix",
     description: "Funktionsbasierte Schulungsbedarfe mit Soll-Ist (Kap. 6.2)",
   },
+  RISKS: {
+    title: "Risikoregister",
+    description: "Risiken mit RPZ-Bewertung und CAPA-Verknüpfung (Kap. 7.1)",
+  },
   INCOMING_GOODS: {
     title: "Wareneingang",
     description: "Wareneingangsmodul aktivieren (Phase 4).",
