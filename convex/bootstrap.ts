@@ -66,6 +66,14 @@ export const purgeWalkthroughTestData = internalMutation({
     for (const id of testFnIds) await del("jobFunctions", id);
     for (const id of testTopicIds) await del("trainingTopics", id);
 
+    // --- Test-Risiken (Phase 5) ---
+    const risks = await ctx.db.query("risks").collect();
+    for (const r of risks) {
+      if (r.title.includes("(Test") || r.title.includes("Runtime-Walkthrough")) {
+        await del("risks", r._id);
+      }
+    }
+
     // --- Test-Audits + Checklisten-Antworten + Findings ---
     const audits = await ctx.db.query("audits").collect();
     const testAuditIds = new Set(
