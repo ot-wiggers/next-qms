@@ -30,6 +30,7 @@ import type * as featureFlags from "../featureFlags.js";
 import type * as hmv from "../hmv.js";
 import type * as http from "../http.js";
 import type * as kpis from "../kpis.js";
+import type * as lib_assignees from "../lib/assignees.js";
 import type * as lib_auditLog from "../lib/auditLog.js";
 import type * as lib_notificationHelpers from "../lib/notificationHelpers.js";
 import type * as lib_permissions from "../lib/permissions.js";
@@ -85,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   hmv: typeof hmv;
   http: typeof http;
   kpis: typeof kpis;
+  "lib/assignees": typeof lib_assignees;
   "lib/auditLog": typeof lib_auditLog;
   "lib/notificationHelpers": typeof lib_notificationHelpers;
   "lib/permissions": typeof lib_permissions;
