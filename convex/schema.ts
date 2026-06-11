@@ -912,7 +912,7 @@ export default defineSchema({
   }).index("by_sortOrder", ["sortOrder"]),
 
   trainingTopics: defineTable({
-    cluster: v.string(),                    // "A".."E" (TOPIC_CLUSTERS)
+    cluster: v.string(),                    // "A".."G" (TOPIC_CLUSTERS)
     title: v.string(),
     frequency: v.optional(v.string()),      // "1× initial, Refresher alle 3 Jahre"
     provider: v.optional(v.string()),       // Quelle/Anbieter

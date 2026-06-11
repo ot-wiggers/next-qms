@@ -750,7 +750,8 @@ export default function TrainingMatrixPage() {
                                         await setFulfillment({
                                           functionId: openFunctionId,
                                           topicId: item.topicId,
-                                          fulfilled: true,
+                                          // Datum ändert den Erfüllt-Status NICHT — der gehört der Checkbox
+                                          fulfilled: item.fulfilled ?? false,
                                           validUntil,
                                           note: item.note,
                                         });

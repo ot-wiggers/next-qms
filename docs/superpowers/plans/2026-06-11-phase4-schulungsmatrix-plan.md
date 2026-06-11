@@ -173,3 +173,13 @@ Tabs (shadcn Tabs, wie Login-Seite sie nutzt):
 ## Selbst-Review
 - Funktionsbasiert ✓ (eigene jobFunctions, nicht User-Rollen), Legende + Ampel exakt nach Original ✓, Ist-Pflege manuell wie Original (Spalte E) ✓, Nachfolge-Blatt als Felder ✓, Plan-Generator als Query + Übergabe ins bestehende Trainings-Modul ✓, KPI fürs Q-Ziel ✓, Seed mit unabhängigem Daten-Review (Phase-3-Lektion) ✓. Bewusst nicht: personenscharfe Automatik, Freigabe-Workflow, Notifications, eigene Plan-Tabelle.
 - Konsistenz: REQUIRED_DEEP/REQUIRED_BASIC/… nur in enums + schema + Modul; keine Status-Workflows → keine State-Machine; `validUntil`-Ablauf zählt als unerfüllt (dokumentiert).
+
+---
+
+## Übergabe — Stand 2026-06-11, Implementierung abgeschlossen
+
+Schema, Funktionen und Seed sind LIVE (9 Funktionen / 27 Themen in **7 Clustern A–G** — das reale Blatt hat zwei mehr als das Deckblatt nannte / 195 Einstufungen / 8 Nachfolge-Zeilen). Zwei unabhängige Daten-Reviews fingen: Cluster F+G, Soft-Hyphen-Zeichen in Namen, und 2 still verlorene Nachfolge-Zeilen (inkl. der audit-relevanten PRRC-Zeile „vor Audit Juli 2026") — alles korrigiert und re-geseedet; die Pflicht-Zählungen stimmen exakt mit Spalte D des Originals (12/19/18/20/17/16/12/9/12). Flag `TRAINING_MATRIX` ist bereits aktiv.
+
+**Nutzer-Schritte:** Walkthrough gemäß Final-Review-Checkliste — 9 Karten mit Besetzungs-Badges, Ist-Pflege per Checkbox (Erfüllungsgrad startet bei 0 %, da das Original nur Zählwerte führt — die Per-Thema-Zuordnung ist deine Erstpflege), Matrix-Grid mit Level-Editor, Plan-Entwurf (135 Pflicht-Zeilen) → „Training anlegen" erzeugt Trainings im bestehenden Modul. Gegentests: irrelevantes Thema → Fehler; auditor kann nicht editieren; abgelaufenes „Gültig bis" senkt den Erfüllungsgrad und bringt die Zeile in den Plan-Entwurf zurück. **Achtung:** `trainingMatrix:seedReset` löscht auch manuell gepflegte Ist-Stände — nach Beginn der Pflege nicht mehr ausführen.
+
+**Folgepunkte:** Fulfillment-Detail könnte später Wiederholungs-Automatik aus der Frequenz ableiten (Phase 7); Matrix-Freigabe-Workflow (ENTWURF-Status) bewusst außerhalb der App.
