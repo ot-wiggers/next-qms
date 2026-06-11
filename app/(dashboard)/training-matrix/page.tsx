@@ -32,6 +32,7 @@ import {
   REQUIREMENT_LEVEL_LABELS,
   REQUIREMENT_LEVELS,
   MANDATORY_LEVELS,
+  STAFFING_STATUSES,
   STAFFING_STATUS_LABELS,
   TOPIC_CLUSTERS,
   type RequirementLevel,
@@ -192,6 +193,8 @@ export default function TrainingMatrixPage() {
   const updateFunction = useMutation(api.trainingMatrix.updateFunction);
   const setRequirement = useMutation(api.trainingMatrix.setRequirement);
   const createTraining = useMutation(api.trainings.create);
+  const createFunction = useMutation(api.trainingMatrix.createFunction);
+  const createTopic = useMutation(api.trainingMatrix.createTopic);
 
   // ---- Details dialog (Soll-Ist) ----
   const [detailOpen, setDetailOpen] = useState(false);
@@ -296,6 +299,81 @@ export default function TrainingMatrixPage() {
     }
   }
 
+  // ---- Neue Funktion anlegen ----
+  const [newFnOpen, setNewFnOpen] = useState(false);
+  const [newFnName, setNewFnName] = useState("");
+  const [newFnHolder, setNewFnHolder] = useState("");
+  const [newFnStatus, setNewFnStatus] = useState<StaffingStatus>("FILLED");
+  const [savingNewFn, setSavingNewFn] = useState(false);
+
+  function openNewFunction() {
+    setNewFnName("");
+    setNewFnHolder("");
+    setNewFnStatus("FILLED");
+    setNewFnOpen(true);
+  }
+
+  async function handleCreateFunction() {
+    if (savingNewFn) return;
+    if (!newFnName.trim()) {
+      toast.error("Name ist erforderlich");
+      return;
+    }
+    setSavingNewFn(true);
+    try {
+      await createFunction({
+        name: newFnName,
+        holder: newFnHolder.trim() || undefined,
+        staffingStatus: newFnStatus,
+      });
+      toast.success("Funktion angelegt");
+      setNewFnOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Fehler beim Anlegen");
+    } finally {
+      setSavingNewFn(false);
+    }
+  }
+
+  // ---- Neues Thema anlegen ----
+  const [newTopicOpen, setNewTopicOpen] = useState(false);
+  const [newTopicCluster, setNewTopicCluster] = useState<string>("A");
+  const [newTopicTitle, setNewTopicTitle] = useState("");
+  const [newTopicFrequency, setNewTopicFrequency] = useState("");
+  const [newTopicProvider, setNewTopicProvider] = useState("");
+  const [savingNewTopic, setSavingNewTopic] = useState(false);
+
+  function openNewTopic() {
+    setNewTopicCluster("A");
+    setNewTopicTitle("");
+    setNewTopicFrequency("");
+    setNewTopicProvider("");
+    setNewTopicOpen(true);
+  }
+
+  async function handleCreateTopic() {
+    if (savingNewTopic) return;
+    if (!newTopicTitle.trim()) {
+      toast.error("Titel ist erforderlich");
+      return;
+    }
+    setSavingNewTopic(true);
+    try {
+      await createTopic({
+        cluster: newTopicCluster,
+        title: newTopicTitle,
+        frequency: newTopicFrequency.trim() || undefined,
+        provider: newTopicProvider.trim() || undefined,
+      });
+      toast.success("Thema angelegt");
+      setNewTopicOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Fehler beim Anlegen");
+    } finally {
+      setSavingNewTopic(false);
+    }
+  }
+
   // ---- Plan-Entwurf: in-flight Set for double-click protection ----
   const [creatingTrainings, setCreatingTrainings] = useState<Set<string>>(new Set());
 
@@ -352,6 +430,13 @@ export default function TrainingMatrixPage() {
             Tab 1: Soll-Ist
         ====================================================== */}
         <TabsContent value="soll-ist">
+          {canManage && (
+            <div className="mt-4 flex justify-end">
+              <Button size="sm" onClick={openNewFunction}>
+                + Funktion hinzufügen
+              </Button>
+            </div>
+          )}
           {overview === undefined ? (
             <div className="p-8 text-muted-foreground">Lade…</div>
           ) : overview.length === 0 ? (
@@ -417,6 +502,20 @@ export default function TrainingMatrixPage() {
             Tab 2: Matrix Grid
         ====================================================== */}
         <TabsContent value="matrix">
+          <div className="mt-4 flex items-center justify-between gap-2">
+            {canManage ? (
+              <p className="text-xs text-muted-foreground">
+                Zelle anklicken, um die Einstufung zu bearbeiten.
+              </p>
+            ) : (
+              <span />
+            )}
+            {canManage && (
+              <Button size="sm" onClick={openNewTopic}>
+                + Thema hinzufügen
+              </Button>
+            )}
+          </div>
           {matrixData === undefined ? (
             <div className="p-8 text-muted-foreground">Lade…</div>
           ) : (
@@ -957,6 +1056,126 @@ export default function TrainingMatrixPage() {
                 Abbrechen
               </Button>
               <Button onClick={handleCellSave}>Speichern</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================
+          Neue Funktion anlegen
+      ============================================================ */}
+      <Dialog open={newFnOpen} onOpenChange={setNewFnOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Neue Funktion anlegen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="newfn-name">Funktionsbezeichnung</Label>
+              <Input
+                id="newfn-name"
+                value={newFnName}
+                onChange={(e) => setNewFnName(e.target.value)}
+                placeholder="z. B. Hygienebeauftragte/r"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newfn-holder">Stelleninhaber/in (optional)</Label>
+              <Input
+                id="newfn-holder"
+                value={newFnHolder}
+                onChange={(e) => setNewFnHolder(e.target.value)}
+                placeholder="Name oder Verweis"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newfn-status">Besetzungsstatus</Label>
+              <Select
+                value={newFnStatus}
+                onValueChange={(v) => setNewFnStatus(v as StaffingStatus)}
+              >
+                <SelectTrigger id="newfn-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAFFING_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STAFFING_STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setNewFnOpen(false)}>
+                Abbrechen
+              </Button>
+              <Button onClick={handleCreateFunction} disabled={savingNewFn}>
+                Anlegen
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================
+          Neues Thema anlegen
+      ============================================================ */}
+      <Dialog open={newTopicOpen} onOpenChange={setNewTopicOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Neues Schulungsthema anlegen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="newtopic-cluster">Cluster</Label>
+              <Select value={newTopicCluster} onValueChange={setNewTopicCluster}>
+                <SelectTrigger id="newtopic-cluster">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TOPIC_CLUSTERS.map((c) => (
+                    <SelectItem key={c.key} value={c.key}>
+                      {c.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="newtopic-title">Titel</Label>
+              <Input
+                id="newtopic-title"
+                value={newTopicTitle}
+                onChange={(e) => setNewTopicTitle(e.target.value)}
+                placeholder="z. B. Aufbereitung von Medizinprodukten"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newtopic-frequency">Frequenz (optional)</Label>
+              <Input
+                id="newtopic-frequency"
+                value={newTopicFrequency}
+                onChange={(e) => setNewTopicFrequency(e.target.value)}
+                placeholder="z. B. jährlich"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newtopic-provider">Quelle/Anbieter (optional)</Label>
+              <Input
+                id="newtopic-provider"
+                value={newTopicProvider}
+                onChange={(e) => setNewTopicProvider(e.target.value)}
+                placeholder="z. B. intern, TÜV, Hersteller"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setNewTopicOpen(false)}>
+                Abbrechen
+              </Button>
+              <Button onClick={handleCreateTopic} disabled={savingNewTopic}>
+                Anlegen
+              </Button>
             </div>
           </div>
         </DialogContent>
