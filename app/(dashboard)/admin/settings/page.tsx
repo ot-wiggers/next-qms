@@ -48,6 +48,10 @@ const FLAG_LABELS: Record<string, { title: string; description: string }> = {
     title: "Risikoregister",
     description: "Risiken mit RPZ-Bewertung und CAPA-Verknüpfung (Kap. 7.1)",
   },
+  PMS_REPORTS: {
+    title: "PMS-Bericht",
+    description: "Bericht zur Überwachung nach dem Inverkehrbringen gemäß MDR Art. 85 (Kap. 7.1)",
+  },
   INCOMING_GOODS: {
     title: "Wareneingang",
     description: "Wareneingangsmodul aktivieren (Phase 4).",

@@ -37,4 +37,5 @@ export type PermissionAction =
   | "mgmtReview:list" | "mgmtReview:manage" | "mgmtReview:approve"
   | "trainingMatrix:list" | "trainingMatrix:manage"
   | "risks:list" | "risks:manage"
+  | "pmsReports:list" | "pmsReports:manage" | "pmsReports:approve"
   | "admin:settings" | "admin:featureFlags";

@@ -613,3 +613,29 @@ export const RISK_CONSEQUENCE_BANDS: readonly RiskLevelBand[] = [
 export function riskBandLabel(bands: readonly RiskLevelBand[], value: number): string {
   return bands.find((b) => value >= b.min && value <= b.max)?.label ?? String(value);
 }
+
+// ============================================================
+// PMS-Bericht (MDR Art. 85, FB „7 1") — Phase 6
+// ============================================================
+// Die 8 festen Abschnitte des realen Berichts (Rev. 1, Stand 01.2026)
+export const PMS_SECTIONS = [
+  { key: "goal", title: "1. Ziel des PMS" },
+  { key: "dataSources", title: "2. Datenquellen und Methodik" },
+  { key: "metrics", title: "3. Kennzahlen und Auswertung" },
+  { key: "riskAssessment", title: "4. Risikobewertung" },
+  { key: "capa", title: "5. CAPA" },
+  { key: "pmsSystemAssessment", title: "6. Bewertung des PMS-Systems" },
+  { key: "conclusion", title: "7. Schlussfolgerung" },
+  { key: "recommendations", title: "8. Empfehlungen" },
+] as const;
+export type PmsSectionKey = (typeof PMS_SECTIONS)[number]["key"];
+
+export const PMS_DEFAULT_PRODUCT_GROUP =
+  "Sonderanfertigungen der Klasse I (Orthesen, Einlagen, Prothesen, Maßschuhe etc.)";
+
+// Vorlagen-Texte für neue Entwürfe (aus dem realen Bericht; editierbar)
+export const PMS_TEMPLATE_TEXTS: Partial<Record<PmsSectionKey, string>> = {
+  goal: "Sicherstellung der Sicherheit, Leistungsfähigkeit und frühzeitigen Erkennung von Risiken.",
+  dataSources:
+    "– Reklamationen (OTWin)\n– Interne Fehler (Kunden-, Lieferanten-, interne Fehler - OTWin)\n– Klinische Nachbeobachtung (MPG-Wiedervorlage)\n– Qualitätsziele und Managementbewertung",
+};
