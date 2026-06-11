@@ -32,6 +32,10 @@ export const TASK_TYPES = [
   "DOCUMENT_REVIEW_DUE",
   "GENERAL",
   "FOLLOW_UP",
+  "AUDIT_PLAN_DUE",
+  "CAPA_EFFECTIVENESS_DUE",
+  "RISK_REVIEW_DUE",
+  "YEAR_CYCLE",
 ] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
 
@@ -163,6 +167,10 @@ export const NOTIFICATION_TYPES = [
   "CAPA_ASSIGNED",
   "CAPA_MEASURE_ASSIGNED",
   "COMPLAINT_ASSIGNED",
+  "AUDIT_PLAN_DUE",
+  "CAPA_EFFECTIVENESS_DUE",
+  "RISK_REVIEW_DUE",
+  "ANNUAL_REPORT_DUE",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -186,6 +194,10 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   CAPA_ASSIGNED: "CAPA zugewiesen",
   CAPA_MEASURE_ASSIGNED: "CAPA-Maßnahme zugewiesen",
   COMPLAINT_ASSIGNED: "Reklamation zugewiesen",
+  AUDIT_PLAN_DUE: "Auditplan: Audit fällig",
+  CAPA_EFFECTIVENESS_DUE: "CAPA-Wirksamkeitsprüfung fällig",
+  RISK_REVIEW_DUE: "Risiko-Neubewertung fällig",
+  ANNUAL_REPORT_DUE: "Jahresbericht fällig",
 };
 
 // Review statuses
@@ -639,3 +651,8 @@ export const PMS_TEMPLATE_TEXTS: Partial<Record<PmsSectionKey, string>> = {
   dataSources:
     "– Reklamationen (OTWin)\n– Interne Fehler (Kunden-, Lieferanten-, interne Fehler - OTWin)\n– Klinische Nachbeobachtung (MPG-Wiedervorlage)\n– Qualitätsziele und Managementbewertung",
 };
+
+// ============================================================
+// Auditplan-Jahresmatrix (FB 8.2.4) — Phase 7
+// ============================================================
+export const MONTH_LABELS_SHORT = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"] as const;

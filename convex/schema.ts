@@ -42,7 +42,11 @@ const taskType = v.union(
   v.literal("TRAINING_REQUEST_REVIEW"),
   v.literal("DOCUMENT_REVIEW_DUE"),
   v.literal("GENERAL"),
-  v.literal("FOLLOW_UP")
+  v.literal("FOLLOW_UP"),
+  v.literal("AUDIT_PLAN_DUE"),         // Phase 7: geplantes Audit nicht durchgeführt
+  v.literal("CAPA_EFFECTIVENESS_DUE"), // Phase 7: Wirksamkeitsprüfung fällig
+  v.literal("RISK_REVIEW_DUE"),        // Phase 7: Risiko-Neubewertung fällig
+  v.literal("YEAR_CYCLE")             // Phase 7: Jahreswechsel-Erinnerungen
 );
 
 const taskStatus = v.union(
@@ -725,6 +729,9 @@ export default defineSchema({
     location: v.optional(v.string()),
     reportingPeriod: v.optional(v.string()),
     plannedFor: v.optional(v.string()),  // z.B. "05/2026"
+    area: v.optional(v.string()),                   // Auditplan-Thema (FB 8.2.4): "Reha / Rollstuhl"
+    plannedMonths: v.optional(v.array(v.number())), // SOLL-Monate 1–12 laut Auditplan
+    affectedAreas: v.optional(v.string()),          // "betroffene Bereiche" (FB 8.2.4)
     auditDate: v.optional(v.number()),
     templateId: v.optional(v.id("auditChecklistTemplates")),
     templateVersion: v.optional(v.number()),

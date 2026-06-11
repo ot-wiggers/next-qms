@@ -126,6 +126,10 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   DOCUMENT_REVIEW_DUE: "Dokumentenprüfung fällig",
   GENERAL: "Allgemein",
   FOLLOW_UP: "Folgemaßnahme",
+  AUDIT_PLAN_DUE: "Auditplan-Fälligkeit",
+  CAPA_EFFECTIVENESS_DUE: "CAPA-Wirksamkeit",
+  RISK_REVIEW_DUE: "Risiko-Neubewertung",
+  YEAR_CYCLE: "Jahreswechsel",
 };
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
