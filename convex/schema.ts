@@ -939,6 +939,33 @@ export default defineSchema({
   }).index("by_function", ["functionId"]),
 
   // ============================================================
+  // PHASE 5 (QM-Jahreszyklus): Risikoregister (7.1)
+  // ============================================================
+
+  risks: defineTable({
+    riskNumber: v.string(),               // "RS-01" — globaler Nummernkreis ohne Jahr (FB 7.1.0 führt kein Jahr)
+    seq: v.number(),
+    title: v.string(),                    // Spalte „Risiko"
+    measures: v.optional(v.string()),     // „Maßnahmen der Minimierung / Kontrolle" (Freitext wie im FB)
+    responsible: v.optional(v.string()),  // Freitext wie im FB ("GF / MA", "BDL / IT")
+    // RPZ-Faktoren NACH Maßnahme (aktueller Stand) — RPZ wird NIE gespeichert, immer berechnet
+    occurrenceProbability: v.number(),    // Auftretenswahrscheinlichkeit 1–10
+    severity: v.number(),                 // Schweregrad 1–10
+    consequences: v.number(),             // „Folgen" 1–10 (= Entdeckungswahrscheinlichkeit vor Auslieferung)
+    // Optionale Faktoren VOR Maßnahme (App-Mehrwert; Original führt nur Nach-Werte)
+    initialOccurrenceProbability: v.optional(v.number()),
+    initialSeverity: v.optional(v.number()),
+    initialConsequences: v.optional(v.number()),
+    capaIds: v.optional(v.array(v.id("capas"))),  // Maßnahmen-Links auf CAPAs
+    addedInRevision: v.optional(v.number()),      // 1 = blau markiert (neu in Rev. 1, 04.2026)
+    sourceNote: v.optional(v.string()),           // Herkunft (z.B. "Q-Ziele-Quartalsauswertungen 2025")
+    nextReviewAt: v.optional(v.number()),         // jährliche Neubewertung
+    ...auditFields,
+  })
+    .index("by_number", ["riskNumber"])
+    .index("by_seq", ["seq"]),
+
+  // ============================================================
   // AUSBLICK: Platzhalter (Wareneingang, Prüfmittel)
   // ============================================================
 
