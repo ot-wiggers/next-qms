@@ -30,14 +30,6 @@ export function buildPmsReportPdf(data: PmsReportData): jsPDF {
     if (y + needed > 277) { doc.addPage(); y = MARGIN; }
   }
 
-  function heading(text: string) {
-    ensureSpace(14);
-    doc.setFont("helvetica", "bold").setFontSize(12);
-    doc.text(text, MARGIN, y);
-    y += 7;
-    doc.setFont("helvetica", "normal").setFontSize(10);
-  }
-
   function prose(text: string) {
     const lines = doc.splitTextToSize(text, CONTENT_WIDTH);
     for (const line of lines) {
@@ -90,7 +82,11 @@ export function buildPmsReportPdf(data: PmsReportData): jsPDF {
   y += 8;
 
   // ── Allgemeine Angaben ───────────────────────────────────────────────────
-  heading("1. Allgemeine Angaben");
+  ensureSpace(10);
+  doc.setFont("helvetica", "bold").setFontSize(10);
+  doc.text("Allgemeine Angaben", MARGIN, y);
+  y += 6;
+  doc.setFont("helvetica", "normal").setFontSize(10);
   metaRow("Berichtszeitraum", data.reportingPeriod);
   metaRow("Produktgruppe", data.productGroup);
   if (data.organizationName) {
@@ -102,10 +98,9 @@ export function buildPmsReportPdf(data: PmsReportData): jsPDF {
     const section = data.sections[i];
     ensureSpace(20);
 
-    // Nummerierte Überschrift (ab 2, da "1. Allgemeine Angaben" bereits vergeben)
-    const sectionNumber = i + 2;
+    // Titel wird unverändert übernommen – er enthält bereits die Nummerierung (z. B. "1. Ziel des PMS")
     doc.setFont("helvetica", "bold").setFontSize(11);
-    doc.text(`${sectionNumber}. ${section.title}`, MARGIN, y);
+    doc.text(section.title, MARGIN, y);
     y += 6;
     doc.setFont("helvetica", "normal").setFontSize(10);
 
