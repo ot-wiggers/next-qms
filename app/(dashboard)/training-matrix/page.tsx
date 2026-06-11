@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -172,7 +171,6 @@ function emptySuccessionDraft(fn: OverviewItem | FunctionDetail) {
 // ============================================================
 
 export default function TrainingMatrixPage() {
-  const router = useRouter();
   const { can } = usePermissions();
   const canManage = can("trainingMatrix:manage");
   const canCreateTraining = can("trainings:create");
@@ -214,28 +212,29 @@ export default function TrainingMatrixPage() {
   const [successionDraft, setSuccessionDraft] = useState<ReturnType<typeof emptySuccessionDraft> | null>(null);
   const [savingSuccession, setSavingSuccession] = useState(false);
 
-  // Initialise draft when detail loads
-  function initDraftIfNeeded(fn: FunctionDetail) {
-    if (successionDraft === null) {
-      setSuccessionDraft(emptySuccessionDraft(fn));
+  // Initialise draft when detail loads (keyed on detail._id to reset on function switch)
+  useEffect(() => {
+    if (detail && successionDraft === null) {
+      setSuccessionDraft(emptySuccessionDraft(detail as FunctionDetail));
     }
-  }
+  }, [detail?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSaveSuccession() {
     if (!openFunctionId || !successionDraft) return;
     if (savingSuccession) return;
     setSavingSuccession(true);
     try {
+      // Pass raw strings so the server's per-field trim||undefined handles clearing on empty string
       await updateFunction({
         id: openFunctionId,
-        holder: successionDraft.holder || undefined,
-        notes: successionDraft.notes || undefined,
-        successionPath: successionDraft.successionPath || undefined,
-        successionState: successionDraft.successionState || undefined,
-        successionNextSteps: successionDraft.successionNextSteps || undefined,
-        successionResponsible: successionDraft.successionResponsible || undefined,
-        successionDueText: successionDraft.successionDueText || undefined,
-        successionStatus: successionDraft.successionStatus || undefined,
+        holder: successionDraft.holder,
+        notes: successionDraft.notes,
+        successionPath: successionDraft.successionPath,
+        successionState: successionDraft.successionState,
+        successionNextSteps: successionDraft.successionNextSteps,
+        successionResponsible: successionDraft.successionResponsible,
+        successionDueText: successionDraft.successionDueText,
+        successionStatus: successionDraft.successionStatus,
       });
       toast.success("Nachfolge-Daten gespeichert");
     } catch (e) {
@@ -311,9 +310,9 @@ export default function TrainingMatrixPage() {
         description: `Aus Schulungsbedarfsmatrix: ${row.functionName} — Einstufung ${levelLabel}, Frequenz ${row.frequency ?? "—"}`,
         isRequired: true,
         effectivenessCheckAfterDays: 90,
-        category: row.cluster,
+        category: TOPIC_CLUSTERS.find((c) => c.key === row.cluster)?.title ?? row.cluster,
       });
-      toast.success(`Training „${row.topicTitle}" angelegt`);
+      toast.success(`Training „${row.topicTitle}“ angelegt`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Fehler beim Anlegen");
     } finally {
@@ -613,13 +612,7 @@ export default function TrainingMatrixPage() {
                                 {inFlight ? "Anlegen…" : "Training anlegen"}
                               </Button>
                             ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => router.push("/trainings")}
-                              >
-                                Im Schulungsmodul anlegen
-                              </Button>
+                              <span className="text-muted-foreground">—</span>
                             )}
                           </td>
                         </tr>
@@ -654,11 +647,6 @@ export default function TrainingMatrixPage() {
           ) : (
             <>
               {/* ---- Themen-Liste ---- */}
-              {(() => {
-                initDraftIfNeeded(detail as FunctionDetail);
-                return null;
-              })()}
-
               <div className="space-y-1">
                 <h3 className="text-sm font-semibold mb-2">Schulungsthemen</h3>
                 {detail.items.length === 0 ? (
@@ -688,10 +676,13 @@ export default function TrainingMatrixPage() {
                                 onCheckedChange={async (checked) => {
                                   if (!openFunctionId) return;
                                   try {
+                                    // Preserve validUntil and note to avoid data loss on toggle
                                     await setFulfillment({
                                       functionId: openFunctionId,
                                       topicId: item.topicId,
                                       fulfilled: !!checked,
+                                      validUntil: item.validUntil,
+                                      note: item.note,
                                     });
                                     toast.success(
                                       checked ? "Als erfüllt markiert" : "Als nicht erfüllt markiert",
@@ -751,6 +742,7 @@ export default function TrainingMatrixPage() {
                                     onChange={async (e) => {
                                       if (!openFunctionId) return;
                                       const val = e.target.value;
+                                      // Clearing the date intentionally removes validUntil; note is always preserved
                                       const validUntil = val
                                         ? new Date(val).getTime()
                                         : undefined;
@@ -760,6 +752,7 @@ export default function TrainingMatrixPage() {
                                           topicId: item.topicId,
                                           fulfilled: true,
                                           validUntil,
+                                          note: item.note,
                                         });
                                         toast.success("Gültigkeitsdatum gespeichert");
                                       } catch (e) {
