@@ -26,6 +26,7 @@ import {
   Menu,
   Target,
   FileCheck,
+  Grid3x3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Dokumenten-Graph", href: "/documents/graph", icon: GitBranch, permission: "documents:read" },
       { label: "Schulungen", href: "/trainings", icon: GraduationCap, permission: "trainings:list" },
       { label: "Schulungsanträge", href: "/training-requests", icon: MessageSquarePlus },
+      { label: "Schulungsmatrix", href: "/training-matrix", icon: Grid3x3, permission: "trainingMatrix:list", featureFlag: "TRAINING_MATRIX" },
       { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS", permission: "audits:list" },
       { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA", permission: "capa:list" },
       { label: "Reklamationen", href: "/complaints", icon: MessageSquarePlus, permission: "complaints:list", featureFlag: "COMPLAINTS" },
