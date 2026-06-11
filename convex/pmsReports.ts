@@ -204,7 +204,7 @@ export const getById = query({
   handler: async (ctx, args) => {
     await requirePermission(ctx, "pmsReports:list");
     const report = await ctx.db.get(args.id);
-    if (!report) throw new Error("PMS-Bericht nicht gefunden");
+    if (!report) return null;
     return report;
   },
 });

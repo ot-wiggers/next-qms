@@ -98,9 +98,9 @@ export default function PmsReportDetailPage() {
   const [approving, setApproving] = useState(false);
 
   // ── Loading guard (Hooks müssen darüber stehen) ───────────────────────────
-  // getById WIRFT bei unbekannter id (kein null-Fall wie bei managementReviews):
-  // der Fehler landet im Convex-Error-Boundary, hier reicht der undefined-Guard.
+  // undefined = Convex lädt noch; null = Dokument nicht (mehr) vorhanden.
   if (report === undefined) return <div className="p-8 text-muted-foreground">Lade…</div>;
+  if (report === null) return <div className="p-8">PMS-Bericht nicht gefunden.</div>;
 
   const isDraft = report.status === "DRAFT";
   const canManage = can("pmsReports:manage");
