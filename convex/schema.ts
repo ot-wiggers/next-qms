@@ -100,6 +100,15 @@ const objectiveStatusEnum = v.union(
 );
 const mgmtReviewStatus = v.union(v.literal("DRAFT"), v.literal("APPROVED"));
 
+const requirementLevel = v.union(
+  v.literal("REQUIRED_DEEP"), v.literal("REQUIRED_BASIC"),
+  v.literal("RECOMMENDED"), v.literal("ON_DEMAND")
+);
+const staffingStatus = v.union(
+  v.literal("FILLED"), v.literal("INTERNAL_DEVELOP"),
+  v.literal("EXTERNAL_HIRE"), v.literal("IN_CLARIFICATION")
+);
+
 const documentType = v.union(
   v.literal("qm_handbook"),
   v.literal("work_instruction"),
@@ -883,8 +892,54 @@ export default defineSchema({
     ...auditFields,
   }).index("by_year", ["year"]),
 
+  // === PHASE 4 (QM-Jahreszyklus): Schulungsbedarfsmatrix (6.2) ===
+
+  jobFunctions: defineTable({
+    name: v.string(),                       // "Verwaltungsleiter / QMB"
+    holder: v.optional(v.string()),         // Stelleninhaber/-in (Freitext wie im Blatt)
+    staffingStatus: staffingStatus,
+    userId: v.optional(v.id("users")),      // optionale Verknüpfung zum App-Nutzer
+    sortOrder: v.number(),
+    notes: v.optional(v.string()),
+    // Nachfolge & Besetzung (Blatt 4) — Felder je Funktion
+    successionPath: v.optional(v.string()),     // Besetzungsweg
+    successionState: v.optional(v.string()),    // Aktueller Stand
+    successionNextSteps: v.optional(v.string()),// Konkrete nächste Schritte
+    successionResponsible: v.optional(v.string()),
+    successionDueText: v.optional(v.string()),  // "Q4 2026", Datum als Freitext wie im Blatt
+    successionStatus: v.optional(v.string()),   // Freitext wie im Blatt
+    ...auditFields,
+  }).index("by_sortOrder", ["sortOrder"]),
+
+  trainingTopics: defineTable({
+    cluster: v.string(),                    // "A".."E" (TOPIC_CLUSTERS)
+    title: v.string(),
+    frequency: v.optional(v.string()),      // "1× initial, Refresher alle 3 Jahre"
+    provider: v.optional(v.string()),       // Quelle/Anbieter
+    sortOrder: v.number(),
+    ...auditFields,
+  }).index("by_cluster", ["cluster"]),
+
+  trainingRequirements: defineTable({
+    functionId: v.id("jobFunctions"),
+    topicId: v.id("trainingTopics"),
+    level: requirementLevel,                // kein Eintrag = "—" nicht relevant
+    ...auditFields,
+  })
+    .index("by_function", ["functionId"])
+    .index("by_topic", ["topicId"]),
+
+  trainingFulfillments: defineTable({
+    functionId: v.id("jobFunctions"),
+    topicId: v.id("trainingTopics"),
+    fulfilled: v.boolean(),
+    validUntil: v.optional(v.number()),     // Wiederholungstermin, optional
+    note: v.optional(v.string()),
+    ...auditFields,
+  }).index("by_function", ["functionId"]),
+
   // ============================================================
-  // PHASE 4: Placeholders (IN PLANUNG)
+  // AUSBLICK: Platzhalter (Wareneingang, Prüfmittel)
   // ============================================================
 
   // Organization-specific settings (branding, logo, etc.)
