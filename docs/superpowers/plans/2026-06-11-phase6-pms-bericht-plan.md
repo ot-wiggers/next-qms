@@ -189,3 +189,15 @@ Kein Extraktionsskript nötig (der Bericht ist eine Seite; Ground Truth steht ob
 - Risiko-Verknüpfung als Phase-5-Mehrwert (riskAssessment-autoData) ✅
 - Seed des realen 2025-Berichts mit Daten-Review ✅ (Task 6)
 - Typ-Konsistenz: PmsSectionKey-Strings identisch in enums (T1), Schema-Kommentar (T2), Modul-Spiegel (T3), Exporter-Titel-Lookup (T4), UI (T5), Seed (T6) ✅
+
+---
+
+## Übergabe — Stand 2026-06-11, Implementierung abgeschlossen
+
+Modul, UI, Exporter und Seed sind LIVE: Der reale 2025-Bericht (Rev. 1, Stand 01.2026) steht als freigegebener Datensatz in der App — alle 8 Abschnittstexte byte-exakt zum PDF (unabhängiger Daten-Review: null Korrekturen; Bullet-Konvention „o "→„– " dokumentiert). Die autoData-Snapshots sind bewusst EHRLICH: Sie zeigen den App-Datenstand (für 2025: „Keine Reklamationen … in der App erfasst") und duplizieren keine PDF-Zahlen — die „22/Jahr" stehen nur im Prosa-Text des Originals. Flag `PMS_REPORTS` ist aktiviert. Die Managementbewertung verweist in Abschnitt 2.3 jetzt auf das echte PMS-Modul (statt „Modul folgt in Phase 6").
+
+**Runtime-Walkthrough (bestanden):** 2025-Bericht read-only mit Externes-Dokument-Hinweis; 2099-Testbericht voller Lifecycle — Anlegen mit ehrlichen Cross-Modul-autoData (Risikoregister: 22 Risiken/max RPZ 90 RS-04/9 neu; CAPAs ehrlich leer), Template-Texte, Abschnitt speichern, PDF einfrieren, Inhaltsänderung invalidiert das eingefrorene PDF (Warnung + Freigeben wieder gesperrt), erneut einfrieren, Freigeben → read-only; Gegentests: Freigeben vor Einfrieren disabled („Erst PDF einfrieren"), auditor liest ohne Anlegen-Button; Regressions-Smoke mgmt-review/risks/complaints/q-ziele fehlerfrei. Testdaten gepurged (nur der 2025-Bericht verbleibt).
+
+**Nutzer-Schritte:** Sichtprüfung des 2025-Berichts; den 2026-Bericht legt man Anfang 2027 über „+ Bericht anlegen" an (Default-Jahr = Vorjahr) — Fälligkeits-Erinnerung kommt mit Phase 7. **Hinweise:** `pmsReports:seedReset` löscht alle Berichte — nach produktiver Nutzung nicht mehr ausführen. Beim Walkthrough-Testbericht eingefrorene PDF-Dateien bleiben als verwaiste Storage-Objekte zurück (winzig, unkritisch — Convex-Storage-Aufräumen ggf. in Phase 7).
+
+**Folgepunkte (Phase 7):** Fälligkeits-Cron für den Jahres-PMS-Bericht; CANCELLED-CAPAs zählen in der PMS-capa-autoData als „offen" (Mgmt-Review schließt sie aus — Zählweise angleichen); Exporter zeigt Berichtszeitraum/Produktgruppe doppelt (kosmetisch).
