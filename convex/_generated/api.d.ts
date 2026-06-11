@@ -43,6 +43,7 @@ import type * as organizations from "../organizations.js";
 import type * as placeholders_devices from "../placeholders/devices.js";
 import type * as placeholders_incomingGoods from "../placeholders/incomingGoods.js";
 import type * as placeholders_reports from "../placeholders/reports.js";
+import type * as pmsReports from "../pmsReports.js";
 import type * as products from "../products.js";
 import type * as qualityObjectives from "../qualityObjectives.js";
 import type * as risks from "../risks.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   "placeholders/devices": typeof placeholders_devices;
   "placeholders/incomingGoods": typeof placeholders_incomingGoods;
   "placeholders/reports": typeof placeholders_reports;
+  pmsReports: typeof pmsReports;
   products: typeof products;
   qualityObjectives: typeof qualityObjectives;
   risks: typeof risks;
