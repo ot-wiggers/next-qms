@@ -18,6 +18,7 @@ import {
   Bell,
   ClipboardCheck,
   Factory,
+  FileSearch,
   GitBranch,
   Truck,
   Wrench,
@@ -72,6 +73,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Risikoregister", href: "/risks", icon: ShieldAlert, permission: "risks:list", featureFlag: "RISKS" },
       { label: "Qualitätsziele", href: "/quality-objectives", icon: Target, permission: "qualityObjectives:list", featureFlag: "QUALITY_OBJECTIVES" },
       { label: "Managementbewertung", href: "/management-review", icon: FileCheck, permission: "mgmtReview:list", featureFlag: "MGMT_REVIEW" },
+      { label: "PMS-Bericht", href: "/pms-reports", icon: FileSearch, permission: "pmsReports:list", featureFlag: "PMS_REPORTS" },
     ],
   },
   {
