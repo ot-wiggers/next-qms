@@ -74,6 +74,14 @@ export const purgeWalkthroughTestData = internalMutation({
       }
     }
 
+    // --- Test-PMS-Berichte (Phase 6): Walkthrough nutzt year 2099 ---
+    const pmsReports = await ctx.db.query("pmsReports").collect();
+    for (const p of pmsReports) {
+      if (p.year >= 2090 || p.reportingPeriod.includes("Test")) {
+        await del("pmsReports", p._id);
+      }
+    }
+
     // --- Test-Audits + Checklisten-Antworten + Findings ---
     const audits = await ctx.db.query("audits").collect();
     const testAuditIds = new Set(

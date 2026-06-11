@@ -117,9 +117,16 @@ async function buildAutoData(
     ` · noch offen: ${openComplaints}`;
 
   // ── 2.3 PMS ─────────────────────────────────────────────────
-  // PMS-Modul folgt in Phase 6 — Reklamationskennzahlen sind in 2.2 dokumentiert.
-  const pmsAutoData =
-    "PMS-Bericht: Modul folgt in Phase 6 — Reklamationskennzahlen siehe Abschnitt 2.2";
+  // PMS-Bericht desselben Berichtsjahres aus dem Phase-6-Modul (beide rückblickend auf year)
+  const pmsReport = await ctx.db
+    .query("pmsReports")
+    .withIndex("by_year", (q) => q.eq("year", year))
+    .filter((q) => q.eq(q.field("isArchived"), false))
+    .first();
+  const pmsAutoData = pmsReport
+    ? `PMS-Bericht ${pmsReport.year} (${pmsReport.reportingPeriod}): Rev. ${pmsReport.revision}, ` +
+      `${pmsReport.status === "APPROVED" ? "freigegeben" : "Entwurf"} — Details im Modul PMS-Bericht`
+    : "Kein PMS-Bericht für dieses Jahr in der App erfasst — Reklamationskennzahlen siehe Abschnitt 2.2";
 
   // ── 2.5 CAPA (inkl. Q-Ziele-Jahresstand) ───────────────────
   const openCAPAs = allCapas.filter(
