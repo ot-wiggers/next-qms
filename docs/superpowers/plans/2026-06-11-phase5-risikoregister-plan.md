@@ -249,3 +249,15 @@ Hausidiom: nächster Verwandter ist `app/(dashboard)/quality-objectives/page.tsx
 - „nextReviewAt / jährliche Neubewertung" → Feld + Überfällig-Marker; Cron in Phase 7 ✅
 - Seed 22 Risiken mit Daten-Review ✅ (Task 4)
 - Typ-Konsistenz: occurrenceProbability/severity/consequences durchgängig in Schema (T2), risks.ts (T3), Seed-JSON (T4), UI (T5) ✅
+
+---
+
+## Übergabe — Stand 2026-06-11, Implementierung abgeschlossen
+
+Schema, Modul, UI und Seed sind LIVE: 22 Risiken (RS-01–RS-22) wortgetreu aus FB 7.1.0 Rev. 1, davon 9 mit Rev.-1-Markierung (blauer Punkt) und CAPA-Verknüpfung. Der unabhängige Daten-Review bestätigte erstmals **null Korrekturbedarf** — byte-exakte Maßnahmentexte, alle RPZ-Produkte, Blau-Markierung per XML verifiziert (w:color 003399 exakt auf Zeilen 14–22), alle 9 CAPA-Mappings inhaltlich gegen die Live-Titel geprüft (der +1-Nummern-Shift des docx ist im Import-Skript dokumentiert). Flag `RISKS` ist aktiviert.
+
+**Runtime-Walkthrough (bestanden):** 22 Zeilen mit korrekten RPZ-Stichproben (RS-04=90, RS-06=1, RS-12=80); CAPA-Badge-Klick → CAPA-Detailseite; Anlegen mit Live-RPZ-Vorschau (5×5×5 → 125 „NICHT akzeptabel" rot); Edit auf 2×2×2 mit Vor-Maßnahme-Werten → Badge „125 → 8" grün; Neubewertung gestern → „(überfällig)" rot; CAPA verknüpfen im Dialog; Archivieren mit Confirm; Gegentest auditor: lesen ja, kein Anlegen/Editieren; Regressions-Smoke audits/capa/matrix/q-ziele fehlerfrei. Testdaten via `bootstrap:purgeWalkthroughTestData` entfernt.
+
+**Nutzer-Schritte:** Sichtprüfung des Registers gegen das Original-docx nach eigenem Ermessen; jährliche Neubewertung über „Neubewertung am" pflegen (Erinnerungs-Cron kommt in Phase 7). **Hinweis:** `risks:seedReset` löscht das komplette Register — nach Beginn produktiver Pflege nicht mehr ausführen. Das RISKS-Flag wurde vom (inzwischen gelöschten) Walkthrough-Testnutzer angelegt — funktional ohne Belang.
+
+**Folgepunkte (Phase 7):** PDF-Export des Registers über die gemeinsame Berichts-Strategie; Cron für nextReviewAt-Erinnerungen; Tooltip des Rev.-Punkts dynamisch machen, falls eine Rev. 2 kommt.
