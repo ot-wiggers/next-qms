@@ -31,6 +31,7 @@ import {
   FileCheck,
   Grid3x3,
   ChevronDown,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS", permission: "audits:list" },
       { label: "Auditplan", href: "/audits/plan", icon: CalendarRange, permission: "audits:list", featureFlag: "AUDITS" },
+      { label: "Checklisten-Vorlage", href: "/audits/templates", icon: ListChecks, permission: "audits:manage", featureFlag: "AUDITS" },
       { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA", permission: "capa:list" },
       { label: "Reklamationen", href: "/complaints", icon: MessageSquarePlus, permission: "complaints:list", featureFlag: "COMPLAINTS" },
     ],
