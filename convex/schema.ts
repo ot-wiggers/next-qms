@@ -225,6 +225,8 @@ export default defineSchema({
     type: orgType,
     parentId: v.optional(v.id("organizations")),
     code: v.string(),
+    // Wareneingangs-Erinnerungen (nur type "location"): Empfänger, kommagetrennt
+    reminderEmails: v.optional(v.string()),
     ...auditFields,
   })
     .index("by_parent", ["parentId"])
@@ -1017,12 +1019,86 @@ export default defineSchema({
     ...auditFields,
   }).index("by_organization", ["organizationId"]),
 
-  // TODO: Phase 4 — Wareneingang & Stichproben
+  // Wareneingangsprüfung (MDR Art. 14, AA 7.4.3) — portiert aus der
+  // Eurocom-Checklisten-App; Abschnitte gespiegelt aus deren FormData
   incomingGoodsChecks: defineTable({
-    title: v.optional(v.string()),
-    status: v.literal("PLACEHOLDER"),
+    locationId: v.id("organizations"),       // Filiale (type "location")
+    checkDate: v.number(),                   // Prüfdatum — Basis der Monats-Überwachung
+    inspectorName: v.optional(v.string()),   // Prüfer/in
+    // 1. Stammdaten
+    manufacturer: v.string(),
+    productArea: v.string(),                 // PRODUCT_AREAS
+    deliveryDate: v.optional(v.number()),
+    // 2. Allgemeine Prüfpflichten MDR Art. 14 (undefined = nicht beantwortet)
+    duties: v.object({
+      isMedizinprodukt: v.optional(v.boolean()),
+      hasCeKennzeichnung: v.optional(v.boolean()),
+      hasHerstellerInfos: v.optional(v.boolean()),
+      hasEuKonformitaet: v.optional(v.boolean()),
+      hasUdi: v.optional(v.boolean()),
+      hasLagerungBedingungen: v.optional(v.boolean()),
+      entsprichtMdr: v.optional(v.boolean()),
+      keineGefahr: v.optional(v.boolean()),
+    }),
+    // 3. Kennzeichnung nach Anhang I 23.2 MDR
+    labeling: v.object({
+      produktName: v.optional(v.string()),
+      ceKennzeichnung: v.optional(v.boolean()),
+      herstellerName: v.optional(v.string()),
+      haendlerName: v.optional(v.string()),
+      importeursName: v.optional(v.string()),
+      bevollmaechtigten: v.optional(v.string()),
+    }),
+    // 4. Produktidentifikation
+    identification: v.object({
+      hasRef: v.optional(v.boolean()), ref: v.optional(v.string()),
+      hasLot: v.optional(v.boolean()), lot: v.optional(v.string()),
+      hasSn: v.optional(v.boolean()), sn: v.optional(v.string()),
+      hasUdiTraeger: v.optional(v.boolean()), udiTraeger: v.optional(v.string()),
+      haltbarkeitsdatum: v.optional(v.string()),  // Freitext wie Quelle
+      herstelldatum: v.optional(v.string()),
+    }),
+    // 5. Lagerung/Handhabung + Hinweise
+    storage: v.object({
+      trockenLagern: v.optional(v.boolean()),
+      sonnenlichtSchutz: v.optional(v.boolean()),
+      zerbrechlich: v.optional(v.boolean()),
+      temperaturbegrenzung: v.optional(v.boolean()),
+      luftfeuchte: v.optional(v.boolean()),
+      warnhinweise: v.optional(v.string()),
+      gebrauchshinweise: v.optional(v.string()),
+      patientHinweise: v.optional(v.string()),
+      aufbereitungszyklen: v.optional(v.string()),
+      beschraenkungZyklen: v.optional(v.string()),
+    }),
+    // 6. Sonderanfertigung
+    custom: v.object({
+      isSonderanfertigung: v.optional(v.boolean()),
+      mdKennzeichnung: v.optional(v.boolean()),
+      nurKlinischePruefung: v.optional(v.boolean()),
+      sichereEntsorgung: v.optional(v.string()),
+    }),
+    // 7. Stichproben-Kontrolle → Ergebnis
+    result: v.union(v.literal("PASSED"), v.literal("FAILED")),
+    failureReason: v.optional(v.string()),
+    remarks: v.optional(v.string()),
+    // Nachweise
+    signatureFileId: v.optional(v.id("_storage")),
+    attachmentFileIds: v.optional(v.array(v.id("_storage"))),
     ...auditFields,
-  }),
+  })
+    .index("by_location", ["locationId"])
+    .index("by_checkDate", ["checkDate"]),
+
+  // Versandprotokoll der Monats-Erinnerungen (Dedup pro Filiale/Monat/Tag)
+  incomingGoodsReminders: defineTable({
+    locationId: v.id("organizations"),
+    year: v.number(),
+    month: v.number(),                      // 1–12
+    sentAt: v.number(),
+    recipients: v.string(),
+    ...auditFields,
+  }).index("by_location_month", ["locationId", "year", "month"]),
 
   // TODO: Phase 4 — Prüfmittel/Geräte
   deviceRecords: defineTable({
