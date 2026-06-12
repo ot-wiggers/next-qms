@@ -1,13 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   MDR_DUTY_QUESTIONS, STORAGE_FLAGS, INCOMING_RESULT_LABELS,
@@ -35,6 +40,8 @@ export default function IncomingGoodsDetailPage() {
   const router = useRouter();
   const { can } = usePermissions();
   const check = useQuery(api.incomingGoods.getById, { id: checkId });
+  const archiveCheck = useMutation(api.incomingGoods.archive);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   if (check === undefined) return <div className="p-8 text-muted-foreground">Lade…</div>;
   if (check === null) return <div className="p-8">Prüfung nicht gefunden.</div>;
@@ -66,9 +73,45 @@ export default function IncomingGoodsDetailPage() {
                 Bearbeiten
               </Button>
             )}
+            {can("incomingGoods:manage") && (
+              <Button variant="outline"
+                className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setArchiveOpen(true)}>
+                Archivieren
+              </Button>
+            )}
           </div>
         }
       />
+
+      {/* Archivieren-Bestätigung */}
+      <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Prüfung archivieren?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Die Prüfung vom {formatDate(check.checkDate)} ({check.locationName}) verschwindet
+              aus Liste und Monats-Ampel. Der Datensatz bleibt in der Datenbank erhalten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              try {
+                await archiveCheck({ id: checkId });
+                toast.success("Prüfung archiviert");
+                router.push("/incoming-goods");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Fehler beim Archivieren");
+              } finally {
+                setArchiveOpen(false);
+              }
+            }}>
+              Archivieren
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader><CardTitle>1. Stammdaten</CardTitle></CardHeader>
