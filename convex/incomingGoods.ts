@@ -378,33 +378,48 @@ export const checkMonthlyDue = internalAction({
 
     let sent = 0;
     let skipped = 0;
+    let failed = 0;
     for (const loc of state) {
       if (loc.hasCheck || loc.remindedToday || !loc.recipients) {
         skipped++;
         continue;
       }
-      if (apiKey) {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "QMS <noreply@qms.example.com>",
-            to: loc.recipients.split(",").map((e) => e.trim()).filter(Boolean),
-            subject: `Erinnerung: Wareneingangsprüfung ${monthLabel} — ${loc.name}`,
-            html: buildReminderHtml(loc.name, monthLabel, appUrl),
-          }),
+      // Pro Filiale isoliert: ein Fehler (Netzwerk, Resend) darf die restlichen Filialen nicht blockieren.
+      try {
+        if (apiKey) {
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "QMS <noreply@qms.example.com>",
+              to: loc.recipients.split(",").map((e) => e.trim()).filter(Boolean),
+              subject: `Erinnerung: Wareneingangsprüfung ${monthLabel} — ${loc.name}`,
+              html: buildReminderHtml(loc.name, monthLabel, appUrl),
+            }),
+          });
+          if (!res.ok) {
+            // Kein recordReminder: Versand fehlgeschlagen → Dedup greift nicht, nächster Lauf versucht es erneut.
+            console.error(
+              `Wareneingang-Reminder: Resend-Versand für "${loc.name}" fehlgeschlagen (HTTP ${res.status}): ${await res.text()}`,
+            );
+            failed++;
+            continue;
+          }
+        }
+        await ctx.runMutation(internal.incomingGoods.recordReminder, {
+          locationId: loc.locationId,
+          year, month,
+          recipients: loc.recipients,
         });
+        sent++;
+      } catch (err) {
+        console.error(`Wareneingang-Reminder: Fehler bei Filiale "${loc.name}":`, err);
+        failed++;
       }
-      await ctx.runMutation(internal.incomingGoods.recordReminder, {
-        locationId: loc.locationId,
-        year, month,
-        recipients: loc.recipients,
-      });
-      sent++;
     }
-    return { sent, skipped, emailConfigured: !!apiKey };
+    return { sent, skipped, failed, emailConfigured: !!apiKey };
   },
 });
