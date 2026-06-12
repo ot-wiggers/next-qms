@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
@@ -55,6 +55,13 @@ async function buildAutoData(
   const yearStart = Date.UTC(year, 0, 1);
   const yearEnd = Date.UTC(year + 1, 0, 1);
   const now = Date.now();
+
+  // 2.10 Folgemaßnahmen: Maßnahmenliste der Vorjahres-Bewertung
+  const prevReview = await ctx.db
+    .query("managementReviews")
+    .withIndex("by_year", (q) => q.eq("year", year - 1))
+    .filter((q) => q.eq(q.field("isArchived"), false))
+    .first();
 
   // Volltabellen-Scan ok bei dieser Datenmenge (QMS einer 30-MA-Organisation)
   const [allAudits, allFindings, allComplaints, allCapas, allObjectives, allReadings] =
@@ -209,6 +216,20 @@ async function buildAutoData(
   // ── 2.4 Prozesse / 2.6 Änderungen / 2.7 Ressourcen / 2.8 Risiken ──
   // Rein manuelle Abschnitte — nichts erfinden, autoData bleibt undefined
 
+  // ── 2.10 Folgemaßnahmen aus vorangegangenen Managementbewertungen ──
+  let followupAutoData: string | undefined;
+  if (prevReview && prevReview.measures.length > 0) {
+    const lines = prevReview.measures.map((m) => {
+      const meta = [m.responsible, m.dueText].filter(Boolean).join(", ");
+      return `• ${m.description}${meta ? ` (${meta})` : ""}`;
+    });
+    followupAutoData = `Maßnahmen aus der Managementbewertung ${year - 1}:\n${lines.join("\n")}`;
+  } else if (prevReview) {
+    followupAutoData = `Managementbewertung ${year - 1} ohne erfasste Maßnahmen`;
+  } else {
+    followupAutoData = `Keine Managementbewertung ${year - 1} in der App erfasst`;
+  }
+
   return {
     audits: auditsAutoData,
     complaints: complaintsAutoData,
@@ -218,8 +239,8 @@ async function buildAutoData(
     changes: undefined,
     resources: undefined,
     risks: undefined,
-    regulatory: undefined,
-    followup: undefined,
+    regulatory: undefined,   // rein manueller Abschnitt — nichts erfinden
+    followup: followupAutoData,
   };
 }
 
@@ -237,6 +258,33 @@ function invalidateFrozenReport(
   if (review.reportFileId !== undefined) {
     patch.reportFileId = undefined;
   }
+}
+
+// ============================================================
+// rebuildSections — feste Abschnitte in Enum-Reihenfolge (fehlende werden
+// ergänzt, autoData aufgefrischt, assessments bleiben), eigene Punkte
+// unverändert dahinter. Genutzt von refreshAutoData + Migration.
+// ============================================================
+
+type ReviewSection = Doc<"managementReviews">["sections"][number];
+
+function rebuildSections(
+  sections: ReviewSection[],
+  autoDataByKey: Record<SectionKey, string | undefined>
+): ReviewSection[] {
+  const byKey = new Map(sections.map((s) => [s.key, s]));
+  const fixed: ReviewSection[] = SECTION_KEYS.map((key) => {
+    const existing = byKey.get(key);
+    return {
+      key,
+      title: undefined,
+      custom: undefined,
+      autoData: autoDataByKey[key] ?? existing?.autoData,
+      assessment: existing?.assessment,
+    };
+  });
+  const customs = sections.filter((s) => s.custom === true);
+  return [...fixed, ...customs];
 }
 
 // ============================================================
@@ -311,12 +359,32 @@ export const createDraft = mutation({
     // autoData-Snapshot für alle Abschnitte generieren
     const autoDataByKey = await buildAutoData(ctx, args.year);
 
-    // Sections-Array nach FB-Reihenfolge (2.1–2.8)
-    const sections = SECTION_KEYS.map((key) => ({
-      key,
-      autoData: autoDataByKey[key],
-      assessment: undefined as string | undefined,
-    }));
+    // Sections-Array nach FB-Reihenfolge (2.1–2.10) + eigene Punkte des
+    // Vorjahres (leer übernommen — Beschluss 2026-06-12: Vorjahresübernahme)
+    const prevReview = await ctx.db
+      .query("managementReviews")
+      .withIndex("by_year", (q) => q.eq("year", args.year - 1))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .first();
+    const carriedCustoms = (prevReview?.sections ?? [])
+      .filter((s) => s.custom === true)
+      .map((s) => ({
+        key: s.key,
+        title: s.title,
+        custom: true as const,
+        autoData: undefined as string | undefined,
+        assessment: undefined as string | undefined,
+      }));
+    const sections = [
+      ...SECTION_KEYS.map((key) => ({
+        key,
+        title: undefined as string | undefined,
+        custom: undefined as boolean | undefined,
+        autoData: autoDataByKey[key],
+        assessment: undefined as string | undefined,
+      })),
+      ...carriedCustoms,
+    ];
 
     const now = Date.now();
     const id = await ctx.db.insert("managementReviews", {
@@ -365,12 +433,8 @@ export const refreshAutoData = mutation({
 
     // Read-modify-write — unter Convex OCC (optimistic concurrency control) korrekt:
     // Convex transaktioniert read+write atomar, Konflikte werden automatisch zurückgerollt.
-    // Backfill: vor Enum-Erweiterung angelegte Reviews erhalten fehlende Abschnitte.
-    const updatedSections = backfillMissingSections(review.sections).map((s) => ({
-      ...s,
-      // autoData wird neu gesetzt; assessment bleibt erhalten
-      autoData: autoDataByKey[s.key as SectionKey] ?? s.autoData,
-    }));
+    // rebuildSections ergänzt dabei auch neue feste Abschnitte (2.9/2.10) in Bestandsentwürfen.
+    const updatedSections = rebuildSections(review.sections, autoDataByKey);
 
     const patch: Partial<Doc<"managementReviews">> = {
       sections: updatedSections,
@@ -789,5 +853,47 @@ export const getReportUrl = query({
     const review = await ctx.db.get(args.id);
     if (!review?.reportFileId) return null;
     return await ctx.storage.getUrl(review.reportFileId);
+  },
+});
+
+// ============================================================
+// migrateSectionsToV2 — Einmal-Migration (npx convex run): rüstet
+// Bestands-ENTWÜRFEN die neuen festen Abschnitte 2.9/2.10 nach
+// (inkl. frischem autoData). Freigegebene Bewertungen bleiben
+// unangetastet (eingefrorener Nachweis). Idempotent.
+// ============================================================
+
+export const migrateSectionsToV2 = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const reviews = await ctx.db
+      .query("managementReviews")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    let migrated = 0;
+    for (const review of reviews) {
+      if (review.status !== "DRAFT") continue;
+      const existingKeys = new Set(review.sections.map((s) => s.key));
+      const missing = SECTION_KEYS.filter((k) => !existingKeys.has(k));
+      if (missing.length === 0) continue;
+
+      const autoDataByKey = await buildAutoData(ctx, review.year);
+      const patch: Partial<Doc<"managementReviews">> = {
+        sections: rebuildSections(review.sections, autoDataByKey),
+        updatedAt: Date.now(),
+      };
+      invalidateFrozenReport(review, patch);
+      await ctx.db.patch(review._id, patch);
+
+      await logAuditEvent(ctx, {
+        action: "UPDATE",
+        entityType: "managementReviews",
+        entityId: review._id,
+        metadata: { migration: "sections-v2", added: missing },
+      });
+      migrated++;
+    }
+    return { migrated };
   },
 });
