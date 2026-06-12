@@ -732,6 +732,13 @@ export default defineSchema({
     area: v.optional(v.string()),                   // Auditplan-Thema (FB 8.2.4): "Reha / Rollstuhl"
     plannedMonths: v.optional(v.array(v.number())), // SOLL-Monate 1–12 laut Auditplan
     affectedAreas: v.optional(v.string()),          // "betroffene Bereiche" (FB 8.2.4)
+    // Ein-Audit-Modell (Umbau 2026-06): Das interne Jahres-Audit trägt die
+    // FB-8.2.4-Themen-Zeilen selbst; externe Audits nutzen weiterhin `area`.
+    planThemes: v.optional(v.array(v.object({
+      area: v.string(),                       // "Reha / Rollstuhl"
+      auditTeam: v.optional(v.string()),      // "AL / MA" (Spalte Auditor/en)
+      affectedAreas: v.optional(v.string()),  // "MA der Werkstatt und Außendienst"
+    }))),
     auditDate: v.optional(v.number()),
     templateId: v.optional(v.id("auditChecklistTemplates")),
     templateVersion: v.optional(v.number()),
