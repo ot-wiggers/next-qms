@@ -89,7 +89,7 @@ export default function AuditsPage() {
       toast.error("Ungültiges Jahr");
       return;
     }
-    const area = form.area.trim();
+    const area = form.auditType === "EXTERNAL" ? form.area.trim() : "";
     try {
       const id = await createAudit({
         title: form.title.trim(),
@@ -101,9 +101,7 @@ export default function AuditsPage() {
         plannedFor: form.plannedFor || undefined,
         area: area || undefined,
         affectedAreas: form.affectedAreas.trim() || undefined,
-        plannedMonths: area && form.plannedMonths.length > 0
-          ? form.plannedMonths
-          : undefined,
+        plannedMonths: form.plannedMonths.length > 0 ? form.plannedMonths : undefined,
       });
       handleOpenChange(false);
       toast.success("Audit angelegt — Checkliste wurde eingefroren");
@@ -210,38 +208,38 @@ export default function AuditsPage() {
               </div>
             </div>
             <div>
-              <Label htmlFor="audit-area">Auditplan-Thema (optional)</Label>
-              <Input id="audit-area" value={form.area}
-                onChange={(e) => setForm({ ...form, area: e.target.value })}
-                placeholder="z. B. Wareneingang / Lager" />
+              <Label>Geplante Monate (SOLL)</Label>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {MONTH_LABELS_SHORT.map((label, i) => {
+                  const month = i + 1;
+                  const selected = form.plannedMonths.includes(month);
+                  return (
+                    <Button
+                      key={month}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => toggleMonth(month)}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
-            {form.area.trim() !== "" && (
+            {form.auditType === "EXTERNAL" && (
               <>
                 <div>
-                  <Label>Geplante Monate (SOLL)</Label>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {MONTH_LABELS_SHORT.map((label, i) => {
-                      const month = i + 1;
-                      const selected = form.plannedMonths.includes(month);
-                      return (
-                        <Button
-                          key={month}
-                          type="button"
-                          size="sm"
-                          variant={selected ? "default" : "outline"}
-                          onClick={() => toggleMonth(month)}
-                        >
-                          {label}
-                        </Button>
-                      );
-                    })}
-                  </div>
+                  <Label htmlFor="audit-area">Auditplan-Thema (FB 8.2.4)</Label>
+                  <Input id="audit-area" value={form.area}
+                    onChange={(e) => setForm({ ...form, area: e.target.value })}
+                    placeholder="z. B. Überwachung-Zerti 13485" />
                 </div>
                 <div>
                   <Label htmlFor="audit-affected">Betroffene Bereiche</Label>
                   <Input id="audit-affected" value={form.affectedAreas}
                     onChange={(e) => setForm({ ...form, affectedAreas: e.target.value })}
-                    placeholder="z. B. Lager, Einkauf, Verwaltung" />
+                    placeholder="z. B. Unternehmen" />
                 </div>
               </>
             )}
