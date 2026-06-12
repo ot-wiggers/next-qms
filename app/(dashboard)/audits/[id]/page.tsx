@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -15,6 +15,10 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -51,6 +55,7 @@ const RATING_COLOR: Record<string, string> = {
 export default function AuditDetailPage() {
   const params = useParams<{ id: string }>();
   const auditId = params.id as Id<"audits">;
+  const router = useRouter();
   const { can } = usePermissions();
 
   const audit = useQuery(api.audits.getById, { id: auditId });
@@ -64,6 +69,8 @@ export default function AuditDetailPage() {
   const attachReport = useMutation(api.audits.attachReport);
   const createFinding = useMutation(api.auditFindings.create);
   const createCapaFromFinding = useMutation(api.capas.createFromFinding);
+  const archiveAudit = useMutation(api.audits.archive);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   // IST-Spalte im Auditplan wird aus auditDate abgeleitet — Nachpflege für bereits durchgeführte Audits.
   const [headerDialogOpen, setHeaderDialogOpen] = useState(false);
@@ -225,9 +232,45 @@ export default function AuditDetailPage() {
                 {t.label}
               </Button>
             ))}
+            {canManage && audit.status !== "CLOSED" && (
+              <Button variant="outline" size="sm"
+                className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setArchiveOpen(true)}>
+                Archivieren
+              </Button>
+            )}
           </div>
         }
       />
+
+      {/* Archivieren-Bestätigung */}
+      <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Audit archivieren?</AlertDialogTitle>
+            <AlertDialogDescription>
+              „{audit.title}“ wird archiviert und verschwindet aus Liste und Auditplan-Matrix.
+              Erfasste Antworten und Findings bleiben in der Datenbank erhalten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              try {
+                await archiveAudit({ id: auditId });
+                toast.success("Audit archiviert");
+                router.push("/audits");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Fehler beim Archivieren");
+              } finally {
+                setArchiveOpen(false);
+              }
+            }}>
+              Archivieren
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

@@ -47,7 +47,7 @@ export default function AuditPlanPage() {
     setGenerating(true);
     try {
       const result = await generatePlan({ year });
-      toast.success(`${result.created} Themen-Audits erzeugt`);
+      toast.success(`Auditplan ${year} erzeugt (${result.created} Audit${result.created === 1 ? "" : "s"})`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Fehler beim Erzeugen");
     } finally {
