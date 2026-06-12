@@ -38,4 +38,5 @@ export type PermissionAction =
   | "trainingMatrix:list" | "trainingMatrix:manage"
   | "risks:list" | "risks:manage"
   | "pmsReports:list" | "pmsReports:manage" | "pmsReports:approve"
+  | "incomingGoods:list" | "incomingGoods:record" | "incomingGoods:manage"
   | "admin:settings" | "admin:featureFlags";

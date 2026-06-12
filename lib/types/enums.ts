@@ -659,3 +659,64 @@ export const PMS_TEMPLATE_TEXTS: Partial<Record<PmsSectionKey, string>> = {
 // Auditplan-Jahresmatrix (FB 8.2.4) — Phase 7
 // ============================================================
 export const MONTH_LABELS_SHORT = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"] as const;
+
+// ============================================================
+// Wareneingangsprüfung (MDR Art. 14, AA 7.4.3) — portiert aus der
+// Eurocom-Checklisten-App (wareneingang-app, Stand 11-2020)
+// ============================================================
+
+// Produktbereiche (Hilfsmittelverzeichnis-Gruppen) — exakt wie Quell-App
+export const PRODUCT_AREAS = [
+  "02 - Adaptionshilfen",
+  "04 - Bade- und Duschhilfen",
+  "05 - Bandagen",
+  "08 - Einlagen",
+  "10 - Gehhilfen",
+  "11 - Hilfsmittel gegen Dekubitus",
+  "17 - Kompressionstherapie",
+  "18 - Kranken- / Behindertenfahrzeuge",
+  "19 - Krankenpflegeartikel",
+  "20 - Lagerungshilfen",
+  "21 - Messgeräte",
+  "22 - Mobilitätshilfen",
+  "23 - Orthesen / Schienen",
+  "24 - Beinprothesen",
+  "26 - Sitzhilfen",
+  "28 - Stehhilfen",
+  "31 - Schuhe",
+  "32 - Therapeutische Bewegungsgeräte",
+  "33 - Toilettenhilfen",
+  "38 - Armprothesen",
+  "50 - Pflegehilfsmittel",
+  "99 - Verschiedenes",
+] as const;
+
+// Die 8 Prüfpflichten des Händlers nach Art. 14 MDR — Fragen wörtlich aus der Quell-App
+export const MDR_DUTY_QUESTIONS = [
+  { key: "isMedizinprodukt", question: "Handelt es sich bei dem Produkt um ein Medizinprodukt oder Zubehör?" },
+  { key: "hasCeKennzeichnung", question: "Trägt das Produkt die CE-Kennzeichnung bzw. die Kennzeichnung als Sonderanfertigung?" },
+  { key: "hasHerstellerInfos", question: "Liegen dem Produkt die vom Hersteller gemäß Art. 10 (11) MDR bereitzustellenden Informationen bei (z. B. Gebrauchsanweisung)?" },
+  { key: "hasEuKonformitaet", question: "Wurde eine EU-Konformitätserklärung für das Produkt ausgestellt?" },
+  { key: "hasUdi", question: "Wurde vom Hersteller eine UDI vergeben?" },
+  { key: "hasLagerungBedingungen", question: "Wurden die Lagerungs- und Transportbedingungen vom Hersteller berücksichtigt?" },
+  { key: "entsprichtMdr", question: "Entspricht das Produkt den Anforderungen der MDR?" },
+  { key: "keineGefahr", question: "Stellt das Produkt keine schwerwiegende Gefahr dar?" },
+] as const;
+export type MdrDutyKey = (typeof MDR_DUTY_QUESTIONS)[number]["key"];
+
+// Lagerungs-/Handhabungssymbole — exakt wie Quell-App
+export const STORAGE_FLAGS = [
+  { key: "trockenLagern", label: "Trocken lagern" },
+  { key: "sonnenlichtSchutz", label: "Vor Sonnenlicht schützen" },
+  { key: "zerbrechlich", label: "Zerbrechlich" },
+  { key: "temperaturbegrenzung", label: "Temperaturbegrenzung" },
+  { key: "luftfeuchte", label: "Luftfeuchte, Begrenzung" },
+] as const;
+export type StorageFlagKey = (typeof STORAGE_FLAGS)[number]["key"];
+
+export const INCOMING_RESULTS = ["PASSED", "FAILED"] as const;
+export type IncomingResult = (typeof INCOMING_RESULTS)[number];
+export const INCOMING_RESULT_LABELS: Record<IncomingResult, string> = {
+  PASSED: "Anforderungen erfüllt — Ware freigegeben",
+  FAILED: "Anforderungen nicht erfüllt — Ware gesperrt",
+};
