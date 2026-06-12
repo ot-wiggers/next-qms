@@ -207,8 +207,10 @@ export const yearOpeningTasks = internalMutation({
 /**
  * Auditplan-Generator (Ein-Audit-Modell): erzeugt EIN internes Jahres-Audit
  * mit den Themen-Zeilen (planThemes) des Vorjahres-Audits sowie je eine Kopie
- * der externen Plan-Audits (area gesetzt). Vorschlag, kein Automatismus —
- * der Mensch löst aus und passt danach an.
+ * der externen Plan-Audits (area gesetzt). Altdaten-Themen-Audits des Vorjahres
+ * (Vor-Umbau-Modell: INTERNAL mit `area`, ohne planThemes) werden als
+ * Themen-Zeilen ins neue interne Jahres-Audit übernommen — nicht verworfen.
+ * Vorschlag, kein Automatismus — der Mensch löst aus und passt danach an.
  */
 export const generateAuditPlan = mutation({
   args: { year: v.number() },
@@ -238,10 +240,35 @@ export const generateAuditPlan = mutation({
     const internalSource = previousYearAudits.find(
       (a) => a.auditType === "INTERNAL" && a.planThemes && a.planThemes.length > 0,
     );
+    // Altdaten (Vor-Umbau-Modell): interne Themen-Audits mit `area` statt planThemes
+    const legacyInternalSources = previousYearAudits
+      .filter(
+        (a) =>
+          a.auditType === "INTERNAL" &&
+          a.area !== undefined &&
+          (!a.planThemes || a.planThemes.length === 0),
+      )
+      .sort((x, y) => x._creationTime - y._creationTime);
     const externalSources = previousYearAudits.filter(
       (a) => a.auditType === "EXTERNAL" && a.area !== undefined,
     );
-    if (!internalSource && externalSources.length === 0) {
+
+    // Themen-Zeilen des neuen internen Jahres-Audits: planThemes des
+    // Vorjahres-Audits + Altdaten-Themen (Dedup per Thema)
+    const internalThemes: Array<{ area: string; auditTeam?: string; affectedAreas?: string }> = [
+      ...(internalSource?.planThemes ?? []),
+    ];
+    for (const a of legacyInternalSources) {
+      if (!internalThemes.some((t) => t.area === a.area)) {
+        internalThemes.push({
+          area: a.area!,
+          auditTeam: a.auditTeam,
+          affectedAreas: a.affectedAreas,
+        });
+      }
+    }
+
+    if (internalThemes.length === 0 && externalSources.length === 0) {
       throw new Error("Kein Auditplan im Vorjahr gefunden");
     }
 
@@ -258,18 +285,26 @@ export const generateAuditPlan = mutation({
     const now = Date.now();
     let created = 0;
 
-    if (internalSource) {
+    if (internalThemes.length > 0) {
+      // Kopf-Felder: bevorzugt das Vorjahres-Jahres-Audit, sonst erstes Altdaten-Audit;
+      // SOLL-Monate bei reinen Altdaten als Vereinigung aller Themen-Audit-Monate
+      const headerSource = internalSource ?? legacyInternalSources[0];
+      const legacyMonths = [
+        ...new Set(legacyInternalSources.flatMap((a) => a.plannedMonths ?? [])),
+      ].sort((a, b) => a - b);
+      const plannedMonths =
+        internalSource?.plannedMonths ?? (legacyMonths.length > 0 ? legacyMonths : undefined);
       const auditId = await ctx.db.insert("audits", {
         title: `Internes Audit ${args.year}`,
         auditYear: args.year,
         auditType: "INTERNAL",
         status: "PLANNED",
         leadAuditorId: user._id,
-        auditTeam: internalSource.auditTeam,
-        basis: internalSource.basis ?? template.basis,
-        location: internalSource.location,
-        planThemes: internalSource.planThemes,
-        plannedMonths: internalSource.plannedMonths,
+        auditTeam: headerSource?.auditTeam,
+        basis: headerSource?.basis ?? template.basis,
+        location: headerSource?.location,
+        planThemes: internalThemes,
+        plannedMonths,
         templateId: template._id,
         templateVersion: template.version,
         isArchived: false,
@@ -280,7 +315,7 @@ export const generateAuditPlan = mutation({
       await logAuditEvent(ctx, {
         userId: user._id, action: "CREATE",
         entityType: "audits", entityId: auditId,
-        metadata: { generatedFrom: args.year - 1, planThemes: internalSource.planThemes!.length },
+        metadata: { generatedFrom: args.year - 1, planThemes: internalThemes.length },
       });
       created++;
     }
