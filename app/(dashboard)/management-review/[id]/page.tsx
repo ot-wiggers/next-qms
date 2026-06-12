@@ -36,6 +36,20 @@ type EnrichedMeasure = {
   capaNumber?: string;
 };
 
+type ReviewSection = {
+  key: string;
+  title?: string;
+  custom?: boolean;
+  autoData?: string;
+  assessment?: string;
+};
+
+/** Titel auflösen: feste Abschnitte aus dem Enum, eigene Punkte nummeriert ab 2.11 */
+function sectionTitle(section: ReviewSection, index: number): string {
+  if (section.custom) return `2.${index + 1} ${section.title ?? ""}`;
+  return MGMT_REVIEW_SECTIONS.find((m) => m.key === section.key)?.title ?? section.key;
+}
+
 // ── Status badge colors ───────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = {
@@ -63,6 +77,9 @@ export default function MgmtReviewDetailPage() {
   const attachReport = useMutation(api.managementReviews.attachReport);
   const generateUploadUrl = useMutation(api.managementReviews.generateUploadUrl);
   const createCapa = useMutation(api.capas.create);
+  const addCustomSection = useMutation(api.managementReviews.addCustomSection);
+  const renameCustomSection = useMutation(api.managementReviews.renameCustomSection);
+  const removeCustomSection = useMutation(api.managementReviews.removeCustomSection);
 
   // ── Draft state — keyed-draft pattern: drafts are keyed by reviewId ──────
   // General fields draft
@@ -123,6 +140,12 @@ export default function MgmtReviewDetailPage() {
   // Double-click protection for "Als CAPA anlegen"
   const [creatingCapaIndex, setCreatingCapaIndex] = useState<number | null>(null);
 
+  // Eigener-Punkt-Dialog (anlegen/umbenennen)
+  const [customDialog, setCustomDialog] = useState<{ open: boolean; key: string | null }>({
+    open: false, key: null,
+  });
+  const [customTitle, setCustomTitle] = useState("");
+
   // ── Loading / not found guards (hooks must be above these) ───────────────
   if (review === undefined) return <div className="p-8 text-muted-foreground">Lade…</div>;
   if (review === null) return <div className="p-8">Managementbewertung nicht gefunden.</div>;
@@ -145,13 +168,13 @@ export default function MgmtReviewDetailPage() {
       companyNote: generalDraft?.id === reviewId
         ? (generalDraft.companyNote || undefined)
         : review!.companyNote,
-      sections: MGMT_REVIEW_SECTIONS.map((s) => {
-        const serverSection = review!.sections.find((sec) => sec.key === s.key);
-        const draft = getSectionDraft(s.key);
+      sections: (review!.sections as ReviewSection[]).map((serverSection, idx) => {
+        const draft = getSectionDraft(serverSection.key);
         return {
-          key: s.key,
-          autoData: serverSection?.autoData,
-          assessment: draft !== null ? (draft || undefined) : serverSection?.assessment,
+          key: serverSection.key,
+          title: sectionTitle(serverSection, idx),
+          autoData: serverSection.autoData,
+          assessment: draft !== null ? (draft || undefined) : serverSection.assessment,
         };
       }),
       overallAssessment: overallText !== null ? (overallText || undefined) : review!.overallAssessment,
@@ -172,10 +195,12 @@ export default function MgmtReviewDetailPage() {
         reportingPeriod: review!.reportingPeriod,
         participants: review!.participants,
         companyNote: review!.companyNote,
-        sections: MGMT_REVIEW_SECTIONS.map((s) => {
-          const sec = review!.sections.find((x) => x.key === s.key);
-          return { key: s.key, autoData: sec?.autoData, assessment: sec?.assessment };
-        }),
+        sections: (review!.sections as ReviewSection[]).map((sec, idx) => ({
+          key: sec.key,
+          title: sectionTitle(sec, idx),
+          autoData: sec.autoData,
+          assessment: sec.assessment,
+        })),
         overallAssessment: review!.overallAssessment,
         measures: review!.measures as EnrichedMeasure[],
         improvements: review!.improvements,
@@ -434,17 +459,40 @@ export default function MgmtReviewDetailPage() {
         )}
       </div>
 
-      {MGMT_REVIEW_SECTIONS.map((section) => {
-        const serverSection = review.sections.find((s) => s.key === section.key);
-        const draftValue = getSectionDraft(section.key);
-        const assessmentValue = draftValue !== null ? draftValue : (serverSection?.assessment ?? "");
+      {(review.sections as ReviewSection[]).map((serverSection, idx) => {
+        const draftValue = getSectionDraft(serverSection.key);
+        const assessmentValue = draftValue !== null ? draftValue : (serverSection.assessment ?? "");
 
         return (
-          <Card key={section.key}>
-            <CardHeader><CardTitle>{section.title}</CardTitle></CardHeader>
+          <Card key={serverSection.key}>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>{sectionTitle(serverSection, idx)}</CardTitle>
+              {serverSection.custom && isDraft && canManage && (
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    setCustomTitle(serverSection.title ?? "");
+                    setCustomDialog({ open: true, key: serverSection.key });
+                  }}>
+                    Umbenennen
+                  </Button>
+                  <Button size="sm" variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={async () => {
+                      try {
+                        await removeCustomSection({ id: reviewId, key: serverSection.key });
+                        toast.success("Eigener Punkt entfernt");
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Fehler");
+                      }
+                    }}>
+                    Entfernen
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
             <CardContent className="space-y-3">
               {/* Auto data block */}
-              {serverSection?.autoData ? (
+              {serverSection.autoData ? (
                 <pre className="rounded bg-muted p-3 text-sm text-muted-foreground whitespace-pre-wrap font-sans">
                   {serverSection.autoData}
                 </pre>
@@ -455,20 +503,20 @@ export default function MgmtReviewDetailPage() {
               )}
               {/* Assessment textarea */}
               <div>
-                <Label htmlFor={`section-${section.key}`}>Bewertung</Label>
+                <Label htmlFor={`section-${serverSection.key}`}>Bewertung</Label>
                 <Textarea
-                  id={`section-${section.key}`}
+                  id={`section-${serverSection.key}`}
                   rows={4}
                   value={assessmentValue}
                   disabled={!isDraft || !canManage}
-                  onChange={(e) => setSectionDraft(section.key, e.target.value)}
+                  onChange={(e) => setSectionDraft(serverSection.key, e.target.value)}
                 />
               </div>
               {isDraft && canManage && (
                 <div className="flex justify-end">
                   <Button
                     size="sm"
-                    onClick={() => saveSectionAssessment(section.key)}
+                    onClick={() => saveSectionAssessment(serverSection.key)}
                     disabled={draftValue === null}
                   >
                     Speichern
@@ -479,6 +527,18 @@ export default function MgmtReviewDetailPage() {
           </Card>
         );
       })}
+
+      {/* Eigenen Punkt ergänzen (ab 2.11) */}
+      {isDraft && canManage && (
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => {
+            setCustomTitle("");
+            setCustomDialog({ open: true, key: null });
+          }}>
+            Eigenen Punkt hinzufügen
+          </Button>
+        </div>
+      )}
 
       {/* 3. Gesamtbewertung */}
       <Card>
@@ -627,6 +687,55 @@ export default function MgmtReviewDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Eigener-Punkt-Dialog (anlegen/umbenennen) */}
+      <Dialog open={customDialog.open} onOpenChange={(o) => !o && setCustomDialog({ open: false, key: null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {customDialog.key === null ? "Eigenen Punkt hinzufügen" : "Eigenen Punkt umbenennen"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="custom-title">Titel</Label>
+              <Input
+                id="custom-title"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder="z. B. Lieferantenbewertung"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Eigene Punkte werden hinter den festen Eingaben nummeriert (2.11, 2.12 …)
+                und beim Anlegen der nächsten Jahresbewertung automatisch übernommen.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCustomDialog({ open: false, key: null })}>
+                Abbrechen
+              </Button>
+              <Button onClick={async () => {
+                if (!customTitle.trim()) {
+                  toast.error("Titel ist erforderlich");
+                  return;
+                }
+                try {
+                  if (customDialog.key === null) {
+                    await addCustomSection({ id: reviewId, title: customTitle });
+                    toast.success("Eigener Punkt hinzugefügt");
+                  } else {
+                    await renameCustomSection({ id: reviewId, key: customDialog.key, title: customTitle });
+                    toast.success("Punkt umbenannt");
+                  }
+                  setCustomDialog({ open: false, key: null });
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Fehler");
+                }
+              }}>Speichern</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Measure Dialog */}
       <Dialog open={addMeasureOpen} onOpenChange={setAddMeasureOpen}>

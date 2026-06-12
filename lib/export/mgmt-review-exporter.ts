@@ -1,12 +1,12 @@
 import { jsPDF } from "jspdf";
-import { MGMT_REVIEW_SECTIONS } from "@/lib/types/enums";
 
 export interface MgmtReviewData {
   year: number;
   reportingPeriod: string;
   participants?: string;
   companyNote?: string;
-  sections: { key: string; autoData?: string; assessment?: string }[];
+  // title wird vom Aufrufer aufgelöst (fest → Enum, eigene Punkte → "2.<n> <Titel>")
+  sections: { key: string; title: string; autoData?: string; assessment?: string }[];
   overallAssessment?: string;
   measures: {
     description: string;
@@ -82,17 +82,17 @@ export function buildMgmtReviewPdf(data: MgmtReviewData): jsPDF {
   // ── 2. Eingaben ──────────────────────────────────────────────
   heading("2. Eingaben");
 
-  for (const section of MGMT_REVIEW_SECTIONS) {
-    const sectionData = data.sections.find((s) => s.key === section.key);
+  for (const sectionData of data.sections) {
     ensureSpace(20);
 
     // Sub-heading
     doc.setFont("helvetica", "bold").setFontSize(11);
-    doc.text(section.title, MARGIN, y);
-    y += 6;
+    const titleLines = doc.splitTextToSize(sectionData.title, CONTENT_WIDTH);
+    doc.text(titleLines, MARGIN, y);
+    y += 6 * titleLines.length;
     doc.setFont("helvetica", "normal").setFontSize(10);
 
-    if (sectionData?.autoData) {
+    if (sectionData.autoData) {
       // Italic gray prefix + auto data
       doc.setFont("helvetica", "italic").setTextColor(100);
       const autoLines = doc.splitTextToSize(`Daten: ${sectionData.autoData}`, CONTENT_WIDTH);
@@ -106,7 +106,7 @@ export function buildMgmtReviewPdf(data: MgmtReviewData): jsPDF {
     }
 
     // Assessment
-    const assessmentText = sectionData?.assessment
+    const assessmentText = sectionData.assessment
       ? `Bewertung: ${sectionData.assessment}`
       : "Bewertung: —";
     prose(assessmentText);
