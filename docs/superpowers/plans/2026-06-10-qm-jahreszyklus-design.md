@@ -136,12 +136,12 @@ Ein gemeinsamer Berichts-Renderer `lib/export/report-exporter.ts` (jsPDF, analog
 | Phase | Inhalt | Plan-Dokument |
 |---|---|---|
 | 1 | Audit-Kette (Vorlage → Audit → Findings → Bericht) + CAPA + Seed Checkliste v5 | `2026-06-10-phase1-audit-capa-plan.md` |
-| 2 | Reklamationen (inkl. Vigilanz) + CAPA-Quelle | folgt |
-| 3 | Q-Ziele/KPI-Engine + Managementbewertung | folgt |
-| 4 | Schulungsbedarfsmatrix + Plan-Generierung | folgt |
-| 5 | Risikoregister | folgt |
-| 6 | PMS-Bericht | folgt |
-| 7 | Jahreszyklus-Automatik (Crons, Jahreswechsel-Generatoren) | folgt |
+| 2 | Reklamationen (inkl. Vigilanz) + CAPA-Quelle | `2026-06-10-phase2-reklamationen-plan.md` |
+| 3 | Q-Ziele/KPI-Engine + Managementbewertung | `2026-06-11-phase3-qziele-mgmtreview-plan.md` |
+| 4 | Schulungsbedarfsmatrix + Plan-Generierung | `2026-06-11-phase4-schulungsmatrix-plan.md` |
+| 5 | Risikoregister | `2026-06-11-phase5-risikoregister-plan.md` |
+| 6 | PMS-Bericht | `2026-06-11-phase6-pms-bericht-plan.md` |
+| 7 | Jahreszyklus-Automatik (Crons, Jahreswechsel-Generatoren) | `2026-06-11-phase7-jahreszyklus-plan.md` |
 
 Jede Phase liefert eigenständig lauffähige, im Preview verifizierte Software und ersetzt ihre Platzhalter (Sidebar-Eintrag verlässt „In Planung", Feature-Flag bleibt als Rollout-Schalter).
 
@@ -154,3 +154,5 @@ Das Repo hat keine Test-Infrastruktur; bisherige Pläne verifizieren über `npx 
 ## Änderungshistorie
 
 **2026-06-10 (Rev. 2):** Alle 12 Quelldokumente lokal in `PDF/` extrahiert (zuvor SMB-Timeout). §3 vervollständigt (CAPA-Liste, Q-Ziele, Auditplan, Schulungsplan, Bedarfsmatrix, Risiken, PMS). Korrekturen: Risikomodell ist RPZ (3 Faktoren, Schwelle < 100) statt 2-Faktor-Matrix; Bedarfsmatrix ist funktionsbasiert (9 Funktionen) statt rollenbasiert; CAPA bekommt `responsible` + `effectivenessCriterion` + Quelle `QUALITY_OBJECTIVE` schon in Phase 1. Beschluss: Auditplan-Jahresmatrix bleibt in Phase 7. Checklisten-xlsx wird von Kristof in `PDF/` nachgeliefert (Vorbedingung Seed).
+
+**2026-06-12 (Abschluss):** Alle 7 Phasen implementiert, einzeln reviewt (Spec + Qualität + unabhängige Daten-Reviews der Seeds + Runtime-Walkthroughs) und auf master gemergt. Die App bildet den vollständigen QM-Jahreszyklus ab: Auditplan-Matrix (FB 8.2.4) → Audits mit Checkliste v5 → Findings → CAPA (FB 8.5.2/8.5.3) ← Reklamationen (inkl. Vigilanz) ← Q-Ziele (FB 5.4.1, KPI-Engine) → Managementbewertung (FB 5.6.0) ← Schulungsbedarfsmatrix (FB 6.2.0) ← Risikoregister (FB 7.1.0, RPZ) → PMS-Bericht (MDR Art. 85) — plus tägliche Fälligkeits-Crons und Jahreswechsel-Erinnerungen.

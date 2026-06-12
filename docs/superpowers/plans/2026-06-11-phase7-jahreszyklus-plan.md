@@ -160,3 +160,18 @@ VOR Implementierung lesen: convex/audits.ts (planMatrix/generateAuditPlan-Signat
 - „Jahreswechsel-Generatoren (Schulungsplan aus Bedarfsmatrix, Auditplan-Vorschlag aus Vorjahr, neue Q-Ziele-Periode)" → yearOpeningTasks (semi-automatisch, Begründung in Architecture) + generateAuditPlan (echter Generator) + Verweis auf bestehenden Phase-4-Plan-Entwurf ✅
 - „Neue Task-Typen + Notification-Typen" → Task 1 (4 + 4) ✅
 - Typ-Konsistenz: Literale AUDIT_PLAN_DUE/CAPA_EFFECTIVENESS_DUE/RISK_REVIEW_DUE/YEAR_CYCLE identisch in Schema (T1), Checks (T2/T3), UI-Labels (T1); planMatrix-Felder (area/auditTeam/affectedAreas/plannedMonths/istMonth) identisch in Query (T2), Exporter (T4), UI (T5) ✅
+
+---
+
+## Übergabe — Stand 2026-06-12, Implementierung abgeschlossen (PROJEKT KOMPLETT)
+
+Auditplan-Matrix, Crons und Generator sind LIVE. Seed: die 5 Themen-Audits 2026 aus FB 8.2.4 Rev. 5 (positional gegen-extrahiert, fehlerfrei) — SOLL-Monate 4/4/4/4/6, Checkliste v5 instanziiert, **bewusst ohne IST-Daten** (die IST-Kreuze des Originals wären fabrizierte Datumswerte; IST erscheint, sobald du das echte Auditdatum pflegst — neuer „Bearbeiten"-Dialog in der Audit-Detailseite).
+
+**Runtime-Walkthrough (bestanden):** Matrix mit korrekten SOLL-Kreuzen; IST-Ableitung end-to-end (Auditdatum 15.05. → grünes IST-x Monat 5); Dialog-Erweiterung (Thema + Monats-Toggles); Generator Erfolgs- UND Fehlerpfad („Keine Themen-Audits im Vorjahr gefunden"); PDF-Export fehlerfrei; 4 Cron-Tasks „Auditplan-Fälligkeit" in /tasks sichtbar; Regressions-Smoke über alle Module. Cron-Probelauf via CLI: Lauf 1 created 4, Lauf 2 created 0 / skipped 4 (Dedup bewiesen); CAPA-/Risiko-/Jahres-Checks ehrlich 0 (keine Fälligkeiten gesetzt).
+
+**Nutzer-Schritte:**
+1. Die 4 offenen „Auditplan-Fälligkeit"-Tasks sind ECHTE Fälligkeiten (April-Audits ohne Auditdatum). Wenn die Audits durchgeführt wurden: Auditdatum in der Detailseite nachpflegen (April-Datum) → IST-Kreuz erscheint, Task kann erledigt werden.
+2. CAPA-Wirksamkeits-Cron greift erst, wenn `Wirksamkeit fällig am` an CAPAs gesetzt ist; Risiko-Cron, wenn `Neubewertung am` an Risiken gesetzt ist — beides bewusst nicht geseedet (Original führt Textkriterien).
+3. Jahreswechsel: Anfang Januar erscheinen automatisch 3 Erinnerungs-Tasks (Auditplan/Q-Ziele/Schulungsplan); der Auditplan-Vorschlag ist der Generator-Button in der leeren Jahresmatrix.
+
+**Folgepunkte (Backlog, unkritisch):** Jahr-Selector der Matrix reicht ±2 Jahre; Exporter-Folgeseiten-Kopf bei >11 Themen; istMonth-UTC-Randfall an Monatsgrenzen; Storage-Aufräumen ersetzter Freeze-PDFs; NotificationItem `as any` (vorbestehend); OTWin-/Sybase-Anbindung (Wunsch aus Phase 2).
