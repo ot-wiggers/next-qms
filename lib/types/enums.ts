@@ -526,16 +526,19 @@ export const MGMT_REVIEW_STATUS_LABELS: Record<MgmtReviewStatus, string> = {
   DRAFT: "Entwurf", APPROVED: "Freigegeben",
 };
 
-// Abschnitte exakt nach FB 5.6.0 Rev. 8 (2.1–2.8)
+// Feste Abschnitte gemäß ISO 13485 §5.6.2 (FB 5.6.0; 2.9/2.10 ergänzt nach
+// Auditor-Hinweis 2026: regulatorische Anforderungen + Folgemaßnahmen fehlten)
 export const MGMT_REVIEW_SECTIONS = [
   { key: "audits", title: "2.1 Audits" },
   { key: "complaints", title: "2.2 Kundenfeedback / Reklamationen" },
   { key: "pms", title: "2.3 PMS" },
-  { key: "processes", title: "2.4 Prozesse" },
+  { key: "processes", title: "2.4 Prozesse — Überwachung und Messung von Prozessen und Produkten" },
   { key: "capa", title: "2.5 CAPA" },
   { key: "changes", title: "2.6 Änderungen" },
   { key: "resources", title: "2.7 Ressourcen" },
   { key: "risks", title: "2.8 Risiken & Chancen" },
+  { key: "regulatory", title: "2.9 Regulatorische Anforderungen" },
+  { key: "followup", title: "2.10 Folgemaßnahmen aus vorangegangenen Managementbewertungen" },
 ] as const;
 
 // ============================================================

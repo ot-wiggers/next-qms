@@ -195,6 +195,8 @@ async function buildAutoData(
     changes: undefined,
     resources: undefined,
     risks: undefined,
+    regulatory: undefined,
+    followup: undefined,
   };
 }
 
