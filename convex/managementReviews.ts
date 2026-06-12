@@ -1147,3 +1147,31 @@ export const importReportPdf = internalAction({
     return { storageId };
   },
 });
+
+/** Einmal-Korrektur (npx convex run): approvedAt der importierten 2025er-Bewertung
+ *  auf das dokumentierte Freigabedatum setzen — finalizeImport hatte das
+ *  Import-Datum gesetzt, das Original-Dokument weist den 12.01.2026 aus
+ *  (Datum/Unterschrift in FB 5.6.0 Rev. 8). Idempotent. */
+export const fixApprovedAt2025 = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const review = await ctx.db
+      .query("managementReviews")
+      .withIndex("by_year", (q) => q.eq("year", 2025))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .first();
+    if (!review) throw new Error("Bewertung 2025 nicht gefunden");
+    const documented = Date.UTC(2026, 0, 12); // 12.01.2026 laut Dokument
+    if (review.approvedAt === documented) {
+      return { skipped: true, reason: "bereits korrigiert" };
+    }
+    await ctx.db.patch(review._id, { approvedAt: documented, updatedAt: Date.now() });
+    await logAuditEvent(ctx, {
+      action: "UPDATE",
+      entityType: "managementReviews",
+      entityId: review._id,
+      changes: { approvedAt: "12.01.2026 (dokumentiertes Freigabedatum, Import-Korrektur)" },
+    });
+    return { skipped: false };
+  },
+});
