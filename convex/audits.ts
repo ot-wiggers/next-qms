@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation, MutationCtx } from "./_generated/server";
+import { query, mutation, internalMutation, internalAction, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
@@ -742,5 +743,187 @@ export const migrateToSingleAudit2026 = internalMutation({
     }
 
     return { archived: internalThemeAudits.length, themes: themes.length };
+  },
+});
+
+// ============================================================
+// importFilledChecklist — Einmal-Import (npx convex run) der real
+// ausgefüllten Auditcheckliste + Berichtsdaten in ein bestehendes Audit.
+// Antworten werden per Kapitelnummer gematcht; Kapitel, die in der
+// eingefrorenen Checkliste fehlen (xlsx v5: 7.5.5, 7.5.7, 7.5.9.2),
+// werden ergänzt. sortOrder = Payload-Reihenfolge (xlsx ist kanonisch).
+// ============================================================
+
+const auditRatingArg = v.union(
+  v.literal("KONFORM"), v.literal("ABWEICHUNG"), v.literal("FESTSTELLUNG"),
+  v.literal("EMPFEHLUNG"), v.literal("NICHT_ANWENDBAR"),
+);
+const findingClassificationArg = v.union(
+  v.literal("ABWEICHUNG"), v.literal("FESTSTELLUNG"), v.literal("EMPFEHLUNG"),
+);
+
+export const importFilledChecklist = internalMutation({
+  args: {
+    auditId: v.id("audits"),
+    header: v.object({
+      auditTeam: v.optional(v.string()),
+      basis: v.optional(v.string()),
+      location: v.optional(v.string()),
+      reportingPeriod: v.optional(v.string()),
+      plannedFor: v.optional(v.string()),
+      auditDate: v.optional(v.number()),
+    }),
+    summaryResult: v.optional(v.string()),
+    chapterSummaries: v.optional(v.array(v.object({
+      chapter: v.string(),
+      summary: v.string(),
+    }))),
+    answers: v.array(v.object({
+      chapter: v.string(),
+      chapterTitle: v.string(),
+      requirements: v.string(),
+      rating: v.optional(auditRatingArg),
+      evidence: v.optional(v.string()),
+      sample: v.optional(v.string()),
+      interviewedWith: v.optional(v.string()),
+      comments: v.optional(v.string()),
+    })),
+    findings: v.array(v.object({
+      chapter: v.string(),
+      classification: findingClassificationArg,
+      description: v.string(),
+      capaNumber: v.optional(v.string()),
+    })),
+    close: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const audit = await ctx.db.get(args.auditId);
+    if (!audit) throw new Error("Audit nicht gefunden");
+    const now = Date.now();
+
+    // Kopfdaten + Berichtstexte
+    await ctx.db.patch(args.auditId, {
+      ...args.header,
+      summaryResult: args.summaryResult,
+      chapterSummaries: args.chapterSummaries,
+      updatedAt: now,
+    });
+
+    // Antworten: Match per Kapitelnummer; fehlende Kapitel ergänzen
+    const existing = await ctx.db
+      .query("auditChecklistAnswers")
+      .withIndex("by_audit", (q) => q.eq("auditId", args.auditId))
+      .collect();
+    const byChapter = new Map(existing.map((a) => [a.chapter, a]));
+
+    let patched = 0;
+    let inserted = 0;
+    for (let i = 0; i < args.answers.length; i++) {
+      const a = args.answers[i];
+      const fields = {
+        chapterTitle: a.chapterTitle,
+        requirements: a.requirements,
+        sortOrder: i + 1,
+        rating: a.rating,
+        evidence: a.evidence,
+        sample: a.sample,
+        interviewedWith: a.interviewedWith,
+        comments: a.comments,
+        updatedAt: now,
+      };
+      const match = byChapter.get(a.chapter);
+      if (match) {
+        await ctx.db.patch(match._id, fields);
+        patched++;
+      } else {
+        await ctx.db.insert("auditChecklistAnswers", {
+          auditId: args.auditId,
+          chapter: a.chapter,
+          ...fields,
+          isArchived: false,
+          createdAt: now,
+        });
+        inserted++;
+      }
+    }
+
+    // Findings: CAPA-Verknüpfung per capaNumber (Index by_number),
+    // Antwort-Verknüpfung per Kapitelnummer
+    const answersAfter = await ctx.db
+      .query("auditChecklistAnswers")
+      .withIndex("by_audit", (q) => q.eq("auditId", args.auditId))
+      .collect();
+    const answerByChapter = new Map(answersAfter.map((a) => [a.chapter, a]));
+
+    let findingsCreated = 0;
+    for (const f of args.findings) {
+      let capaId: Id<"capas"> | undefined;
+      if (f.capaNumber) {
+        const capa = await ctx.db
+          .query("capas")
+          .withIndex("by_number", (q) => q.eq("capaNumber", f.capaNumber!))
+          .first();
+        capaId = capa?._id;
+      }
+      await ctx.db.insert("auditFindings", {
+        auditId: args.auditId,
+        answerId: answerByChapter.get(f.chapter)?._id,
+        chapter: f.chapter,
+        classification: f.classification,
+        description: f.description,
+        capaId,
+        status: "OPEN",
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      findingsCreated++;
+    }
+
+    if (args.close) {
+      await ctx.db.patch(args.auditId, { status: "CLOSED", closedAt: now, updatedAt: now });
+    }
+
+    await logAuditEvent(ctx, {
+      action: "UPDATE", entityType: "audits", entityId: args.auditId,
+      metadata: {
+        import: "auditcheckliste-2026",
+        patched, inserted, findings: findingsCreated,
+        closed: args.close === true,
+      },
+    });
+    return { patched, inserted, findings: findingsCreated };
+  },
+});
+
+// ============================================================
+// importReportPdf — Einmal-Import des Original-Bericht-PDFs (Base64)
+// in den Convex-Storage. attachReportInternal umgeht den
+// REPORT_DRAFT-Guard von attachReport (Import in CLOSED-Audit).
+// ============================================================
+
+export const attachReportInternal = internalMutation({
+  args: { id: v.id("audits"), reportFileId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const audit = await ctx.db.get(args.id);
+    if (!audit) throw new Error("Audit nicht gefunden");
+    await ctx.db.patch(args.id, { reportFileId: args.reportFileId, updatedAt: Date.now() });
+    await logAuditEvent(ctx, {
+      action: "FILE_UPLOAD", entityType: "audits", entityId: args.id,
+      metadata: { kind: "auditReport", import: true, reportFileId: args.reportFileId },
+    });
+  },
+});
+
+export const importReportPdf = internalAction({
+  args: { auditId: v.id("audits"), base64: v.string() },
+  handler: async (ctx, args) => {
+    const bytes = Uint8Array.from(atob(args.base64), (c) => c.charCodeAt(0));
+    const storageId = await ctx.storage.store(new Blob([bytes], { type: "application/pdf" }));
+    await ctx.runMutation(internal.audits.attachReportInternal, {
+      id: args.auditId,
+      reportFileId: storageId,
+    });
+    return { storageId };
   },
 });
