@@ -40,6 +40,7 @@ import {
 } from "@/lib/types/enums";
 import { toast } from "sonner";
 import { TopicsAdminTab } from "@/components/domain/training-matrix/topics-admin-tab";
+import { FunctionsAdminTab } from "@/components/domain/training-matrix/functions-admin-tab";
 
 // ============================================================
 // Types inferred from query return shapes
@@ -732,6 +733,13 @@ export default function TrainingMatrixPage() {
         ====================================================== */}
         <TabsContent value="themen">
           <TopicsAdminTab canManage={canManage} />
+        </TabsContent>
+
+        {/* ======================================================
+            Tab 5: Funktionen (Listenansicht + CRUD)
+        ====================================================== */}
+        <TabsContent value="funktionen">
+          <FunctionsAdminTab canManage={canManage} />
         </TabsContent>
       </Tabs>
 
