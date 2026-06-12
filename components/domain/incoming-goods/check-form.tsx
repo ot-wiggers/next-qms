@@ -122,7 +122,7 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
 
 export function CheckForm({ initial }: { initial?: Check }) {
   const router = useRouter();
-  const orgs = useQuery(api.organizations.list, {});
+  const locations = useQuery(api.incomingGoods.locations, {}) ?? [];
   const createCheck = useMutation(api.incomingGoods.create);
   const updateCheck = useMutation(api.incomingGoods.update);
   const generateUploadUrl = useMutation(api.incomingGoods.generateUploadUrl);
@@ -132,9 +132,6 @@ export function CheckForm({ initial }: { initial?: Check }) {
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const locations = ((orgs ?? []) as Array<{ _id: string; name: string; type: string }>)
-    .filter((o) => o.type === "location")
-    .sort((a, b) => a.name.localeCompare(b.name, "de"));
 
   async function uploadBlob(blob: Blob, contentType: string): Promise<Id<"_storage">> {
     const postUrl = await generateUploadUrl();

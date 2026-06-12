@@ -190,6 +190,23 @@ export const monthlyStatus = query({
 });
 
 // ============================================================
+// locations — aktive Filialen für die Erfassungsmaske.
+// Eigene Query unter incomingGoods:record, weil organizations.list
+// users:list verlangt und die Rolle employee daran scheitern würde.
+// ============================================================
+
+export const locations = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "incomingGoods:record");
+    return (await ctx.db.query("organizations").collect())
+      .filter((o) => o.type === "location" && !o.isArchived)
+      .sort((a, b) => a.name.localeCompare(b.name, "de"))
+      .map((o) => ({ _id: o._id, name: o.name }));
+  },
+});
+
+// ============================================================
 // create / update / archive / Upload
 // ============================================================
 
