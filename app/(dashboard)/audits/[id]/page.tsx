@@ -22,6 +22,7 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   AUDIT_STATUS_LABELS, AUDIT_RATING_LABELS, AUDIT_RATING_DESCRIPTIONS,
   FINDING_CLASSIFICATION_LABELS, AUDIT_RATINGS, FINDING_CLASSIFICATIONS,
+  MONTH_LABELS_SHORT,
   type AuditStatus, type AuditRating, type FindingClassification,
 } from "@/lib/types/enums";
 import { downloadAuditReport, auditReportBlob } from "@/lib/export/audit-report-exporter";
@@ -66,6 +67,12 @@ export default function AuditDetailPage() {
   const [headerDialogOpen, setHeaderDialogOpen] = useState(false);
   const [auditDateInput, setAuditDateInput] = useState("");
   const updateHeader = useMutation(api.audits.updateHeader);
+  const [plannedMonthsInput, setPlannedMonthsInput] = useState<number[]>([]);
+  const updatePlanThemes = useMutation(api.audits.updatePlanThemes);
+  const [themeDialog, setThemeDialog] = useState<{ open: boolean; index: number | null }>({
+    open: false, index: null,
+  });
+  const [themeForm, setThemeForm] = useState({ area: "", auditTeam: "", affectedAreas: "" });
 
   const [editAnswer, setEditAnswer] = useState<Answer | null>(null);
   const [answerForm, setAnswerForm] = useState({
@@ -227,6 +234,7 @@ export default function AuditDetailPage() {
                   ? new Date(audit.auditDate).toISOString().slice(0, 10)
                   : ""
               );
+              setPlannedMonthsInput(audit.plannedMonths ?? []);
               setHeaderDialogOpen(true);
             }}>
               Bearbeiten
@@ -247,6 +255,65 @@ export default function AuditDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {audit.auditType === "INTERNAL" && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Auditplan-Themen (FB 8.2.4)</CardTitle>
+            {canManage && audit.status !== "CLOSED" && audit.status !== "CANCELLED" && (
+              <Button variant="outline" size="sm" onClick={() => {
+                setThemeForm({ area: "", auditTeam: "", affectedAreas: "" });
+                setThemeDialog({ open: true, index: null });
+              }}>
+                Thema hinzufügen
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(audit.planThemes ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Keine Themen-Zeilen — dieses Audit erscheint nicht in der Auditplan-Matrix.
+              </p>
+            ) : (
+              (audit.planThemes as Array<{ area: string; auditTeam?: string; affectedAreas?: string }>).map((t, idx) => (
+                <div key={`${t.area}-${idx}`} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
+                  <span className="font-medium">{t.area}</span>
+                  <span className="text-muted-foreground">{t.auditTeam ?? "—"}</span>
+                  <span className="flex-1 text-muted-foreground">{t.affectedAreas ?? "—"}</span>
+                  {canManage && audit.status !== "CLOSED" && audit.status !== "CANCELLED" && (
+                    <span className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        setThemeForm({
+                          area: t.area,
+                          auditTeam: t.auditTeam ?? "",
+                          affectedAreas: t.affectedAreas ?? "",
+                        });
+                        setThemeDialog({ open: true, index: idx });
+                      }}>
+                        Bearbeiten
+                      </Button>
+                      <Button size="sm" variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={async () => {
+                          const next = (audit.planThemes as Array<{ area: string; auditTeam?: string; affectedAreas?: string }>)
+                            .filter((_, i) => i !== idx);
+                          try {
+                            await updatePlanThemes({ id: auditId, planThemes: next });
+                            toast.success("Thema entfernt");
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Fehler");
+                          }
+                        }}>
+                        Entfernen
+                      </Button>
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -359,6 +426,32 @@ export default function AuditDetailPage() {
                 IST-Spalte im Auditplan wird aus diesem Datum abgeleitet.
               </p>
             </div>
+            <div>
+              <Label>Geplante Monate (SOLL — Auditplan)</Label>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {MONTH_LABELS_SHORT.map((label, i) => {
+                  const month = i + 1;
+                  const selected = plannedMonthsInput.includes(month);
+                  return (
+                    <Button
+                      key={month}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() =>
+                        setPlannedMonthsInput((prev) =>
+                          prev.includes(month)
+                            ? prev.filter((m) => m !== month)
+                            : [...prev, month].sort((a, b) => a - b),
+                        )
+                      }
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setHeaderDialogOpen(false)}>Abbrechen</Button>
               <Button onClick={async () => {
@@ -369,11 +462,71 @@ export default function AuditDetailPage() {
                   return;
                 }
                 try {
-                  await updateHeader({ id: auditId, ...(ts !== undefined ? { auditDate: ts } : {}) });
+                  await updateHeader({
+                    id: auditId,
+                    ...(ts !== undefined ? { auditDate: ts } : {}),
+                    plannedMonths: plannedMonthsInput,
+                  });
                   setHeaderDialogOpen(false);
                   toast.success("Auditdatum gespeichert");
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Fehler beim Speichern");
+                }
+              }}>Speichern</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auditplan-Thema-Dialog */}
+      <Dialog open={themeDialog.open} onOpenChange={(o) => !o && setThemeDialog({ open: false, index: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{themeDialog.index === null ? "Thema hinzufügen" : "Thema bearbeiten"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="theme-area">Thema / Auditbereich</Label>
+              <Input id="theme-area" value={themeForm.area}
+                onChange={(e) => setThemeForm({ ...themeForm, area: e.target.value })}
+                placeholder="z. B. Reha / Rollstuhl" />
+            </div>
+            <div>
+              <Label htmlFor="theme-team">Auditor/en</Label>
+              <Input id="theme-team" value={themeForm.auditTeam}
+                onChange={(e) => setThemeForm({ ...themeForm, auditTeam: e.target.value })}
+                placeholder="z. B. AL / MA" />
+            </div>
+            <div>
+              <Label htmlFor="theme-affected">Betroffene Bereiche</Label>
+              <Input id="theme-affected" value={themeForm.affectedAreas}
+                onChange={(e) => setThemeForm({ ...themeForm, affectedAreas: e.target.value })}
+                placeholder="z. B. MA der Werkstatt und Außendienst" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setThemeDialog({ open: false, index: null })}>
+                Abbrechen
+              </Button>
+              <Button onClick={async () => {
+                if (!themeForm.area.trim()) {
+                  toast.error("Thema ist erforderlich");
+                  return;
+                }
+                const current = (audit.planThemes ?? []) as Array<{ area: string; auditTeam?: string; affectedAreas?: string }>;
+                const entry = {
+                  area: themeForm.area,
+                  auditTeam: themeForm.auditTeam || undefined,
+                  affectedAreas: themeForm.affectedAreas || undefined,
+                };
+                const next = themeDialog.index === null
+                  ? [...current, entry]
+                  : current.map((t, i) => (i === themeDialog.index ? entry : t));
+                try {
+                  await updatePlanThemes({ id: auditId, planThemes: next });
+                  setThemeDialog({ open: false, index: null });
+                  toast.success("Auditplan-Themen gespeichert");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Fehler");
                 }
               }}>Speichern</Button>
             </div>
