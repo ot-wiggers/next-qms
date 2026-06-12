@@ -346,6 +346,7 @@ export const setFulfillment = mutation({
 export const updateFunction = mutation({
   args: {
     id: v.id("jobFunctions"),
+    name: v.optional(v.string()),
     holder: v.optional(v.string()),
     staffingStatus: v.optional(staffingStatusArg),
     userId: v.optional(v.id("users")),
@@ -364,6 +365,12 @@ export const updateFunction = mutation({
     if (!fn || fn.isArchived) throw new Error("Funktion nicht gefunden oder archiviert");
 
     const patch: Partial<Doc<"jobFunctions">> = {};
+
+    if (args.name !== undefined) {
+      const name = args.name.trim();
+      if (!name) throw new Error("Name ist erforderlich");
+      patch.name = name;
+    }
 
     // Clearable text fields (trim || undefined)
     if (args.holder !== undefined) patch.holder = args.holder.trim() || undefined;
@@ -499,6 +506,55 @@ export const createTopic = mutation({
     });
 
     return id;
+  },
+});
+
+// ============================================================
+// 7b. updateTopic — per-field Patch (trainingMatrix:manage)
+// ============================================================
+
+export const updateTopic = mutation({
+  args: {
+    id: v.id("trainingTopics"),
+    cluster: v.optional(v.string()),
+    title: v.optional(v.string()),
+    frequency: v.optional(v.string()),
+    provider: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainingMatrix:manage");
+
+    const topic = await ctx.db.get(args.id);
+    if (!topic || topic.isArchived) throw new Error("Thema nicht gefunden oder archiviert");
+
+    const patch: Partial<Doc<"trainingTopics">> = {};
+
+    if (args.cluster !== undefined) {
+      // Cluster A–G validieren (gespiegelt aus createTopic)
+      if (!["A", "B", "C", "D", "E", "F", "G"].includes(args.cluster)) {
+        throw new Error("Ungültiger Cluster — erlaubt: A, B, C, D, E, F, G");
+      }
+      patch.cluster = args.cluster;
+    }
+    if (args.title !== undefined) {
+      const title = args.title.trim();
+      if (!title) throw new Error("Titel ist erforderlich");
+      patch.title = title;
+    }
+    // Clearable text fields (trim || undefined)
+    if (args.frequency !== undefined) patch.frequency = args.frequency.trim() || undefined;
+    if (args.provider !== undefined) patch.provider = args.provider.trim() || undefined;
+
+    await ctx.db.patch(args.id, { ...patch, updatedAt: Date.now(), updatedBy: user._id });
+
+    const { id: _id, ...changes } = args;
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "trainingTopics",
+      entityId: args.id,
+      changes,
+    });
   },
 });
 
