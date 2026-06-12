@@ -32,6 +32,7 @@ interface OrgRow {
   code: string;
   type: string;
   parentId?: string;
+  reminderEmails?: string;
 }
 
 export function LocationsTab() {
@@ -42,11 +43,11 @@ export function LocationsTab() {
   const archiveOrg = useMutation(api.organizations.archive);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", code: "", parentId: "" });
+  const [form, setForm] = useState({ name: "", code: "", parentId: "", reminderEmails: "" });
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ id: "", name: "", code: "", parentId: "" });
+  const [editForm, setEditForm] = useState({ id: "", name: "", code: "", parentId: "", reminderEmails: "" });
 
   // Archive state
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -67,17 +68,24 @@ export function LocationsTab() {
         code: form.code,
         type: "location",
         parentId: form.parentId ? (form.parentId as any) : undefined,
+        reminderEmails: form.reminderEmails,
       });
       toast.success("Standort erstellt");
       setOpen(false);
-      setForm({ name: "", code: "", parentId: "" });
+      setForm({ name: "", code: "", parentId: "", reminderEmails: "" });
     } catch (err: any) {
       toast.error(err.message ?? "Fehler beim Erstellen");
     }
   };
 
   const openEdit = (row: OrgRow) => {
-    setEditForm({ id: row._id, name: row.name, code: row.code, parentId: row.parentId ?? "" });
+    setEditForm({
+      id: row._id,
+      name: row.name,
+      code: row.code,
+      parentId: row.parentId ?? "",
+      reminderEmails: row.reminderEmails ?? "",
+    });
     setEditOpen(true);
   };
 
@@ -88,6 +96,7 @@ export function LocationsTab() {
         name: editForm.name,
         code: editForm.code,
         parentId: editForm.parentId ? (editForm.parentId as any) : undefined,
+        reminderEmails: editForm.reminderEmails,
       });
       toast.success("Standort aktualisiert");
       setEditOpen(false);
@@ -127,6 +136,13 @@ export function LocationsTab() {
       header: "Kürzel",
       className: "w-[100px]",
       cell: (row) => <code className="text-sm">{row.code}</code>,
+    },
+    {
+      key: "reminderEmails",
+      header: "Erinnerungs-E-Mails",
+      cell: (row) => (
+        <span className="text-sm text-muted-foreground">{row.reminderEmails || "—"}</span>
+      ),
     },
     {
       key: "parent",
@@ -206,6 +222,18 @@ export function LocationsTab() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label>Erinnerungs-E-Mails (Wareneingang)</Label>
+                  <Input
+                    value={form.reminderEmails}
+                    onChange={(e) => setForm({ ...form, reminderEmails: e.target.value })}
+                    placeholder="filiale@example.de, leitung@example.de"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Kommagetrennt — erhält ab dem 15. wöchentlich eine Erinnerung,
+                    solange im Monat keine Wareneingangsprüfung erfasst wurde.
+                  </p>
+                </div>
+                <div className="space-y-2">
                   <Label>Übergeordnete Organisation</Label>
                   <Select
                     value={form.parentId}
@@ -262,6 +290,18 @@ export function LocationsTab() {
                   setEditForm({ ...editForm, code: e.target.value })
                 }
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Erinnerungs-E-Mails (Wareneingang)</Label>
+              <Input
+                value={editForm.reminderEmails}
+                onChange={(e) => setEditForm({ ...editForm, reminderEmails: e.target.value })}
+                placeholder="filiale@example.de, leitung@example.de"
+              />
+              <p className="text-xs text-muted-foreground">
+                Kommagetrennt — erhält ab dem 15. wöchentlich eine Erinnerung,
+                solange im Monat keine Wareneingangsprüfung erfasst wurde.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Übergeordnete Organisation</Label>

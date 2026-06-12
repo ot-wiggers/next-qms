@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { archiveRecord } from "./lib/softDelete";
@@ -48,6 +48,7 @@ export const create = mutation({
     type: v.string(),
     parentId: v.optional(v.id("organizations")),
     code: v.string(),
+    reminderEmails: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "admin:settings");
@@ -81,6 +82,7 @@ export const update = mutation({
     id: v.id("organizations"),
     name: v.optional(v.string()),
     code: v.optional(v.string()),
+    reminderEmails: v.optional(v.string()),
     parentId: v.optional(v.id("organizations")),
   },
   handler: async (ctx, { id, parentId, ...updates }) => {
@@ -118,5 +120,52 @@ export const archive = mutation({
   handler: async (ctx, args) => {
     const user = await requirePermission(ctx, "admin:settings");
     await archiveRecord(ctx, "organizations", args.id, user._id);
+  },
+});
+
+// ============================================================
+// seedLocations — Einmal-Seed (npx convex run): die 4 Filialen aus der
+// Wareneingang-Quell-App als Standorte anlegen (Dedup über code).
+// reminderEmails bleiben leer — Pflege durch Admin im Standorte-Tab.
+// ============================================================
+
+export const seedLocations = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const SEED = [
+      { name: "Bremer Heerstraße", code: "BHS" },
+      { name: "Gerhard-Stalling-Straße", code: "GSS" },
+      { name: "Ofenerdieker Straße", code: "OFD" },
+      { name: "Hauptstraße", code: "HPT" },
+    ];
+    const parent = await ctx.db
+      .query("organizations")
+      .withIndex("by_type", (q) => q.eq("type", "organization"))
+      .first();
+    const existing = await ctx.db.query("organizations").collect();
+    const existingCodes = new Set(existing.map((o) => o.code));
+
+    const now = Date.now();
+    let created = 0;
+    for (const loc of SEED) {
+      if (existingCodes.has(loc.code)) continue;
+      const id = await ctx.db.insert("organizations", {
+        name: loc.name,
+        code: loc.code,
+        type: "location",
+        parentId: parent?._id,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await logAuditEvent(ctx, {
+        action: "CREATE",
+        entityType: "organizations",
+        entityId: id,
+        metadata: { seed: "wareneingang-locations", name: loc.name },
+      });
+      created++;
+    }
+    return { created, skipped: SEED.length - created };
   },
 });
