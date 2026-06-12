@@ -585,7 +585,7 @@ export const checkEffectivenessDue = internalMutation({
         type: "CAPA_EFFECTIVENESS_DUE",
         title: "CAPA-Wirksamkeitsprüfung fällig",
         message: title,
-        resourceType: "capas",
+        resourceType: "capa",
         resourceId: capa._id as string,
       });
 

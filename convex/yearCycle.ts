@@ -16,6 +16,11 @@ import { instantiateChecklist } from "./audits";
  * YEAR_CYCLE-Aufgabe genau einmal anlegen (Dedup über synthetische
  * resourceId wie "mgmtreview-2026"). Optional mit Benachrichtigung.
  * Liefert "created" oder "skipped" (Dedup-Treffer oder kein Zuständiger).
+ *
+ * Die resourceId ist jahresbezogen (z. B. "auditplan-2026"), daher blockiert
+ * JEDE nicht-archivierte YEAR_CYCLE-Aufgabe mit dieser Id eine Neu-Anlage —
+ * auch erledigte oder abgebrochene. So wird die Aufgabe genau einmal pro Jahr
+ * erzeugt, selbst wenn der tägliche Cron mehrfach läuft.
  */
 async function createYearCycleTask(
   ctx: MutationCtx,
@@ -29,7 +34,8 @@ async function createYearCycleTask(
     notification?: { type: string; title: string };
   }
 ): Promise<"created" | "skipped"> {
-  // Dedup: existiert bereits eine offene YEAR_CYCLE-Aufgabe zu diesem Stichtag?
+  // Dedup: existiert bereits irgendeine YEAR_CYCLE-Aufgabe zu dieser jahresbezogenen Id?
+  // Status wird bewusst NICHT gefiltert — DONE/CANCELLED sollen ebenfalls blockieren.
   const existingTask = await ctx.db
     .query("tasks")
     .withIndex("by_resource", (q) =>
@@ -38,9 +44,7 @@ async function createYearCycleTask(
     .filter((q) =>
       q.and(
         q.eq(q.field("isArchived"), false),
-        q.eq(q.field("type"), "YEAR_CYCLE"),
-        q.neq(q.field("status"), "DONE"),
-        q.neq(q.field("status"), "CANCELLED")
+        q.eq(q.field("type"), "YEAR_CYCLE")
       )
     )
     .first();
@@ -255,7 +259,9 @@ export const generateAuditPlan = mutation({
         auditYear: args.year,
         auditType: source.auditType,
         status: "PLANNED",
+        leadAuditorId: user._id,
         auditTeam: source.auditTeam,
+        basis: source.basis ?? template.basis,
         area: source.area,
         affectedAreas: source.affectedAreas,
         plannedMonths: source.plannedMonths,
