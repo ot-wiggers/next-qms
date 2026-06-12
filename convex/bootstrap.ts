@@ -83,9 +83,12 @@ export const purgeWalkthroughTestData = internalMutation({
     }
 
     // --- Test-Audits + Checklisten-Antworten + Findings ---
+    // Walkthrough-Generator-Tests nutzen Jahre ≥ 2090.
     const audits = await ctx.db.query("audits").collect();
     const testAuditIds = new Set(
-      audits.filter((a) => a.title.includes("Runtime-Walkthrough")).map((a) => a._id),
+      audits
+        .filter((a) => a.title.includes("Runtime-Walkthrough") || a.auditYear >= 2090)
+        .map((a) => a._id),
     );
     const answers = await ctx.db.query("auditChecklistAnswers").collect();
     for (const ans of answers) {

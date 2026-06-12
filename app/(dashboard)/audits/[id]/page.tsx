@@ -62,6 +62,11 @@ export default function AuditDetailPage() {
   const createFinding = useMutation(api.auditFindings.create);
   const createCapaFromFinding = useMutation(api.capas.createFromFinding);
 
+  // IST-Spalte im Auditplan wird aus auditDate abgeleitet — Nachpflege für bereits durchgeführte Audits.
+  const [headerDialogOpen, setHeaderDialogOpen] = useState(false);
+  const [auditDateInput, setAuditDateInput] = useState("");
+  const updateHeader = useMutation(api.audits.updateHeader);
+
   const [editAnswer, setEditAnswer] = useState<Answer | null>(null);
   const [answerForm, setAnswerForm] = useState({
     rating: "" as string, evidence: "", sample: "", interviewedWith: "", comments: "",
@@ -212,13 +217,34 @@ export default function AuditDetailPage() {
       />
 
       <Card>
-        <CardHeader><CardTitle>Kopfdaten</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Kopfdaten</CardTitle>
+          {canManage && audit.status !== "CLOSED" && audit.status !== "CANCELLED" && (
+            <Button variant="outline" size="sm" onClick={() => {
+              // Vorhandenes auditDate als ISO-Date-String vorbelegen (YYYY-MM-DD)
+              setAuditDateInput(
+                audit.auditDate
+                  ? new Date(audit.auditDate).toISOString().slice(0, 10)
+                  : ""
+              );
+              setHeaderDialogOpen(true);
+            }}>
+              Bearbeiten
+            </Button>
+          )}
+        </CardHeader>
         <CardContent className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
           <div><span className="text-muted-foreground">Leitender Auditor: </span>{audit.leadAuditorName ?? "—"}</div>
           <div><span className="text-muted-foreground">Auditteam: </span>{audit.auditTeam ?? "—"}</div>
           <div><span className="text-muted-foreground">Standort: </span>{audit.location ?? "—"}</div>
           <div><span className="text-muted-foreground">Berichtszeitraum: </span>{audit.reportingPeriod ?? "—"}</div>
           <div className="col-span-2"><span className="text-muted-foreground">Basis: </span>{audit.basis ?? "—"}</div>
+          <div className="col-span-2">
+            <span className="text-muted-foreground">Auditdatum: </span>
+            {audit.auditDate
+              ? new Date(audit.auditDate).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+              : "—"}
+          </div>
         </CardContent>
       </Card>
 
@@ -315,6 +341,45 @@ export default function AuditDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Kopfdaten-Dialog: Auditdatum pflegbar — IST-Ableitung für Auditplan-Matrix */}
+      <Dialog open={headerDialogOpen} onOpenChange={(o) => !o && setHeaderDialogOpen(false)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Kopfdaten bearbeiten</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="auditDate">Auditdatum</Label>
+              <Input
+                id="auditDate"
+                type="date"
+                value={auditDateInput}
+                onChange={(e) => setAuditDateInput(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                IST-Spalte im Auditplan wird aus diesem Datum abgeleitet.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setHeaderDialogOpen(false)}>Abbrechen</Button>
+              <Button onClick={async () => {
+                // Datum in Timestamp umwandeln; leeres Feld: nicht senden (clearing nicht unterstützt)
+                const ts = auditDateInput ? new Date(auditDateInput).getTime() : undefined;
+                if (auditDateInput && !Number.isFinite(ts)) {
+                  toast.error("Ungültiges Datum");
+                  return;
+                }
+                try {
+                  await updateHeader({ id: auditId, ...(ts !== undefined ? { auditDate: ts } : {}) });
+                  setHeaderDialogOpen(false);
+                  toast.success("Auditdatum gespeichert");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Fehler beim Speichern");
+                }
+              }}>Speichern</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Prüfpunkt-Dialog */}
       <Dialog open={!!editAnswer} onOpenChange={(o) => !o && setEditAnswer(null)}>
