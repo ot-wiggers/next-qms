@@ -1106,6 +1106,17 @@ export const finalizeImport = internalMutation({
   handler: async (ctx, args) => {
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Managementbewertung nicht gefunden");
+    // Idempotenz-/Status-Guard: nur frische DRAFT-Importe ohne eingefrorenen
+    // Bericht dürfen finalisiert werden — ein Re-Run des Import-Skripts darf
+    // eine bereits freigegebene Bewertung (eingefrorener Nachweis) nie überschreiben.
+    if (review.status !== "DRAFT") {
+      throw new Error(
+        `Import-Finalisierung abgelehnt: Bewertung hat Status ${review.status}, erwartet DRAFT`
+      );
+    }
+    if (review.reportFileId !== undefined) {
+      throw new Error("Import-Finalisierung abgelehnt: Bewertung hat bereits einen Berichts-PDF-Nachweis");
+    }
     const now = Date.now();
     await ctx.db.patch(args.id, {
       reportFileId: args.reportFileId,
@@ -1117,7 +1128,7 @@ export const finalizeImport = internalMutation({
       action: "STATUS_CHANGE",
       entityType: "managementReviews",
       entityId: args.id,
-      previousStatus: "DRAFT",
+      previousStatus: review.status,
       newStatus: "APPROVED",
       metadata: { import: true, reportFileId: args.reportFileId },
     });
