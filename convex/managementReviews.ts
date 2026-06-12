@@ -17,6 +17,29 @@ const SECTION_KEYS = MGMT_REVIEW_SECTIONS.map((s) => s.key);
 type SectionKey = (typeof MGMT_REVIEW_SECTIONS)[number]["key"];
 
 // ============================================================
+// backfillMissingSections — Migration bestehender Dokumente:
+// Reviews, die vor einer Enum-Erweiterung angelegt wurden (z. B.
+// 2.9 regulatory / 2.10 followup), haben die neuen Keys nicht im
+// persistierten sections-Array. Fehlende Enum-Keys werden in
+// Enum-Reihenfolge angehängt (autoData/assessment leer), damit
+// updateSection/refreshAutoData sie behandeln können.
+// ============================================================
+
+function backfillMissingSections(
+  sections: Doc<"managementReviews">["sections"]
+): Doc<"managementReviews">["sections"] {
+  const existingKeys = new Set(sections.map((s) => s.key));
+  const missing = SECTION_KEYS.filter((key) => !existingKeys.has(key)).map(
+    (key) => ({
+      key,
+      autoData: undefined as string | undefined,
+      assessment: undefined as string | undefined,
+    })
+  );
+  return missing.length > 0 ? [...sections, ...missing] : sections;
+}
+
+// ============================================================
 // buildAutoData — interner Helfer (kein Convex-Export)
 // Erstellt einen Daten-Snapshot je Abschnitt aus echten App-Daten.
 // Nur Abschnitte mit vorhandenen Daten erhalten autoData; rein
@@ -342,7 +365,8 @@ export const refreshAutoData = mutation({
 
     // Read-modify-write — unter Convex OCC (optimistic concurrency control) korrekt:
     // Convex transaktioniert read+write atomar, Konflikte werden automatisch zurückgerollt.
-    const updatedSections = review.sections.map((s) => ({
+    // Backfill: vor Enum-Erweiterung angelegte Reviews erhalten fehlende Abschnitte.
+    const updatedSections = backfillMissingSections(review.sections).map((s) => ({
       ...s,
       // autoData wird neu gesetzt; assessment bleibt erhalten
       autoData: autoDataByKey[s.key as SectionKey] ?? s.autoData,
@@ -387,13 +411,17 @@ export const updateSection = mutation({
       throw new Error("Abschnitte können nur im Entwurf geändert werden");
     }
 
-    const sectionIndex = review.sections.findIndex((s) => s.key === args.key);
+    // Backfill: vor Enum-Erweiterung angelegte Reviews erhalten fehlende
+    // Abschnitte, damit deren Bewertungstext direkt speicherbar ist.
+    const sections = backfillMissingSections(review.sections);
+
+    const sectionIndex = sections.findIndex((s) => s.key === args.key);
     if (sectionIndex === -1) {
       throw new Error(`Unbekannter Abschnitt: ${args.key}`);
     }
 
     // Read-modify-write (Convex OCC, s. refreshAutoData)
-    const updatedSections = review.sections.map((s, i) =>
+    const updatedSections = sections.map((s, i) =>
       i === sectionIndex
         ? { ...s, assessment: args.assessment.trim() || undefined }
         : s
