@@ -55,6 +55,8 @@ export default function AuditDetailPage() {
 
   const audit = useQuery(api.audits.getById, { id: auditId });
   const reportUrl = useQuery(api.audits.getReportUrl, { id: auditId });
+  const previousAnswersData = useQuery(api.audits.previousAnswers, { id: auditId });
+  const adoptAllEvidence = useMutation(api.audits.adoptAllEvidence);
   const setStatus = useMutation(api.audits.setStatus);
   const updateAnswer = useMutation(api.audits.updateAnswer);
   const updateSummary = useMutation(api.audits.updateSummary);
@@ -83,6 +85,10 @@ export default function AuditDetailPage() {
     classification: "FESTSTELLUNG" as FindingClassification, description: "",
   });
   const [summary, setSummary] = useState<string | null>(null);
+
+  const prevByChapter = new Map(
+    (previousAnswersData?.answers ?? []).map((a) => [a.chapter, a]),
+  );
 
   // Entwurfstext nicht über Audit-Grenzen hinweg mitnehmen (App Router remountet nicht bei Param-Wechsel)
   useEffect(() => {
@@ -316,10 +322,22 @@ export default function AuditDetailPage() {
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>
             Checkliste ({audit.answers.filter((a: Answer) => a.rating).length}/{audit.answers.length} bewertet)
           </CardTitle>
+          {editable && canManage && previousAnswersData && (
+            <Button variant="outline" size="sm" onClick={async () => {
+              try {
+                const r = await adoptAllEvidence({ id: auditId });
+                toast.success(`${r.adopted} Nachweise aus „${r.sourceTitle}“ übernommen`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Fehler bei der Übernahme");
+              }
+            }}>
+              Alle Nachweise aus Vorjahr übernehmen
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-1">
           {audit.answers.map((a: Answer) => (
@@ -541,6 +559,40 @@ export default function AuditDetailPage() {
             <DialogTitle>{editAnswer?.chapter} — {editAnswer?.chapterTitle}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{editAnswer?.requirements}</p>
+          {editAnswer && prevByChapter.has(editAnswer.chapter) && (() => {
+            const p = prevByChapter.get(editAnswer.chapter)!;
+            const fields = [
+              ["evidence", "Nachweis"],
+              ["sample", "Stichprobe"],
+              ["interviewedWith", "Gespräch mit"],
+              ["comments", "Bemerkungen"],
+            ] as const;
+            return (
+              <div className="space-y-1.5 rounded-md border bg-muted/40 p-3 text-xs">
+                <p className="font-medium">
+                  Vorjahr: {previousAnswersData!.sourceTitle}
+                  {p.rating && (
+                    <Badge className={`ml-2 ${RATING_COLOR[p.rating] ?? ""}`} variant="secondary">
+                      {AUDIT_RATING_LABELS[p.rating as AuditRating]}
+                    </Badge>
+                  )}
+                  <span className="ml-1 font-normal text-muted-foreground">(Bewertung nur Anzeige)</span>
+                </p>
+                {fields.map(([key, label]) =>
+                  p[key] ? (
+                    <div key={key} className="flex items-start gap-2">
+                      <span className="w-24 shrink-0 text-muted-foreground">{label}:</span>
+                      <span className="flex-1 whitespace-pre-line">{p[key]}</span>
+                      <Button size="sm" variant="ghost" className="h-6 shrink-0 px-2"
+                        onClick={() => setAnswerForm((f) => ({ ...f, [key]: p[key]! }))}>
+                        Übernehmen
+                      </Button>
+                    </div>
+                  ) : null,
+                )}
+              </div>
+            );
+          })()}
           <div className="space-y-3">
             <div>
               <Label>Bewertung</Label>
