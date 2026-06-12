@@ -221,7 +221,8 @@ export const create = mutation({
       ...args,
       manufacturer: args.manufacturer.trim(),
       inspectorName: args.inspectorName?.trim() || `${user.firstName} ${user.lastName}`,
-      failureReason: args.failureReason?.trim() || undefined,
+      // Begründung gehört nur zu FAILED — bei PASSED nie speichern (kein Stale-Text im Nachweis)
+      failureReason: args.result === "FAILED" ? args.failureReason?.trim() || undefined : undefined,
       remarks: args.remarks?.trim() || undefined,
       isArchived: false,
       createdAt: now, createdBy: user._id,
@@ -249,7 +250,8 @@ export const update = mutation({
       ...payload,
       manufacturer: payload.manufacturer.trim(),
       inspectorName: payload.inspectorName?.trim() || undefined,
-      failureReason: payload.failureReason?.trim() || undefined,
+      // Begründung gehört nur zu FAILED — bei PASSED nie speichern (kein Stale-Text im Nachweis)
+      failureReason: payload.result === "FAILED" ? payload.failureReason?.trim() || undefined : undefined,
       remarks: payload.remarks?.trim() || undefined,
       updatedAt: Date.now(),
       updatedBy: user._id,
@@ -373,13 +375,27 @@ export const recordReminder = internalMutation({
 });
 
 /** Cron (täglich): sendet am 15./22./29. des Monats. `force: true` für manuelle Testläufe. */
+type ReminderRunResult = {
+  sent: number;
+  skipped: number;
+  failed: number;
+  emailConfigured: boolean;
+  reason?: string;
+};
+
 export const checkMonthlyDue = internalAction({
   args: { force: v.optional(v.boolean()) },
-  handler: async (ctx, args) => {
+  // Expliziter Rückgabetyp: verhindert die Convex-Typzirkularität
+  // (Handler-Rückgabe hängt sonst über `internal.incomingGoods` am eigenen Modul)
+  handler: async (ctx, args): Promise<ReminderRunResult> => {
     const now = new Date();
     const day = now.getUTCDate();
     if (!args.force && (day < 15 || (day - 15) % 7 !== 0)) {
-      return { skipped: true, reason: `Tag ${day} ist kein Erinnerungstag (15./22./29.)` };
+      return {
+        sent: 0, skipped: 0, failed: 0,
+        emailConfigured: !!process.env.RESEND_API_KEY,
+        reason: `Tag ${day} ist kein Erinnerungstag (15./22./29.)`,
+      };
     }
     const year = now.getUTCFullYear();
     const month = now.getUTCMonth() + 1;
@@ -390,6 +406,12 @@ export const checkMonthlyDue = internalAction({
     });
 
     const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      // Konvention wie convex/email.ts: ohne Key still überspringen — KEINE
+      // Versandprotokoll-Einträge, sonst entstünde irreführende Nachweis-Evidenz
+      // ("gesendet" ohne tatsächlichen Versand).
+      return { sent: 0, skipped: state.length, failed: 0, emailConfigured: false };
+    }
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://qms.example.com";
     const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
 
@@ -403,28 +425,26 @@ export const checkMonthlyDue = internalAction({
       }
       // Pro Filiale isoliert: ein Fehler (Netzwerk, Resend) darf die restlichen Filialen nicht blockieren.
       try {
-        if (apiKey) {
-          const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: "QMS <noreply@qms.example.com>",
-              to: loc.recipients.split(",").map((e) => e.trim()).filter(Boolean),
-              subject: `Erinnerung: Wareneingangsprüfung ${monthLabel} — ${loc.name}`,
-              html: buildReminderHtml(loc.name, monthLabel, appUrl),
-            }),
-          });
-          if (!res.ok) {
-            // Kein recordReminder: Versand fehlgeschlagen → Dedup greift nicht, nächster Lauf versucht es erneut.
-            console.error(
-              `Wareneingang-Reminder: Resend-Versand für "${loc.name}" fehlgeschlagen (HTTP ${res.status}): ${await res.text()}`,
-            );
-            failed++;
-            continue;
-          }
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "QMS <noreply@qms.example.com>",
+            to: loc.recipients.split(",").map((e) => e.trim()).filter(Boolean),
+            subject: `Erinnerung: Wareneingangsprüfung ${monthLabel} — ${loc.name}`,
+            html: buildReminderHtml(loc.name, monthLabel, appUrl),
+          }),
+        });
+        if (!res.ok) {
+          // Kein recordReminder: Versand fehlgeschlagen → Dedup greift nicht, nächster Lauf versucht es erneut.
+          console.error(
+            `Wareneingang-Reminder: Resend-Versand für "${loc.name}" fehlgeschlagen (HTTP ${res.status}): ${await res.text()}`,
+          );
+          failed++;
+          continue;
         }
         await ctx.runMutation(internal.incomingGoods.recordReminder, {
           locationId: loc.locationId,

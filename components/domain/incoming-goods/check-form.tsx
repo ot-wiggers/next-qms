@@ -210,7 +210,7 @@ export function CheckForm({ initial }: { initial?: Check }) {
           sichereEntsorgung: trimmedOrUndefined(form.custom.sichereEntsorgung),
         },
         result: form.result,
-        failureReason: trimmedOrUndefined(form.failureReason),
+        failureReason: form.result === "FAILED" ? trimmedOrUndefined(form.failureReason) : undefined,
         remarks: trimmedOrUndefined(form.remarks),
         signatureFileId,
         attachmentFileIds: attachmentFileIds.length > 0 ? attachmentFileIds : undefined,
