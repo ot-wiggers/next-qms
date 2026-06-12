@@ -111,7 +111,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Prüfungen",
     items: [
-      { label: "Wareneingang", href: "/incoming-goods", icon: Truck, featureFlag: "INCOMING_GOODS", badge: "IN PLANUNG" },
+      { label: "Wareneingang", href: "/incoming-goods", icon: Truck, featureFlag: "INCOMING_GOODS", permission: "incomingGoods:list" },
       { label: "Prüfmittel", href: "/devices", icon: Wrench, featureFlag: "DEVICES", badge: "IN PLANUNG" },
     ],
   },
