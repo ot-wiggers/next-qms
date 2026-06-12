@@ -30,6 +30,7 @@ import {
   Target,
   FileCheck,
   Grid3x3,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +41,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import type { PermissionAction } from "@/lib/types/domain";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface NavItem {
   label: string;
@@ -53,7 +54,8 @@ interface NavItem {
 
 const navSections: { title: string; items: NavItem[] }[] = [
   {
-    title: "Übersicht",
+    // Fix sichtbar, ohne Überschrift, nicht einklappbar
+    title: "",
     items: [
       { label: "Dashboard", href: "/", icon: LayoutDashboard },
       { label: "Aufgaben", href: "/tasks", icon: ClipboardList },
@@ -61,17 +63,33 @@ const navSections: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "Qualitätsmanagementsystem",
+    title: "Dokumente",
     items: [
       { label: "Dokumente", href: "/documents", icon: FileText, permission: "documents:read" },
       { label: "Dokumenten-Graph", href: "/documents/graph", icon: GitBranch, permission: "documents:read" },
+      { label: "Berichte", href: "/reports", icon: BarChart3, featureFlag: "REPORTS", badge: "IN PLANUNG" },
+    ],
+  },
+  {
+    title: "Schulungen",
+    items: [
       { label: "Schulungen", href: "/trainings", icon: GraduationCap, permission: "trainings:list" },
       { label: "Schulungsanträge", href: "/training-requests", icon: MessageSquarePlus },
       { label: "Schulungsmatrix", href: "/training-matrix", icon: Grid3x3, permission: "trainingMatrix:list", featureFlag: "TRAINING_MATRIX" },
+    ],
+  },
+  {
+    title: "Audits & Maßnahmen",
+    items: [
       { label: "Interne Audits", href: "/audits", icon: ClipboardCheck, featureFlag: "AUDITS", permission: "audits:list" },
       { label: "Auditplan", href: "/audits/plan", icon: CalendarRange, permission: "audits:list", featureFlag: "AUDITS" },
       { label: "CAPA", href: "/capa", icon: AlertTriangle, featureFlag: "CAPA", permission: "capa:list" },
       { label: "Reklamationen", href: "/complaints", icon: MessageSquarePlus, permission: "complaints:list", featureFlag: "COMPLAINTS" },
+    ],
+  },
+  {
+    title: "QM-Steuerung",
+    items: [
       { label: "Risikoregister", href: "/risks", icon: ShieldAlert, permission: "risks:list", featureFlag: "RISKS" },
       { label: "Qualitätsziele", href: "/quality-objectives", icon: Target, permission: "qualityObjectives:list", featureFlag: "QUALITY_OBJECTIVES" },
       { label: "Managementbewertung", href: "/management-review", icon: FileCheck, permission: "mgmtReview:list", featureFlag: "MGMT_REVIEW" },
@@ -79,7 +97,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "MDR & Produkte",
+    title: "Produkte & MDR",
     items: [
       { label: "Produkte", href: "/mdr/products", icon: Package, permission: "products:list" },
       { label: "Hersteller", href: "/mdr/manufacturers", icon: Factory, permission: "products:list" },
@@ -89,33 +107,32 @@ const navSections: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "In Planung",
+    title: "Prüfungen",
     items: [
       { label: "Wareneingang", href: "/incoming-goods", icon: Truck, featureFlag: "INCOMING_GOODS", badge: "IN PLANUNG" },
       { label: "Prüfmittel", href: "/devices", icon: Wrench, featureFlag: "DEVICES", badge: "IN PLANUNG" },
-      { label: "Berichte", href: "/reports", icon: BarChart3, featureFlag: "REPORTS", badge: "IN PLANUNG" },
     ],
   },
   {
-    title: "Einstellungen",
+    title: "System",
     items: [
       { label: "Benachrichtigungen", href: "/settings/notifications", icon: Bell },
-    ],
-  },
-  {
-    title: "Administration",
-    items: [
       { label: "Verwaltung", href: "/admin", icon: Building2, permission: "users:list" },
       { label: "Einstellungen", href: "/admin/settings", icon: Settings, permission: "admin:settings" },
     ],
   },
 ];
 
+const SIDEBAR_STORAGE_KEY = "qms-sidebar-open-groups";
+
+function isItemActive(item: NavItem, pathname: string): boolean {
+  return pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+}
+
 /** Renders a single nav item. Feature-flag filtering is handled upstream in
  *  NavContent so section headings are only shown when there are visible items. */
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const isActive = pathname === item.href ||
-    (item.href !== "/" && pathname.startsWith(item.href));
+  const isActive = isItemActive(item, pathname);
 
   return (
     <Link
@@ -146,9 +163,42 @@ function NavContent() {
     (flags ?? []).filter((f) => f.enabled).map((f) => f.key)
   );
 
+  // Offene Gruppen: Default alle offen; localStorage erst nach Mount lesen
+  // (vermeidet SSR-Hydration-Mismatch)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      setOpenGroups(JSON.parse(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? "{}"));
+    } catch {
+      // korrupter Eintrag → Default (alle offen)
+    }
+  }, []);
+
+  // Gruppe mit aktiver Route immer aufklappen
+  useEffect(() => {
+    const activeSection = navSections.find(
+      (s) => s.title !== "" && s.items.some((i) => isItemActive(i, pathname))
+    );
+    if (activeSection && openGroups[activeSection.title] === false) {
+      setOpenGroups((prev) => {
+        const next = { ...prev, [activeSection.title]: true };
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleGroup(title: string) {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [title]: !(prev[title] ?? true) };
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
   return (
     <ScrollArea className="h-full py-4">
-      <div className="px-3 space-y-6">
+      <div className="px-3 space-y-4">
         <div className="px-3">
           <h2 className="text-lg font-semibold tracking-tight">QMS</h2>
           <p className="text-xs text-muted-foreground">Qualitätsmanagementsystem</p>
@@ -161,16 +211,39 @@ function NavContent() {
           });
           if (permittedItems.length === 0) return null;
 
-          return (
-            <div key={section.title}>
-              <h3 className="mb-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {section.title}
-              </h3>
-              <div className="space-y-1">
+          // Fixe Top-Gruppe ohne Überschrift
+          if (section.title === "") {
+            return (
+              <div key="top" className="space-y-1">
                 {permittedItems.map((item) => (
                   <NavLink key={item.href} item={item} pathname={pathname} />
                 ))}
               </div>
+            );
+          }
+
+          const isOpen = openGroups[section.title] ?? true;
+
+          return (
+            <div key={section.title}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(section.title)}
+                className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                aria-expanded={isOpen}
+              >
+                {section.title}
+                <ChevronDown
+                  className={cn("h-3.5 w-3.5 transition-transform", !isOpen && "-rotate-90")}
+                />
+              </button>
+              {isOpen && (
+                <div className="mt-1 space-y-1">
+                  {permittedItems.map((item) => (
+                    <NavLink key={item.href} item={item} pathname={pathname} />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
