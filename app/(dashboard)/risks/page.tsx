@@ -460,7 +460,7 @@ export default function RisksPage() {
 
       {/* ---- Create/Edit Dialog ---- */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               {editId === null ? "Risiko anlegen" : "Risiko bearbeiten"}
@@ -495,7 +495,7 @@ export default function RisksPage() {
             </div>
 
             {/* Faktoren */}
-            <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <Label htmlFor="risk-occurrence">Auftretenswahrscheinlichkeit *</Label>
                 <Select
@@ -572,7 +572,7 @@ export default function RisksPage() {
                 Werte vor Maßnahme (optional)
               </button>
               {showInitial && (
-                <div className="space-y-3 border-t p-3">
+                <div className="grid gap-3 border-t p-3 sm:grid-cols-3">
                   <div>
                     <Label htmlFor="risk-init-occurrence">Auftretenswahrscheinlichkeit (vorher)</Label>
                     <Select
