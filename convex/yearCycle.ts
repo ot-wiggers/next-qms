@@ -173,7 +173,7 @@ export const yearOpeningTasks = internalMutation({
       {
         resourceId: `auditplan-${year}`,
         title: `Auditplan ${year} erstellen (Vorschlag aus Vorjahr im Auditplan generierbar)`,
-        description: `Themen-Audits für ${year} planen — der Auditplan-Generator schlägt die Vorjahresthemen vor.`,
+        description: `Internes Jahres-Audit und externe Audits für ${year} planen — der Generator übernimmt die Themen-Zeilen des Vorjahres.`,
       },
       {
         resourceId: `qziele-${year}`,
@@ -205,9 +205,9 @@ export const yearOpeningTasks = internalMutation({
 });
 
 /**
- * Auditplan-Generator: kopiert die Themen-Audits des Vorjahres als
- * PLANNED-Audits ins Zieljahr (inkl. SOLL-Monaten und eingefrorener
- * Checkliste der aktiven Vorlage). Vorschlag, kein Automatismus —
+ * Auditplan-Generator (Ein-Audit-Modell): erzeugt EIN internes Jahres-Audit
+ * mit den Themen-Zeilen (planThemes) des Vorjahres-Audits sowie je eine Kopie
+ * der externen Plan-Audits (area gesetzt). Vorschlag, kein Automatismus —
  * der Mensch löst aus und passt danach an.
  */
 export const generateAuditPlan = mutation({
@@ -219,25 +219,30 @@ export const generateAuditPlan = mutation({
       throw new Error("Ungültiges Jahr");
     }
 
-    // Schutz: Zieljahr darf noch keine Themen-Audits haben
+    // Schutz: Zieljahr darf noch keinen Auditplan haben
     const targetYearAudits = await ctx.db
       .query("audits")
       .withIndex("by_year", (q) => q.eq("auditYear", args.year))
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
-    if (targetYearAudits.some((a) => a.area !== undefined)) {
-      throw new Error(`Für ${args.year} existieren bereits Themen-Audits`);
+    if (targetYearAudits.some((a) => (a.planThemes && a.planThemes.length > 0) || a.area !== undefined)) {
+      throw new Error(`Für ${args.year} existiert bereits ein Auditplan`);
     }
 
-    // Quelle: Themen-Audits (area gesetzt) des Vorjahres
+    // Quellen im Vorjahr: das interne Jahres-Audit (planThemes) + externe Plan-Audits (area)
     const previousYearAudits = await ctx.db
       .query("audits")
       .withIndex("by_year", (q) => q.eq("auditYear", args.year - 1))
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
-    const sourceAudits = previousYearAudits.filter((a) => a.area !== undefined);
-    if (sourceAudits.length === 0) {
-      throw new Error("Keine Themen-Audits im Vorjahr gefunden");
+    const internalSource = previousYearAudits.find(
+      (a) => a.auditType === "INTERNAL" && a.planThemes && a.planThemes.length > 0,
+    );
+    const externalSources = previousYearAudits.filter(
+      (a) => a.auditType === "EXTERNAL" && a.area !== undefined,
+    );
+    if (!internalSource && externalSources.length === 0) {
+      throw new Error("Kein Auditplan im Vorjahr gefunden");
     }
 
     // Aktive Checklisten-Vorlage — exakt wie audits.create
@@ -253,11 +258,38 @@ export const generateAuditPlan = mutation({
     const now = Date.now();
     let created = 0;
 
-    for (const source of sourceAudits) {
+    if (internalSource) {
+      const auditId = await ctx.db.insert("audits", {
+        title: `Internes Audit ${args.year}`,
+        auditYear: args.year,
+        auditType: "INTERNAL",
+        status: "PLANNED",
+        leadAuditorId: user._id,
+        auditTeam: internalSource.auditTeam,
+        basis: internalSource.basis ?? template.basis,
+        location: internalSource.location,
+        planThemes: internalSource.planThemes,
+        plannedMonths: internalSource.plannedMonths,
+        templateId: template._id,
+        templateVersion: template.version,
+        isArchived: false,
+        createdAt: now, createdBy: user._id,
+        updatedAt: now, updatedBy: user._id,
+      });
+      await instantiateChecklist(ctx, auditId, template, now, user._id);
+      await logAuditEvent(ctx, {
+        userId: user._id, action: "CREATE",
+        entityType: "audits", entityId: auditId,
+        metadata: { generatedFrom: args.year - 1, planThemes: internalSource.planThemes!.length },
+      });
+      created++;
+    }
+
+    for (const source of externalSources) {
       const auditId = await ctx.db.insert("audits", {
         title: `${source.area} ${args.year}`,
         auditYear: args.year,
-        auditType: source.auditType,
+        auditType: "EXTERNAL",
         status: "PLANNED",
         leadAuditorId: user._id,
         auditTeam: source.auditTeam,
@@ -271,16 +303,12 @@ export const generateAuditPlan = mutation({
         createdAt: now, createdBy: user._id,
         updatedAt: now, updatedBy: user._id,
       });
-
-      // Prüfpunkte einfrieren — spätere Vorlagenänderungen wirken nicht zurück
       await instantiateChecklist(ctx, auditId, template, now, user._id);
-
       await logAuditEvent(ctx, {
         userId: user._id, action: "CREATE",
         entityType: "audits", entityId: auditId,
         metadata: { generatedFrom: args.year - 1, area: source.area },
       });
-
       created++;
     }
 
