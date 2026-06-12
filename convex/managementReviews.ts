@@ -512,6 +512,135 @@ export const updateSection = mutation({
 });
 
 // ============================================================
+// 5b. addCustomSection / renameCustomSection / removeCustomSection
+// Eigene Eingabe-Punkte (ab 2.11) — nur DRAFT, feste Punkte unantastbar
+// ============================================================
+
+export const addCustomSection = mutation({
+  args: {
+    id: v.id("managementReviews"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "mgmtReview:manage");
+
+    const review = await ctx.db.get(args.id);
+    if (!review) throw new Error("Managementbewertung nicht gefunden");
+    if (review.status !== "DRAFT") {
+      throw new Error("Eigene Punkte können nur im Entwurf ergänzt werden");
+    }
+    const title = args.title.trim();
+    if (!title) throw new Error("Titel ist erforderlich");
+
+    const newSection = {
+      key: `custom-${Date.now()}`,
+      title,
+      custom: true,
+      autoData: undefined as string | undefined,
+      assessment: undefined as string | undefined,
+    };
+
+    const patch: Partial<Doc<"managementReviews">> = {
+      sections: [...review.sections, newSection],
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    };
+    invalidateFrozenReport(review, patch);
+    await ctx.db.patch(args.id, patch);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "managementReviews",
+      entityId: args.id,
+      changes: { addedCustomSection: title },
+    });
+    return newSection.key;
+  },
+});
+
+export const renameCustomSection = mutation({
+  args: {
+    id: v.id("managementReviews"),
+    key: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "mgmtReview:manage");
+
+    const review = await ctx.db.get(args.id);
+    if (!review) throw new Error("Managementbewertung nicht gefunden");
+    if (review.status !== "DRAFT") {
+      throw new Error("Eigene Punkte können nur im Entwurf geändert werden");
+    }
+    const title = args.title.trim();
+    if (!title) throw new Error("Titel ist erforderlich");
+
+    const section = review.sections.find((s) => s.key === args.key);
+    if (!section) throw new Error(`Unbekannter Abschnitt: ${args.key}`);
+    if (section.custom !== true) {
+      throw new Error("Feste Abschnitte können nicht umbenannt werden");
+    }
+
+    const patch: Partial<Doc<"managementReviews">> = {
+      sections: review.sections.map((s) =>
+        s.key === args.key ? { ...s, title } : s
+      ),
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    };
+    invalidateFrozenReport(review, patch);
+    await ctx.db.patch(args.id, patch);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "managementReviews",
+      entityId: args.id,
+      changes: { renamedCustomSection: args.key, title },
+    });
+  },
+});
+
+export const removeCustomSection = mutation({
+  args: {
+    id: v.id("managementReviews"),
+    key: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "mgmtReview:manage");
+
+    const review = await ctx.db.get(args.id);
+    if (!review) throw new Error("Managementbewertung nicht gefunden");
+    if (review.status !== "DRAFT") {
+      throw new Error("Eigene Punkte können nur im Entwurf entfernt werden");
+    }
+
+    const section = review.sections.find((s) => s.key === args.key);
+    if (!section) throw new Error(`Unbekannter Abschnitt: ${args.key}`);
+    if (section.custom !== true) {
+      throw new Error("Feste Abschnitte (ISO 13485 §5.6.2) können nicht entfernt werden");
+    }
+
+    const patch: Partial<Doc<"managementReviews">> = {
+      sections: review.sections.filter((s) => s.key !== args.key),
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    };
+    invalidateFrozenReport(review, patch);
+    await ctx.db.patch(args.id, patch);
+
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "UPDATE",
+      entityType: "managementReviews",
+      entityId: args.id,
+      changes: { removedCustomSection: section.title ?? args.key },
+    });
+  },
+});
+
+// ============================================================
 // 6. updateGeneral — Allgemeine Angaben ändern (nur DRAFT)
 // ============================================================
 
