@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalAction } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
@@ -1024,5 +1025,114 @@ export const migrateSectionsToV2 = internalMutation({
       migrated++;
     }
     return { migrated };
+  },
+});
+
+// ============================================================
+// importReview2025 — Einmal-Import (npx convex run) der realen
+// Managementbewertung 2025 aus FB 5.6.0 Rev. 8. Legt den Datensatz
+// als DRAFT an; finalizeImport (über importReportPdf) hängt das
+// Original-PDF an und setzt APPROVED. Guard: Jahr darf nicht belegt sein.
+// ============================================================
+
+export const importReview2025 = internalMutation({
+  args: {
+    year: v.number(),
+    reportingPeriod: v.string(),
+    participants: v.optional(v.string()),
+    companyNote: v.optional(v.string()),
+    sections: v.array(v.object({
+      key: v.string(),
+      assessment: v.optional(v.string()),
+    })),
+    overallAssessment: v.optional(v.string()),
+    measures: v.array(v.object({
+      description: v.string(),
+      responsible: v.optional(v.string()),
+      dueText: v.optional(v.string()),
+      effectivenessCheck: v.optional(v.string()),
+    })),
+    improvements: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("managementReviews")
+      .withIndex("by_year", (q) => q.eq("year", args.year))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .first();
+    if (existing) {
+      return { skipped: true, reason: `Bewertung ${args.year} existiert bereits`, reviewId: existing._id };
+    }
+
+    // Assessments aus der Payload auf die festen Abschnitte mappen;
+    // autoData bleibt leer — für 2025 gibt es keine App-Daten (ehrlich).
+    const byKey = new Map(args.sections.map((s) => [s.key, s.assessment]));
+    const sections = SECTION_KEYS.map((key) => ({
+      key,
+      title: undefined as string | undefined,
+      custom: undefined as boolean | undefined,
+      autoData: undefined as string | undefined,
+      assessment: byKey.get(key) ?? undefined,
+    }));
+
+    const now = Date.now();
+    const id = await ctx.db.insert("managementReviews", {
+      year: args.year,
+      reportingPeriod: args.reportingPeriod,
+      participants: args.participants,
+      companyNote: args.companyNote,
+      status: "DRAFT",
+      sections,
+      overallAssessment: args.overallAssessment,
+      measures: args.measures,
+      improvements: args.improvements,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await logAuditEvent(ctx, {
+      action: "CREATE",
+      entityType: "managementReviews",
+      entityId: id,
+      metadata: { import: "fb-5-6-0-rev8", year: args.year, measures: args.measures.length },
+    });
+    return { skipped: false, reviewId: id };
+  },
+});
+
+export const finalizeImport = internalMutation({
+  args: { id: v.id("managementReviews"), reportFileId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const review = await ctx.db.get(args.id);
+    if (!review) throw new Error("Managementbewertung nicht gefunden");
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      reportFileId: args.reportFileId,
+      status: "APPROVED",
+      approvedAt: now,
+      updatedAt: now,
+    });
+    await logAuditEvent(ctx, {
+      action: "STATUS_CHANGE",
+      entityType: "managementReviews",
+      entityId: args.id,
+      previousStatus: "DRAFT",
+      newStatus: "APPROVED",
+      metadata: { import: true, reportFileId: args.reportFileId },
+    });
+  },
+});
+
+export const importReportPdf = internalAction({
+  args: { reviewId: v.id("managementReviews"), base64: v.string() },
+  handler: async (ctx, args) => {
+    const bytes = Uint8Array.from(atob(args.base64), (c) => c.charCodeAt(0));
+    const storageId = await ctx.storage.store(new Blob([bytes], { type: "application/pdf" }));
+    await ctx.runMutation(internal.managementReviews.finalizeImport, {
+      id: args.reviewId,
+      reportFileId: storageId,
+    });
+    return { storageId };
   },
 });
