@@ -739,6 +739,192 @@ export const planDraft = query({
 });
 
 // ============================================================
+// 12. setTopicArchived / setFunctionArchived — Archivieren/Wiederherstellen
+// (trainingMatrix:manage) — Soft-Delete, Historie bleibt nachweisbar
+// ============================================================
+
+export const setTopicArchived = mutation({
+  args: { id: v.id("trainingTopics"), archived: v.boolean() },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainingMatrix:manage");
+    const topic = await ctx.db.get(args.id);
+    if (!topic) throw new Error("Thema nicht gefunden");
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      isArchived: args.archived,
+      archivedAt: args.archived ? now : undefined,
+      archivedBy: args.archived ? user._id : undefined,
+      updatedAt: now,
+      updatedBy: user._id,
+    });
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: args.archived ? "ARCHIVE" : "RESTORE",
+      entityType: "trainingTopics",
+      entityId: args.id,
+      metadata: { title: topic.title, cluster: topic.cluster },
+    });
+  },
+});
+
+export const setFunctionArchived = mutation({
+  args: { id: v.id("jobFunctions"), archived: v.boolean() },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainingMatrix:manage");
+    const fn = await ctx.db.get(args.id);
+    if (!fn) throw new Error("Funktion nicht gefunden");
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      isArchived: args.archived,
+      archivedAt: args.archived ? now : undefined,
+      archivedBy: args.archived ? user._id : undefined,
+      updatedAt: now,
+      updatedBy: user._id,
+    });
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: args.archived ? "ARCHIVE" : "RESTORE",
+      entityType: "jobFunctions",
+      entityId: args.id,
+      metadata: { name: fn.name },
+    });
+  },
+});
+
+// ============================================================
+// 13. deleteTopicPermanent / deleteFunctionPermanent — Hard-Delete
+// NUR für unverknüpfte Einträge (Tippfehler-Anlagen). Guard zählt
+// auch archivierte Verknüpfungen — QM-Historie darf nie brechen.
+// ============================================================
+
+export const deleteTopicPermanent = mutation({
+  args: { id: v.id("trainingTopics") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainingMatrix:manage");
+    const topic = await ctx.db.get(args.id);
+    if (!topic) throw new Error("Thema nicht gefunden");
+
+    const reqs = await ctx.db
+      .query("trainingRequirements")
+      .withIndex("by_topic", (q) => q.eq("topicId", args.id))
+      .collect();
+    if (reqs.length > 0) {
+      throw new Error("Thema hat Matrix-Zuordnungen — bitte archivieren statt löschen");
+    }
+    const fulfillments = (await ctx.db.query("trainingFulfillments").collect()).filter(
+      (f) => f.topicId === args.id,
+    );
+    if (fulfillments.length > 0) {
+      throw new Error("Thema hat Erfüllungseinträge — bitte archivieren statt löschen");
+    }
+
+    await ctx.db.delete(args.id);
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "PERMANENT_DELETE",
+      entityType: "trainingTopics",
+      entityId: args.id,
+      metadata: { title: topic.title, cluster: topic.cluster },
+    });
+  },
+});
+
+export const deleteFunctionPermanent = mutation({
+  args: { id: v.id("jobFunctions") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainingMatrix:manage");
+    const fn = await ctx.db.get(args.id);
+    if (!fn) throw new Error("Funktion nicht gefunden");
+
+    const reqs = await ctx.db
+      .query("trainingRequirements")
+      .withIndex("by_function", (q) => q.eq("functionId", args.id))
+      .collect();
+    if (reqs.length > 0) {
+      throw new Error("Funktion hat Matrix-Zuordnungen — bitte archivieren statt löschen");
+    }
+    const fulfillments = await ctx.db
+      .query("trainingFulfillments")
+      .withIndex("by_function", (q) => q.eq("functionId", args.id))
+      .collect();
+    if (fulfillments.length > 0) {
+      throw new Error("Funktion hat Erfüllungseinträge — bitte archivieren statt löschen");
+    }
+
+    await ctx.db.delete(args.id);
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "PERMANENT_DELETE",
+      entityType: "jobFunctions",
+      entityId: args.id,
+      metadata: { name: fn.name },
+    });
+  },
+});
+
+// ============================================================
+// 14. topicsAdminList / functionsAdminList — Listenansichten
+// (trainingMatrix:list) — linkCount steuert den Löschen-Button in der UI
+// ============================================================
+
+export const topicsAdminList = query({
+  args: { includeArchived: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "trainingMatrix:list");
+
+    const topics = await ctx.db.query("trainingTopics").collect();
+    const requirements = await ctx.db.query("trainingRequirements").collect();
+    const fulfillments = await ctx.db.query("trainingFulfillments").collect();
+
+    return topics
+      .filter((t) => (args.includeArchived ? true : !t.isArchived))
+      .sort((a, b) =>
+        a.cluster !== b.cluster
+          ? a.cluster.localeCompare(b.cluster)
+          : a.sortOrder - b.sortOrder,
+      )
+      .map((t) => ({
+        _id: t._id,
+        cluster: t.cluster,
+        title: t.title,
+        frequency: t.frequency,
+        provider: t.provider,
+        sortOrder: t.sortOrder,
+        isArchived: t.isArchived,
+        linkCount:
+          requirements.filter((r) => r.topicId === t._id).length +
+          fulfillments.filter((f) => f.topicId === t._id).length,
+      }));
+  },
+});
+
+export const functionsAdminList = query({
+  args: { includeArchived: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "trainingMatrix:list");
+
+    const functions = await ctx.db.query("jobFunctions").collect();
+    const requirements = await ctx.db.query("trainingRequirements").collect();
+    const fulfillments = await ctx.db.query("trainingFulfillments").collect();
+
+    return functions
+      .filter((f) => (args.includeArchived ? true : !f.isArchived))
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((f) => ({
+        _id: f._id,
+        name: f.name,
+        holder: f.holder,
+        staffingStatus: f.staffingStatus,
+        sortOrder: f.sortOrder,
+        isArchived: f.isArchived,
+        linkCount:
+          requirements.filter((r) => r.functionId === f._id).length +
+          fulfillments.filter((ff) => ff.functionId === f._id).length,
+      }));
+  },
+});
+
+// ============================================================
 // 10. seedFromImport — idempotenter Seed (internalMutation)
 // Indizes referenzieren die Arrays aus der Payload (Seed kennt keine Ids).
 // Idempotenz: skip wenn bereits jobFunctions (nicht archiviert) existieren.
