@@ -28,6 +28,7 @@ import { initials, fullName } from "@/lib/utils/formatting";
 import { USER_ROLE_LABELS } from "@/lib/types/enums";
 import type { UserRole } from "@/lib/types/enums";
 import { MobileSidebar } from "./sidebar";
+import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { CommandSearch } from "@/components/shared/command-search";
 import { ChangePasswordDialog } from "@/components/domain/users/change-password-dialog";
@@ -112,6 +113,7 @@ export function Topbar() {
             <span className="sr-only">Suchen</span>
           </Button>
           <CommandSearch open={searchOpen} onOpenChange={setSearchOpen} />
+          <ThemeToggle />
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
