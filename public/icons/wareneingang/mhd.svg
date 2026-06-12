@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Ebene_2" data-name="Ebene 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 11.9 25.74">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #004f9f;
+        stroke-miterlimit: 10;
+        stroke-width: 1.5px;
+      }
+
+      .cls-2 {
+        font-family: UniversLTStd-Light, 'UniversLTStd Light';
+        font-size: 8px;
+        font-weight: 300;
+      }
+
+      .cls-2, .cls-3 {
+        fill: #004f9f;
+      }
+    </style>
+  </defs>
+  <g id="Ebene_1-2" data-name="Ebene 1">
+    <path class="cls-1" d="M8.31,12c-.33-.29-.79-.66-1.31-1.21-.52-.56-.66-1.5.04-2.12.35-.31,1.16-1.08,1.43-1.59.19-.36.15-1.02.15-1.02V.75H.75v5.31s-.04.66.15,1.02c.27.51,1.08,1.29,1.43,1.59.7.62.56,1.56.04,2.12-.52.56-.98.92-1.31,1.21-.32.28-.3.73-.3.73v6.36h7.85v-6.36s.03-.45-.29-.73Z"/>
+    <rect class="cls-3" x=".44" y="14.35" width="8.42" height="5.14"/>
+    <text class="cls-2" transform="translate(9.36 19.84)"><tspan x="0" y="0"> </tspan></text>
+  </g>
+</svg>
