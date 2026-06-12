@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation, internalAction, MutationCtx } from "./_generated/server";
+import { query, mutation, internalMutation, internalAction, MutationCtx, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { requirePermission } from "./lib/withAuth";
@@ -465,6 +465,110 @@ export const updatePlanThemes = mutation({
       entityType: "audits", entityId: args.id,
       changes: { planThemes: themes.map((t) => t.area) },
     });
+  },
+});
+
+/** Vorgänger-Audit finden: jüngstes früheres internes Audit (CLOSED bevorzugt) */
+async function findPreviousInternalAudit(
+  ctx: { db: QueryCtx["db"] },
+  audit: Doc<"audits">,
+): Promise<Doc<"audits"> | null> {
+  const all = await ctx.db
+    .query("audits")
+    .filter((q) => q.eq(q.field("isArchived"), false))
+    .collect();
+  const candidates = all
+    .filter(
+      (a) =>
+        a.auditType === "INTERNAL" &&
+        a.auditYear < audit.auditYear &&
+        a.status !== "CANCELLED" &&
+        a._id !== audit._id,
+    )
+    .sort(
+      (a, b) =>
+        b.auditYear - a.auditYear ||
+        (b.status === "CLOSED" ? 1 : 0) - (a.status === "CLOSED" ? 1 : 0),
+    );
+  return candidates[0] ?? null;
+}
+
+/** Antworten des Vorgänger-Audits je Kapitelnummer — Anzeige + Einzel-Übernahme im UI */
+export const previousAnswers = query({
+  args: { id: v.id("audits") },
+  handler: async (ctx, args) => {
+    await requirePermission(ctx, "audits:list");
+    const audit = await ctx.db.get(args.id);
+    if (!audit) return null;
+
+    const source = await findPreviousInternalAudit(ctx, audit);
+    if (!source) return null;
+
+    const answers = await ctx.db
+      .query("auditChecklistAnswers")
+      .withIndex("by_audit", (q) => q.eq("auditId", source._id))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    return {
+      sourceId: source._id,
+      sourceTitle: source.title,
+      sourceYear: source.auditYear,
+      answers: answers.map((a) => ({
+        chapter: a.chapter,
+        rating: a.rating,
+        evidence: a.evidence,
+        sample: a.sample,
+        interviewedWith: a.interviewedWith,
+        comments: a.comments,
+      })),
+    };
+  },
+});
+
+/** Massen-Übernahme: NUR Nachweise, NUR leere Felder, NUR in Durchführung (Beschluss 2026-06-12) */
+export const adoptAllEvidence = mutation({
+  args: { id: v.id("audits") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "audits:manage");
+    const audit = await ctx.db.get(args.id);
+    if (!audit) throw new Error("Audit nicht gefunden");
+    if (audit.status !== "IN_PROGRESS") {
+      throw new Error("Übernahme nur möglich, während das Audit in Durchführung ist");
+    }
+
+    const source = await findPreviousInternalAudit(ctx, audit);
+    if (!source) throw new Error("Kein Vorgänger-Audit gefunden");
+
+    const sourceAnswers = await ctx.db
+      .query("auditChecklistAnswers")
+      .withIndex("by_audit", (q) => q.eq("auditId", source._id))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+    const byChapter = new Map(sourceAnswers.map((a) => [a.chapter, a]));
+
+    const targetAnswers = await ctx.db
+      .query("auditChecklistAnswers")
+      .withIndex("by_audit", (q) => q.eq("auditId", args.id))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    const now = Date.now();
+    let adopted = 0;
+    for (const t of targetAnswers) {
+      if (t.evidence) continue; // vorhandene Nachweise nie überschreiben
+      const prev = byChapter.get(t.chapter);
+      if (!prev?.evidence) continue;
+      await ctx.db.patch(t._id, { evidence: prev.evidence, updatedAt: now, updatedBy: user._id });
+      adopted++;
+    }
+
+    await logAuditEvent(ctx, {
+      userId: user._id, action: "UPDATE",
+      entityType: "audits", entityId: args.id,
+      metadata: { adoptEvidenceFrom: source._id, sourceYear: source.auditYear, adopted },
+    });
+    return { adopted, sourceTitle: source.title };
   },
 });
 
