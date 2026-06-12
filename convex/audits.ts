@@ -752,6 +752,8 @@ export const migrateToSingleAudit2026 = internalMutation({
 // Antworten werden per Kapitelnummer gematcht; Kapitel, die in der
 // eingefrorenen Checkliste fehlen (xlsx v5: 7.5.5, 7.5.7, 7.5.9.2),
 // werden ergänzt. sortOrder = Payload-Reihenfolge (xlsx ist kanonisch).
+// Rerun-sicher: Findings werden gematcht/gepatcht statt dupliziert,
+// nicht mehr im Payload enthaltene Alt-Findings archiviert.
 // ============================================================
 
 const auditRatingArg = v.union(
@@ -847,15 +849,36 @@ export const importFilledChecklist = internalMutation({
       }
     }
 
-    // Findings: CAPA-Verknüpfung per capaNumber (Index by_number),
-    // Antwort-Verknüpfung per Kapitelnummer
+    // Findings: rerun-sicher — vorhandene Findings des Audits werden per
+    // (chapter, classification, description) gematcht und gepatcht statt
+    // dupliziert; nur neue werden eingefügt. Alt-Findings ohne Payload-
+    // Entsprechung (z. B. nach Tippfehler-Korrektur und erneutem Lauf)
+    // werden archiviert — der Payload ist kanonisch.
+    // CAPA-Verknüpfung per capaNumber (Index by_number),
+    // Antwort-Verknüpfung per Kapitelnummer.
     const answersAfter = await ctx.db
       .query("auditChecklistAnswers")
       .withIndex("by_audit", (q) => q.eq("auditId", args.auditId))
       .collect();
     const answerByChapter = new Map(answersAfter.map((a) => [a.chapter, a]));
 
+    const existingFindings = await ctx.db
+      .query("auditFindings")
+      .withIndex("by_audit", (q) => q.eq("auditId", args.auditId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+    const findingKey = (f: { chapter?: string; classification: string; description: string }) =>
+      [f.chapter ?? "", f.classification, f.description].join("\u0000");
+    const unmatchedByKey = new Map<string, Doc<"auditFindings">[]>();
+    for (const f of existingFindings) {
+      const key = findingKey(f);
+      const list = unmatchedByKey.get(key);
+      if (list) list.push(f);
+      else unmatchedByKey.set(key, [f]);
+    }
+
     let findingsCreated = 0;
+    let findingsPatched = 0;
     for (const f of args.findings) {
       let capaId: Id<"capas"> | undefined;
       if (f.capaNumber) {
@@ -865,19 +888,39 @@ export const importFilledChecklist = internalMutation({
           .first();
         capaId = capa?._id;
       }
-      await ctx.db.insert("auditFindings", {
-        auditId: args.auditId,
-        answerId: answerByChapter.get(f.chapter)?._id,
-        chapter: f.chapter,
-        classification: f.classification,
-        description: f.description,
-        capaId,
-        status: "OPEN",
-        isArchived: false,
-        createdAt: now,
-        updatedAt: now,
-      });
-      findingsCreated++;
+      const match = unmatchedByKey.get(findingKey(f))?.shift();
+      if (match) {
+        await ctx.db.patch(match._id, {
+          answerId: answerByChapter.get(f.chapter)?._id,
+          ...(capaId ? { capaId } : {}),
+          updatedAt: now,
+        });
+        findingsPatched++;
+      } else {
+        await ctx.db.insert("auditFindings", {
+          auditId: args.auditId,
+          answerId: answerByChapter.get(f.chapter)?._id,
+          chapter: f.chapter,
+          classification: f.classification,
+          description: f.description,
+          capaId,
+          status: "OPEN",
+          isArchived: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+        findingsCreated++;
+      }
+    }
+
+    // Übrig gebliebene Alt-Findings (nicht mehr im Payload) archivieren —
+    // das räumt auch Duplikate aus früheren Mehrfach-Läufen auf.
+    let findingsArchived = 0;
+    for (const list of unmatchedByKey.values()) {
+      for (const stale of list) {
+        await ctx.db.patch(stale._id, { isArchived: true, archivedAt: now, updatedAt: now });
+        findingsArchived++;
+      }
     }
 
     if (args.close) {
@@ -888,11 +931,12 @@ export const importFilledChecklist = internalMutation({
       action: "UPDATE", entityType: "audits", entityId: args.auditId,
       metadata: {
         import: "auditcheckliste-2026",
-        patched, inserted, findings: findingsCreated,
+        patched, inserted,
+        findings: findingsCreated, findingsPatched, findingsArchived,
         closed: args.close === true,
       },
     });
-    return { patched, inserted, findings: findingsCreated };
+    return { patched, inserted, findings: findingsCreated, findingsPatched, findingsArchived };
   },
 });
 
