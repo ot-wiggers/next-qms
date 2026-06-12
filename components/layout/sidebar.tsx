@@ -174,7 +174,11 @@ function NavContent() {
     }
   }, []);
 
-  // Gruppe mit aktiver Route immer aufklappen
+  // Gruppe mit aktiver Route immer aufklappen.
+  // openGroups gehört in die Deps: beim initialen Laden committed der
+  // Load-Effekt den localStorage-Stand erst nach dem ersten Render — ohne
+  // Re-Run bliebe eine eingeklappt gespeicherte aktive Gruppe zu.
+  // Der ===false-Guard verhindert Endlosschleifen.
   useEffect(() => {
     const activeSection = navSections.find(
       (s) => s.title !== "" && s.items.some((i) => isItemActive(i, pathname))
@@ -186,7 +190,7 @@ function NavContent() {
         return next;
       });
     }
-  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, openGroups]);
 
   function toggleGroup(title: string) {
     setOpenGroups((prev) => {
