@@ -18,10 +18,11 @@ import {
 } from "@/components/ui/select";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
-  AUDIT_STATUS_LABELS, AUDIT_TYPE_LABELS, type AuditStatus, type AuditType,
+  AUDIT_STATUS_LABELS, AUDIT_TYPE_LABELS, MONTH_LABELS_SHORT,
+  type AuditStatus, type AuditType,
 } from "@/lib/types/enums";
 import { formatDate } from "@/lib/utils/dates";
-import { Plus } from "lucide-react";
+import { CalendarRange, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface AuditRow {
@@ -42,13 +43,8 @@ const STATUS_VARIANT: Record<string, string> = {
   CANCELLED: "bg-gray-100 text-gray-800",
 };
 
-export default function AuditsPage() {
-  const router = useRouter();
-  const { can } = usePermissions();
-  const audits = useQuery(api.audits.list, {});
-  const createAudit = useMutation(api.audits.create);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
+function emptyForm() {
+  return {
     title: "",
     auditYear: new Date().getFullYear(),
     auditType: "INTERNAL" as AuditType,
@@ -56,7 +52,33 @@ export default function AuditsPage() {
     location: "",
     reportingPeriod: "",
     plannedFor: "",
-  });
+    area: "",
+    plannedMonths: [] as number[],
+    affectedAreas: "",
+  };
+}
+
+export default function AuditsPage() {
+  const router = useRouter();
+  const { can } = usePermissions();
+  const audits = useQuery(api.audits.list, {});
+  const createAudit = useMutation(api.audits.create);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm());
+
+  function handleOpenChange(o: boolean) {
+    setOpen(o);
+    if (!o) setForm(emptyForm());
+  }
+
+  function toggleMonth(month: number) {
+    setForm((prev) => ({
+      ...prev,
+      plannedMonths: prev.plannedMonths.includes(month)
+        ? prev.plannedMonths.filter((m) => m !== month)
+        : [...prev.plannedMonths, month].sort((a, b) => a - b),
+    }));
+  }
 
   async function handleCreate() {
     if (!form.title.trim()) {
@@ -67,6 +89,7 @@ export default function AuditsPage() {
       toast.error("Ungültiges Jahr");
       return;
     }
+    const area = form.area.trim();
     try {
       const id = await createAudit({
         title: form.title.trim(),
@@ -76,8 +99,13 @@ export default function AuditsPage() {
         location: form.location || undefined,
         reportingPeriod: form.reportingPeriod || undefined,
         plannedFor: form.plannedFor || undefined,
+        area: area || undefined,
+        affectedAreas: form.affectedAreas.trim() || undefined,
+        plannedMonths: area && form.plannedMonths.length > 0
+          ? form.plannedMonths
+          : undefined,
       });
-      setOpen(false);
+      handleOpenChange(false);
       toast.success("Audit angelegt — Checkliste wurde eingefroren");
       router.push(`/audits/${id}`);
     } catch (e) {
@@ -107,11 +135,16 @@ export default function AuditsPage() {
         title="Interne Audits"
         description="Planung, Durchführung und Nachverfolgung interner Audits (ISO 13485 Kap. 8.2.4)"
         actions={
-          can("audits:manage") ? (
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Audit anlegen
+          <>
+            <Button variant="outline" onClick={() => router.push("/audits/plan")}>
+              <CalendarRange className="mr-2 h-4 w-4" /> Auditplan
             </Button>
-          ) : undefined
+            {can("audits:manage") && (
+              <Button onClick={() => setOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Audit anlegen
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -122,8 +155,8 @@ export default function AuditsPage() {
         emptyMessage="Noch keine Audits vorhanden"
       />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Audit anlegen</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
@@ -176,8 +209,44 @@ export default function AuditsPage() {
                   placeholder="05/2026" />
               </div>
             </div>
+            <div>
+              <Label htmlFor="audit-area">Auditplan-Thema (optional)</Label>
+              <Input id="audit-area" value={form.area}
+                onChange={(e) => setForm({ ...form, area: e.target.value })}
+                placeholder="z. B. Wareneingang / Lager" />
+            </div>
+            {form.area.trim() !== "" && (
+              <>
+                <div>
+                  <Label>Geplante Monate (SOLL)</Label>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {MONTH_LABELS_SHORT.map((label, i) => {
+                      const month = i + 1;
+                      const selected = form.plannedMonths.includes(month);
+                      return (
+                        <Button
+                          key={month}
+                          type="button"
+                          size="sm"
+                          variant={selected ? "default" : "outline"}
+                          onClick={() => toggleMonth(month)}
+                        >
+                          {label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="audit-affected">Betroffene Bereiche</Label>
+                  <Input id="audit-affected" value={form.affectedAreas}
+                    onChange={(e) => setForm({ ...form, affectedAreas: e.target.value })}
+                    placeholder="z. B. Lager, Einkauf, Verwaltung" />
+                </div>
+              </>
+            )}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpen(false)}>Abbrechen</Button>
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>Abbrechen</Button>
               <Button onClick={handleCreate}>Anlegen</Button>
             </div>
           </div>
