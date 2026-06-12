@@ -3,6 +3,8 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { archiveRecord } from "./lib/softDelete";
+import { createNotification } from "./lib/notificationHelpers";
+import { findQmbAssignee } from "./lib/assignees";
 import { Doc, Id } from "./_generated/dataModel";
 
 // ============================================================
@@ -440,5 +442,85 @@ export const seedReset = internalMutation({
     }
 
     return { risks: risks.length };
+  },
+});
+
+// ============================================================
+// 7. checkReviewDue — Internal (Cron): überfällige Risiko-
+// Neubewertungen anmahnen. Fällig, sobald nextReviewAt
+// überschritten ist (Phase 7, Jahreszyklus).
+// ============================================================
+
+export const checkReviewDue = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const risks = await ctx.db
+      .query("risks")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const risk of risks) {
+      if (risk.nextReviewAt === undefined || risk.nextReviewAt >= now) continue;
+
+      // Dedup: existiert bereits eine offene RISK_REVIEW_DUE-Aufgabe zu diesem Risiko?
+      const existingTask = await ctx.db
+        .query("tasks")
+        .withIndex("by_resource", (q) =>
+          q.eq("resourceType", "risks").eq("resourceId", risk._id as string)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("isArchived"), false),
+            q.eq(q.field("type"), "RISK_REVIEW_DUE"),
+            q.neq(q.field("status"), "DONE"),
+            q.neq(q.field("status"), "CANCELLED")
+          )
+        )
+        .first();
+      if (existingTask) {
+        skipped++;
+        continue;
+      }
+
+      const assignee = await findQmbAssignee(ctx);
+      if (!assignee) {
+        skipped++;
+        continue;
+      }
+
+      const title = `Risiko-Neubewertung fällig: ${risk.riskNumber} — ${risk.title}`;
+      await ctx.db.insert("tasks", {
+        type: "RISK_REVIEW_DUE",
+        title,
+        description:
+          "Die letzte SOLL-Neubewertung ist überschritten. Bitte Risiko neu bewerten und nächsten Termin setzen.",
+        assigneeId: assignee._id,
+        dueDate: now + 14 * 24 * 60 * 60 * 1000, // 14 Tage Frist
+        status: "OPEN",
+        priority: "MEDIUM",
+        resourceType: "risks",
+        resourceId: risk._id as string,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await createNotification(ctx, {
+        userId: assignee._id,
+        type: "RISK_REVIEW_DUE",
+        title: "Risiko-Neubewertung fällig",
+        message: title,
+        resourceType: "risks",
+        resourceId: risk._id as string,
+      });
+
+      created++;
+    }
+
+    return { created, skipped };
   },
 });

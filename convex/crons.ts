@@ -42,4 +42,35 @@ crons.daily(
   internal.documents.checkReviewDates
 );
 
+// Phase 7 (Jahreszyklus): Fälligkeits-Checks täglich 04:00/05:00 CET
+crons.daily(
+  "check-audit-plan-due",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.audits.checkPlanDue
+);
+
+crons.daily(
+  "check-capa-effectiveness-due",
+  { hourUTC: 3, minuteUTC: 15 },
+  internal.capas.checkEffectivenessDue
+);
+
+crons.daily(
+  "check-risk-review-due",
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.risks.checkReviewDue
+);
+
+crons.daily(
+  "check-year-cycle",
+  { hourUTC: 3, minuteUTC: 45 },
+  internal.yearCycle.checkAnnualReports
+);
+
+crons.daily(
+  "year-opening-tasks",
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.yearCycle.yearOpeningTasks
+);
+
 export default crons;

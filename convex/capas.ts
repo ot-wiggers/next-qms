@@ -5,6 +5,7 @@ import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { archiveRecord } from "./lib/softDelete";
 import { createNotification } from "./lib/notificationHelpers";
+import { findQmbAssignee } from "./lib/assignees";
 import { MutationCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 
@@ -508,5 +509,89 @@ export const seedFromImport = internalMutation({
       });
     }
     return { inserted, skipped: args.items.length - inserted };
+  },
+});
+
+/**
+ * Internal (Cron): überfällige Wirksamkeitsprüfungen anmahnen.
+ * Fällig, sobald effectivenessDueAt überschritten ist und noch kein
+ * Ergebnis dokumentiert wurde (Status nicht CLOSED/CANCELLED).
+ */
+export const checkEffectivenessDue = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const capas = await ctx.db
+      .query("capas")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const capa of capas) {
+      if (capa.effectivenessDueAt === undefined || capa.effectivenessDueAt >= now) continue;
+      if (capa.effectivenessResult !== undefined) continue;
+      if (capa.status === "CLOSED" || capa.status === "CANCELLED") continue;
+
+      // Dedup: existiert bereits eine offene CAPA_EFFECTIVENESS_DUE-Aufgabe zu dieser CAPA?
+      const existingTask = await ctx.db
+        .query("tasks")
+        .withIndex("by_resource", (q) =>
+          q.eq("resourceType", "capas").eq("resourceId", capa._id as string)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("isArchived"), false),
+            q.eq(q.field("type"), "CAPA_EFFECTIVENESS_DUE"),
+            q.neq(q.field("status"), "DONE"),
+            q.neq(q.field("status"), "CANCELLED")
+          )
+        )
+        .first();
+      if (existingTask) {
+        skipped++;
+        continue;
+      }
+
+      // Zuständig: CAPA-Verantwortlicher, sonst QMB/Admin
+      const assigneeId = capa.assigneeId ?? (await findQmbAssignee(ctx))?._id;
+      if (!assigneeId) {
+        skipped++;
+        continue;
+      }
+
+      const title = `Wirksamkeitsprüfung fällig: ${capa.capaNumber} — ${capa.title}`;
+      const description = capa.effectivenessCriterion
+        ? `Die Wirksamkeitsprüfung ist überfällig. Kriterium: ${capa.effectivenessCriterion}`
+        : "Die Wirksamkeitsprüfung ist überfällig. Bitte Ergebnis dokumentieren.";
+      await ctx.db.insert("tasks", {
+        type: "CAPA_EFFECTIVENESS_DUE",
+        title,
+        description,
+        assigneeId,
+        dueDate: now + 7 * 24 * 60 * 60 * 1000, // 7 Tage Frist
+        status: "OPEN",
+        priority: "HIGH",
+        resourceType: "capas",
+        resourceId: capa._id as string,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await createNotification(ctx, {
+        userId: assigneeId,
+        type: "CAPA_EFFECTIVENESS_DUE",
+        title: "CAPA-Wirksamkeitsprüfung fällig",
+        message: title,
+        resourceType: "capas",
+        resourceId: capa._id as string,
+      });
+
+      created++;
+    }
+
+    return { created, skipped };
   },
 });

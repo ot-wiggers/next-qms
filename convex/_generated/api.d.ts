@@ -56,6 +56,7 @@ import type * as trainingMatrix from "../trainingMatrix.js";
 import type * as trainingRequests from "../trainingRequests.js";
 import type * as trainings from "../trainings.js";
 import type * as users from "../users.js";
+import type * as yearCycle from "../yearCycle.js";
 
 import type {
   ApiFromModules,
@@ -112,6 +113,7 @@ declare const fullApi: ApiFromModules<{
   trainingRequests: typeof trainingRequests;
   trainings: typeof trainings;
   users: typeof users;
+  yearCycle: typeof yearCycle;
 }>;
 
 /**

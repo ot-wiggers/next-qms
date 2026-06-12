@@ -23,8 +23,9 @@ function validatePlannedMonths(months: number[]): number[] {
  * spätere Vorlagenänderungen wirken nicht zurück.
  * userId entfällt beim System-Seed (createdBy/updatedBy bleiben dann leer).
  * Liefert die Anzahl der angelegten Antworten.
+ * Exportiert (kein Convex-Export) zur Wiederverwendung in yearCycle.generateAuditPlan.
  */
-async function instantiateChecklist(
+export async function instantiateChecklist(
   ctx: MutationCtx,
   auditId: Id<"audits">,
   template: Doc<"auditChecklistTemplates">,
@@ -410,11 +411,19 @@ export const checkPlanDue = internalMutation({
     const currentYear = new Date(now).getUTCFullYear();
     const currentMonth = new Date(now).getUTCMonth() + 1;
 
-    const audits = await ctx.db
+    // Auch Vorjahres-Audits prüfen — Dezember-Pläne (oder nie durchgeführte
+    // Audits) sollen über den Jahreswechsel hinaus weiter erinnern.
+    const currentYearAudits = await ctx.db
       .query("audits")
       .withIndex("by_year", (q) => q.eq("auditYear", currentYear))
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
+    const previousYearAudits = await ctx.db
+      .query("audits")
+      .withIndex("by_year", (q) => q.eq("auditYear", currentYear - 1))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+    const audits = [...currentYearAudits, ...previousYearAudits];
 
     let created = 0;
     let skipped = 0;
@@ -423,7 +432,11 @@ export const checkPlanDue = internalMutation({
       if (!audit.plannedMonths || audit.plannedMonths.length === 0) continue;
       if (audit.auditDate !== undefined) continue;
       if (audit.status !== "PLANNED") continue;
-      if (currentMonth <= Math.max(...audit.plannedMonths)) continue;
+      // Fällig: Vorjahres-Audit nie durchgeführt ODER letzter SOLL-Monat überschritten
+      const isDue =
+        audit.auditYear < currentYear ||
+        currentMonth > Math.max(...audit.plannedMonths);
+      if (!isDue) continue;
 
       // Dedup: existiert bereits eine offene AUDIT_PLAN_DUE-Aufgabe zu diesem Audit?
       const existingTask = await ctx.db
@@ -452,11 +465,11 @@ export const checkPlanDue = internalMutation({
       }
 
       const areaLabel = audit.area ?? audit.title;
-      const title = `Auditplan: „${areaLabel}“ ${currentYear} nicht durchgeführt`;
+      const title = `Auditplan: „${areaLabel}“ ${audit.auditYear} nicht durchgeführt`;
       await ctx.db.insert("tasks", {
         type: "AUDIT_PLAN_DUE",
         title,
-        description: `Das Audit war laut Auditplan ${currentYear} für folgende(n) Monat(e) vorgesehen: ${audit.plannedMonths.join(", ")}. Bitte Durchführung nachholen oder Plan anpassen.`,
+        description: `Das Audit war laut Auditplan ${audit.auditYear} für folgende(n) Monat(e) vorgesehen: ${audit.plannedMonths.join(", ")}. Bitte Durchführung nachholen oder Plan anpassen.`,
         assigneeId: assignee._id,
         dueDate: now + 14 * 24 * 60 * 60 * 1000, // 14 Tage Frist
         status: "OPEN",
