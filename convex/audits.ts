@@ -370,7 +370,9 @@ export const archive = mutation({
   },
 });
 
-/** Auditplan-Matrix (FB 8.2.4): nur Audits mit Thema (area), SOLL aus plannedMonths, IST aus auditDate */
+/** Auditplan-Matrix (FB 8.2.4): Internes Jahres-Audit wird in seine
+ *  planThemes-Zeilen aufgefächert (gemeinsame SOLL-Monate + IST aus auditDate);
+ *  Audits mit `area` (externe / Altdaten) bleiben je eine Zeile. */
 export const planMatrix = query({
   args: { year: v.number() },
   handler: async (ctx, args) => {
@@ -381,21 +383,87 @@ export const planMatrix = query({
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
 
-    const rows = audits
-      .filter((a) => a.area !== undefined)
-      .sort((a, b) => a._creationTime - b._creationTime)
-      .map((a) => ({
-        _id: a._id,
-        area: a.area!,
-        auditTeam: a.auditTeam,
-        affectedAreas: a.affectedAreas,
-        plannedMonths: a.plannedMonths ?? [],
-        istMonth: a.auditDate ? new Date(a.auditDate).getUTCMonth() + 1 : null,
-        status: a.status,
-        title: a.title,
-      }));
+    const rows: Array<{
+      _id: Id<"audits">;
+      rowKey: string;
+      area: string;
+      auditTeam?: string;
+      affectedAreas?: string;
+      plannedMonths: number[];
+      istMonth: number | null;
+      status: Doc<"audits">["status"];
+      title: string;
+    }> = [];
+
+    for (const a of audits.sort((x, y) => x._creationTime - y._creationTime)) {
+      const istMonth = a.auditDate ? new Date(a.auditDate).getUTCMonth() + 1 : null;
+      if (a.planThemes && a.planThemes.length > 0) {
+        for (const t of a.planThemes) {
+          rows.push({
+            _id: a._id,
+            rowKey: `${a._id}-${t.area}`,
+            area: t.area,
+            auditTeam: t.auditTeam ?? a.auditTeam,
+            affectedAreas: t.affectedAreas,
+            plannedMonths: a.plannedMonths ?? [],
+            istMonth,
+            status: a.status,
+            title: a.title,
+          });
+        }
+      } else if (a.area !== undefined) {
+        rows.push({
+          _id: a._id,
+          rowKey: a._id,
+          area: a.area,
+          auditTeam: a.auditTeam,
+          affectedAreas: a.affectedAreas,
+          plannedMonths: a.plannedMonths ?? [],
+          istMonth,
+          status: a.status,
+          title: a.title,
+        });
+      }
+    }
 
     return { year: args.year, rows };
+  },
+});
+
+/** Themen-Zeilen (FB 8.2.4) des internen Jahres-Audits pflegen — ersetzt das Array komplett */
+export const updatePlanThemes = mutation({
+  args: {
+    id: v.id("audits"),
+    planThemes: v.array(v.object({
+      area: v.string(),
+      auditTeam: v.optional(v.string()),
+      affectedAreas: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "audits:manage");
+    const audit = await ctx.db.get(args.id);
+    if (!audit) throw new Error("Audit nicht gefunden");
+    if (audit.status === "CLOSED" || audit.status === "CANCELLED") {
+      throw new Error("Abgeschlossene Audits können nicht geändert werden");
+    }
+    const themes = args.planThemes
+      .map((t) => ({
+        area: t.area.trim(),
+        auditTeam: t.auditTeam?.trim() || undefined,
+        affectedAreas: t.affectedAreas?.trim() || undefined,
+      }))
+      .filter((t) => t.area !== "");
+    await ctx.db.patch(args.id, {
+      planThemes: themes.length > 0 ? themes : undefined,
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    });
+    await logAuditEvent(ctx, {
+      userId: user._id, action: "UPDATE",
+      entityType: "audits", entityId: args.id,
+      changes: { planThemes: themes.map((t) => t.area) },
+    });
   },
 });
 

@@ -131,7 +131,7 @@ export default function AuditPlanPage() {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <Fragment key={r._id}>
+                  <Fragment key={r.rowKey}>
                     <tr>
                       <td
                         rowSpan={2}
