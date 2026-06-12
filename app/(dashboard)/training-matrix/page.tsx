@@ -379,6 +379,24 @@ export default function TrainingMatrixPage() {
   // ---- Plan-Entwurf: in-flight Set for double-click protection ----
   const [creatingTrainings, setCreatingTrainings] = useState<Set<string>>(new Set());
 
+  // ---- Plan-Entwurf: Filter (clientseitig) ----
+  const [pdFunction, setPdFunction] = useState<string>("ALL");
+  const [pdCluster, setPdCluster] = useState<string>("ALL");
+  const [pdLevel, setPdLevel] = useState<string>("ALL");
+  const [pdSearch, setPdSearch] = useState("");
+
+  const filteredPlanDraft = ((planDraft ?? []) as PlanDraftRow[]).filter((row) => {
+    if (pdFunction !== "ALL" && row.functionId !== pdFunction) return false;
+    if (pdCluster !== "ALL" && row.cluster !== pdCluster) return false;
+    if (pdLevel !== "ALL" && row.level !== pdLevel) return false;
+    if (pdSearch.trim()) {
+      const q = pdSearch.trim().toLowerCase();
+      const hay = `${row.topicTitle} ${row.functionName} ${row.provider ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
   async function handleCreateTraining(row: PlanDraftRow) {
     const key = `${row.functionId}-${row.topicId}`;
     if (creatingTrainings.has(key)) return;
@@ -663,6 +681,59 @@ export default function TrainingMatrixPage() {
                 Unerfüllte Pflichtschulungen — Vorschlag für den Schulungsplan. Übernahme erzeugt ein
                 Training im bestehenden Schulungsmodul.
               </p>
+              {/* Filterleiste */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={pdFunction} onValueChange={setPdFunction}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Funktion" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Alle Funktionen</SelectItem>
+                    {((overview ?? []) as OverviewItem[]).map((fn) => (
+                      <SelectItem key={fn._id} value={fn._id}>
+                        {fn.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={pdCluster} onValueChange={setPdCluster}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Cluster" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Alle Cluster</SelectItem>
+                    {TOPIC_CLUSTERS.map((c) => (
+                      <SelectItem key={c.key} value={c.key}>
+                        {c.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={pdLevel} onValueChange={setPdLevel}>
+                  <SelectTrigger className="w-[230px]">
+                    <SelectValue placeholder="Einstufung" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Alle Einstufungen</SelectItem>
+                    {MANDATORY_LEVELS.map((lvl) => (
+                      <SelectItem key={lvl} value={lvl}>
+                        {REQUIREMENT_LEVEL_SYMBOLS[lvl]} {REQUIREMENT_LEVEL_LABELS[lvl]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="w-[240px]"
+                  placeholder="Suchen (Thema, Funktion, Anbieter)…"
+                  value={pdSearch}
+                  onChange={(e) => setPdSearch(e.target.value)}
+                />
+              </div>
+              {filteredPlanDraft.length === 0 ? (
+                <div className="rounded-md border p-8 text-center text-muted-foreground">
+                  Keine Treffer mit den aktuellen Filtern.
+                </div>
+              ) : (
               <div className="overflow-x-auto rounded-md border">
                 <table className="min-w-full text-sm">
                   <thead>
@@ -676,7 +747,7 @@ export default function TrainingMatrixPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(planDraft as PlanDraftRow[]).map((row) => {
+                    {filteredPlanDraft.map((row) => {
                       const key = `${row.functionId}-${row.topicId}`;
                       const inFlight = creatingTrainings.has(key);
                       return (
@@ -724,6 +795,7 @@ export default function TrainingMatrixPage() {
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
         </TabsContent>
