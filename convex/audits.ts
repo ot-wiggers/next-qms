@@ -686,3 +686,61 @@ export const seedPlanReset = internalMutation({
     return { audits: planAudits.length, answers, findings };
   },
 });
+
+// ============================================================
+// migrateToSingleAudit2026 — Einmal-Migration (npx convex run):
+// archiviert die internen Themen-Audits 2026 (area gesetzt, keine
+// erfassten Antworten) und setzt ihre Themen als planThemes auf das
+// Ziel-Audit ("Intern 2026"). Externe Audits bleiben unberührt.
+// Idempotent: bereits archivierte Quellen / gesetzte planThemes → skip.
+// ============================================================
+
+export const migrateToSingleAudit2026 = internalMutation({
+  args: { targetAuditId: v.id("audits") },
+  handler: async (ctx, args) => {
+    const target = await ctx.db.get(args.targetAuditId);
+    if (!target) throw new Error("Ziel-Audit nicht gefunden");
+    if (target.auditType !== "INTERNAL") throw new Error("Ziel-Audit muss INTERNAL sein");
+
+    const audits2026 = await ctx.db
+      .query("audits")
+      .withIndex("by_year", (q) => q.eq("auditYear", 2026))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+    const internalThemeAudits = audits2026.filter(
+      (a) => a.auditType === "INTERNAL" && a.area !== undefined && a._id !== args.targetAuditId,
+    );
+
+    const now = Date.now();
+    const themes = internalThemeAudits
+      .sort((a, b) => a._creationTime - b._creationTime)
+      .map((a) => ({
+        area: a.area!,
+        auditTeam: a.auditTeam,
+        affectedAreas: a.affectedAreas,
+      }));
+
+    for (const a of internalThemeAudits) {
+      await ctx.db.patch(a._id, { isArchived: true, archivedAt: now, updatedAt: now });
+      await logAuditEvent(ctx, {
+        action: "ARCHIVE", entityType: "audits", entityId: a._id,
+        metadata: { migration: "single-audit-2026", area: a.area },
+      });
+    }
+
+    if ((!target.planThemes || target.planThemes.length === 0) && themes.length > 0) {
+      await ctx.db.patch(args.targetAuditId, {
+        title: "Internes Audit 2026",
+        planThemes: themes,
+        plannedMonths: [4], // SOLL laut FB 8.2.4 Rev. 5 (April); IST kommt aus auditDate
+        updatedAt: now,
+      });
+      await logAuditEvent(ctx, {
+        action: "UPDATE", entityType: "audits", entityId: args.targetAuditId,
+        metadata: { migration: "single-audit-2026", themes: themes.length },
+      });
+    }
+
+    return { archived: internalThemeAudits.length, themes: themes.length };
+  },
+});
