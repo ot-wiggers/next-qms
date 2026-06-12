@@ -39,6 +39,7 @@ import {
   type StaffingStatus,
 } from "@/lib/types/enums";
 import { toast } from "sonner";
+import { TopicsAdminTab } from "@/components/domain/training-matrix/topics-admin-tab";
 
 // ============================================================
 // Types inferred from query return shapes
@@ -424,6 +425,8 @@ export default function TrainingMatrixPage() {
           <TabsTrigger value="soll-ist">Soll-Ist</TabsTrigger>
           <TabsTrigger value="matrix">Matrix</TabsTrigger>
           <TabsTrigger value="plan-entwurf">Plan-Entwurf</TabsTrigger>
+          <TabsTrigger value="themen">Themen</TabsTrigger>
+          <TabsTrigger value="funktionen">Funktionen</TabsTrigger>
         </TabsList>
 
         {/* ======================================================
@@ -722,6 +725,13 @@ export default function TrainingMatrixPage() {
               </div>
             </div>
           )}
+        </TabsContent>
+
+        {/* ======================================================
+            Tab 4: Themen (Listenansicht + CRUD)
+        ====================================================== */}
+        <TabsContent value="themen">
+          <TopicsAdminTab canManage={canManage} />
         </TabsContent>
       </Tabs>
 
