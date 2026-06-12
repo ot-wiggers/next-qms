@@ -73,4 +73,12 @@ crons.daily(
   internal.yearCycle.yearOpeningTasks
 );
 
+// Wareneingang: Monats-Erinnerung je Filiale (sendet nur am 15./22./29.)
+crons.daily(
+  "check-incoming-goods-due",
+  { hourUTC: 4, minuteUTC: 30 },
+  internal.incomingGoods.checkMonthlyDue,
+  {}
+);
+
 export default crons;
