@@ -174,6 +174,26 @@ export const updateItem = mutation({
   },
 });
 
+/** Prüfpunkt aus einer DRAFT-Vorlage entfernen (Hard-Delete — reine Entwurfsdaten) */
+export const removeItem = mutation({
+  args: { id: v.id("auditChecklistTemplateItems") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "audits:manage");
+    const item = await ctx.db.get(args.id);
+    if (!item) throw new Error("Prüfpunkt nicht gefunden");
+    const template = await ctx.db.get(item.templateId);
+    if (!template || template.status !== "DRAFT") {
+      throw new Error("Nur Entwurfs-Vorlagen können bearbeitet werden");
+    }
+    await ctx.db.delete(args.id);
+    await logAuditEvent(ctx, {
+      userId: user._id, action: "PERMANENT_DELETE",
+      entityType: "auditChecklistTemplateItems", entityId: args.id,
+      metadata: { chapter: item.chapter, templateVersion: template.version },
+    });
+  },
+});
+
 /** Vorlage aktivieren — löst die bisher aktive Version ab */
 export const activate = mutation({
   args: { id: v.id("auditChecklistTemplates") },
@@ -184,7 +204,26 @@ export const activate = mutation({
     if (template.status !== "DRAFT") throw new Error("Nur Entwürfe können aktiviert werden");
     if (template.isArchived) throw new Error("Archivierte Vorlagen können nicht aktiviert werden");
 
+    // Prüfpunkte kapitelweise sortieren (numerisch: 4.1.2 < 4.1.10) und
+    // sortOrder neu vergeben — nachträglich ergänzte Punkte landen sonst am Ende
+    const items = await ctx.db
+      .query("auditChecklistTemplateItems")
+      .withIndex("by_template", (q) => q.eq("templateId", args.id))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+    if (items.length === 0) {
+      throw new Error("Vorlage enthält keine Prüfpunkte — Aktivierung nicht möglich");
+    }
+
     const now = Date.now();
+    const sorted = [...items].sort((a, b) =>
+      a.chapter.localeCompare(b.chapter, "de", { numeric: true }),
+    );
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].sortOrder !== i + 1) {
+        await ctx.db.patch(sorted[i]._id, { sortOrder: i + 1, updatedAt: now });
+      }
+    }
     const active = await ctx.db
       .query("auditChecklistTemplates")
       .withIndex("by_status", (q) => q.eq("status", "ACTIVE"))
