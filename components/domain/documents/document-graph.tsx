@@ -17,6 +17,7 @@ import "@xyflow/react/dist/style.css";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/types/enums";
+import { useTheme } from "next-themes";
 
 const TYPE_COLORS: Record<string, string> = {
   qm_handbook: "#3b82f6",
@@ -50,6 +51,7 @@ interface DocumentLink {
 
 export function DocumentGraph() {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const documents = useQuery(api.documents.list, {}) as
     | DocumentForGraph[]
     | undefined;
@@ -74,7 +76,8 @@ export function DocumentGraph() {
         status: doc.status,
       },
       style: {
-        background: "#fff",
+        background: "var(--card)",
+        color: "var(--card-foreground)",
         border: `2px solid ${TYPE_COLORS[doc.documentType] ?? "#94a3b8"}`,
         borderRadius: "8px",
         padding: "8px 12px",
@@ -90,7 +93,7 @@ export function DocumentGraph() {
       label: LINK_TYPE_LABELS[link.linkType] ?? link.linkType,
       animated: link.linkType === "supersedes",
       style: { stroke: "#94a3b8" },
-      labelStyle: { fontSize: "10px", fill: "#71717a" },
+      labelStyle: { fontSize: "10px", fill: "var(--muted-foreground)" },
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
@@ -130,6 +133,7 @@ export function DocumentGraph() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        colorMode={resolvedTheme === "dark" ? "dark" : "light"}
         fitView
         fitViewOptions={{ padding: 0.2 }}
       >

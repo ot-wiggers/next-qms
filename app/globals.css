@@ -366,3 +366,59 @@
 
   &:hover { background: hsl(var(--accent)); }
 }
+
+/* ============================================================
+   Dark-Mode-Überschreibungen für hell verdrahtete Status-Farben.
+   Badges/Banner im Code nutzen bg-*-50/100 + text-*-600..900 +
+   border-*-200/300 ohne dark:-Varianten — zentral hier abgefangen
+   statt in ~25 Dateien. Hues: red 25, orange 55, amber 80,
+   yellow 100, green 150, blue 260, purple 300.
+   ============================================================ */
+
+/* Hintergründe (helle Tints → dunkle Tints) */
+.dark .bg-red-50     { background-color: oklch(0.22 0.04 25); }
+.dark .bg-red-100    { background-color: oklch(0.28 0.06 25); }
+.dark .bg-orange-100 { background-color: oklch(0.28 0.05 55); }
+.dark .bg-amber-50   { background-color: oklch(0.22 0.03 80); }
+.dark .bg-amber-100  { background-color: oklch(0.28 0.05 80); }
+.dark .bg-yellow-50  { background-color: oklch(0.22 0.03 100); }
+.dark .bg-green-50   { background-color: oklch(0.22 0.03 150); }
+.dark .bg-green-100  { background-color: oklch(0.28 0.05 150); }
+.dark .bg-blue-50    { background-color: oklch(0.22 0.03 260); }
+.dark .bg-blue-100   { background-color: oklch(0.28 0.05 260); }
+.dark .bg-purple-100 { background-color: oklch(0.28 0.05 300); }
+.dark .bg-gray-50    { background-color: oklch(0.22 0.005 260); }
+.dark .bg-gray-100   { background-color: oklch(0.28 0.005 260); }
+
+/* Texte (dunkle Töne → helle, lesbare Töne) */
+.dark .text-red-600    { color: oklch(0.72 0.16 25); }
+.dark .text-red-700    { color: oklch(0.76 0.14 25); }
+.dark .text-red-800    { color: oklch(0.81 0.12 25); }
+.dark .text-red-900    { color: oklch(0.85 0.09 25); }
+.dark .text-orange-600 { color: oklch(0.74 0.14 55); }
+.dark .text-orange-700 { color: oklch(0.78 0.12 55); }
+.dark .text-amber-600  { color: oklch(0.76 0.13 80); }
+.dark .text-amber-700  { color: oklch(0.79 0.12 80); }
+.dark .text-amber-800  { color: oklch(0.83 0.10 80); }
+.dark .text-amber-900  { color: oklch(0.86 0.08 80); }
+.dark .text-yellow-600 { color: oklch(0.78 0.13 100); }
+.dark .text-yellow-700 { color: oklch(0.81 0.11 100); }
+.dark .text-yellow-800 { color: oklch(0.84 0.09 100); }
+.dark .text-green-600  { color: oklch(0.74 0.14 150); }
+.dark .text-green-700  { color: oklch(0.78 0.12 150); }
+.dark .text-green-800  { color: oklch(0.82 0.10 150); }
+.dark .text-green-900  { color: oklch(0.86 0.08 150); }
+.dark .text-blue-600   { color: oklch(0.72 0.13 260); }
+.dark .text-blue-800   { color: oklch(0.81 0.09 260); }
+.dark .text-purple-800 { color: oklch(0.81 0.09 300); }
+.dark .text-gray-600   { color: oklch(0.72 0.01 260); }
+.dark .text-gray-800   { color: oklch(0.85 0.01 260); }
+
+/* Rahmen (helle Borders → dunkle Borders) */
+.dark .border-red-200    { border-color: oklch(0.38 0.07 25); }
+.dark .border-amber-200  { border-color: oklch(0.38 0.06 80); }
+.dark .border-amber-300  { border-color: oklch(0.43 0.07 80); }
+.dark .border-yellow-200 { border-color: oklch(0.38 0.06 100); }
+.dark .border-green-200  { border-color: oklch(0.38 0.06 150); }
+.dark .border-blue-200   { border-color: oklch(0.38 0.06 260); }
+.dark .border-orange-300 { border-color: oklch(0.43 0.08 55); }
