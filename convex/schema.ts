@@ -889,7 +889,9 @@ export default defineSchema({
     companyNote: v.optional(v.string()),   // "Sanitätshaus mit ca. 30 MA an 4 Standorten"
     status: mgmtReviewStatus,
     sections: v.array(v.object({
-      key: v.string(),                     // audits|complaints|pms|processes|capa|changes|resources|risks
+      key: v.string(),                     // feste Keys (MGMT_REVIEW_SECTIONS) oder "custom-<ts>"
+      title: v.optional(v.string()),       // nur eigene Punkte — feste Titel kommen aus dem Enum
+      custom: v.optional(v.boolean()),     // true = eigener Punkt (CRUD im Entwurf, ab 2.11)
       autoData: v.optional(v.string()),    // Daten-Snapshot (beim Anlegen generiert, einfrierbar)
       assessment: v.optional(v.string()),  // Prosa "Bewertung: …"
     })),
