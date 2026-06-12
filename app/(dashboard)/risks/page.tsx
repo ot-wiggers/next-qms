@@ -495,14 +495,14 @@ export default function RisksPage() {
             </div>
 
             {/* Faktoren */}
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3 [&>div]:min-w-0">
               <div>
                 <Label htmlFor="risk-occurrence">Auftretenswahrscheinlichkeit *</Label>
                 <Select
                   value={form.occurrence}
                   onValueChange={(v) => setForm({ ...form, occurrence: v })}
                 >
-                  <SelectTrigger id="risk-occurrence"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="risk-occurrence" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {FACTOR_VALUES.map((n) => (
                       <SelectItem key={n} value={String(n)}>
@@ -518,7 +518,7 @@ export default function RisksPage() {
                   value={form.severity}
                   onValueChange={(v) => setForm({ ...form, severity: v })}
                 >
-                  <SelectTrigger id="risk-severity"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="risk-severity" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {FACTOR_VALUES.map((n) => (
                       <SelectItem key={n} value={String(n)}>
@@ -534,7 +534,7 @@ export default function RisksPage() {
                   value={form.consequences}
                   onValueChange={(v) => setForm({ ...form, consequences: v })}
                 >
-                  <SelectTrigger id="risk-consequences"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="risk-consequences" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {FACTOR_VALUES.map((n) => (
                       <SelectItem key={n} value={String(n)}>
@@ -572,14 +572,14 @@ export default function RisksPage() {
                 Werte vor Maßnahme (optional)
               </button>
               {showInitial && (
-                <div className="grid gap-3 border-t p-3 sm:grid-cols-3">
+                <div className="grid gap-3 border-t p-3 sm:grid-cols-3 [&>div]:min-w-0">
                   <div>
                     <Label htmlFor="risk-init-occurrence">Auftretenswahrscheinlichkeit (vorher)</Label>
                     <Select
                       value={form.initialOccurrence}
                       onValueChange={(v) => setForm({ ...form, initialOccurrence: v })}
                     >
-                      <SelectTrigger id="risk-init-occurrence"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="risk-init-occurrence" className="w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
                         {FACTOR_VALUES.map((n) => (
@@ -596,7 +596,7 @@ export default function RisksPage() {
                       value={form.initialSeverity}
                       onValueChange={(v) => setForm({ ...form, initialSeverity: v })}
                     >
-                      <SelectTrigger id="risk-init-severity"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="risk-init-severity" className="w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
                         {FACTOR_VALUES.map((n) => (
@@ -613,7 +613,7 @@ export default function RisksPage() {
                       value={form.initialConsequences}
                       onValueChange={(v) => setForm({ ...form, initialConsequences: v })}
                     >
-                      <SelectTrigger id="risk-init-consequences"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="risk-init-consequences" className="w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
                         {FACTOR_VALUES.map((n) => (
