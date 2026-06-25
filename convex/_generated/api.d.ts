@@ -20,6 +20,7 @@ import type * as complaints from "../complaints.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as declarations from "../declarations.js";
+import type * as devices from "../devices.js";
 import type * as documentLinks from "../documentLinks.js";
 import type * as documentReviews from "../documentReviews.js";
 import type * as documentVersions from "../documentVersions.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   dashboard: typeof dashboard;
   declarations: typeof declarations;
+  devices: typeof devices;
   documentLinks: typeof documentLinks;
   documentReviews: typeof documentReviews;
   documentVersions: typeof documentVersions;
