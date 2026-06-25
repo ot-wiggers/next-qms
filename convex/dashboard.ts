@@ -1,7 +1,7 @@
 import { query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
+import { requirePermission } from "./lib/withAuth";
 import { hasPermission } from "./lib/permissions";
 import type { UserRole } from "../lib/types/enums";
 
@@ -133,73 +133,53 @@ export const upcomingReviews = query({
   },
 });
 
-/** Training quota — % of required trainings completed */
+/** Schulungsquote im Scope: own = meine, team = Abteilung, all = org */
 export const trainingQuota = query({
   handler: async (ctx) => {
-    await getAuthenticatedUser(ctx);
+    const user = await requirePermission(ctx, "dashboard:view");
+    const userIds = await scopedUserIds(ctx, user, resolveScope(user.role as UserRole));
 
     const requiredTrainings = await ctx.db
       .query("trainings")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("isArchived"), false),
-          q.eq(q.field("isRequired"), true)
-        )
-      )
+      .filter((q) => q.and(q.eq(q.field("isArchived"), false), q.eq(q.field("isRequired"), true)))
       .collect();
 
     const activeUsers = await ctx.db
       .query("users")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("status"), "active"),
-          q.eq(q.field("isArchived"), false)
-        )
-      )
+      .filter((q) => q.and(q.eq(q.field("status"), "active"), q.eq(q.field("isArchived"), false)))
       .collect();
+    const scopeUsers = userIds === null ? activeUsers : activeUsers.filter((u) => userIds.has(u._id));
 
-    if (requiredTrainings.length === 0 || activeUsers.length === 0) {
+    if (requiredTrainings.length === 0 || scopeUsers.length === 0) {
       return { percentage: 100, completed: 0, total: 0 };
     }
 
-    // Count completed sessions per user
-    const total = requiredTrainings.length * activeUsers.length;
+    const total = requiredTrainings.length * scopeUsers.length;
     let completed = 0;
-
     for (const training of requiredTrainings) {
       const sessions = await ctx.db
         .query("trainingSessions")
         .withIndex("by_training", (q) => q.eq("trainingId", training._id))
         .filter((q) => q.eq(q.field("status"), "HELD"))
         .collect();
-
       const sessionIds = new Set(sessions.map((s) => s._id));
-
-      for (const u of activeUsers) {
+      for (const u of scopeUsers) {
         const participation = await ctx.db
           .query("trainingParticipants")
           .withIndex("by_user", (q) => q.eq("userId", u._id))
           .filter((q) => q.eq(q.field("status"), "ATTENDED"))
           .collect();
-
-        if (participation.some((p) => sessionIds.has(p.sessionId))) {
-          completed++;
-        }
+        if (participation.some((p) => sessionIds.has(p.sessionId))) completed++;
       }
     }
-
-    return {
-      percentage: Math.round((completed / total) * 100),
-      completed,
-      total,
-    };
+    return { percentage: Math.round((completed / total) * 100), completed, total };
   },
 });
 
 /** Read confirmation rates for approved documents */
 export const readConfirmationRates = query({
   handler: async (ctx) => {
-    await getAuthenticatedUser(ctx);
+    await requirePermission(ctx, "dashboard:view_all");
 
     const approvedDocs = await ctx.db
       .query("documentRecords")
@@ -245,5 +225,35 @@ export const readConfirmationRates = query({
         : 100;
 
     return { averageRate, documents: docRates };
+  },
+});
+
+/** Dokumente, die ICH noch lesen/bestätigen muss (immer self — kein Kollegen-Bezug) */
+export const myOpenConfirmations = query({
+  handler: async (ctx) => {
+    const user = await requirePermission(ctx, "dashboard:view");
+    const approved = await ctx.db
+      .query("documentRecords")
+      .withIndex("by_status", (q) => q.eq("status", "APPROVED"))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    let count = 0;
+    const documents: Array<{ _id: Id<"documentRecords">; documentCode: string; title?: string }> = [];
+    for (const doc of approved) {
+      const confirmed = await ctx.db
+        .query("readConfirmations")
+        .withIndex("by_document_user", (q) =>
+          q.eq("documentRecordId", doc._id).eq("userId", user._id),
+        )
+        .first();
+      if (!confirmed) {
+        count++;
+        if (documents.length < 10) {
+          documents.push({ _id: doc._id, documentCode: doc.documentCode, title: doc.title });
+        }
+      }
+    }
+    return { count, documents };
   },
 });
