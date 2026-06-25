@@ -757,3 +757,19 @@ export const CALIBRATION_RESULT_LABELS: Record<CalibrationResult, string> = {
 // Toleranz ±30 Tage zum Soll-Termin (FB 7.6.0 Rev. 3). Warnfenster = 30 Tage vor Fälligkeit,
 // als überfällig erst 30 Tage nach Soll-Termin.
 export const CALIBRATION_TOLERANCE_MS = 30 * 24 * 60 * 60 * 1000;
+
+// ============================================================
+// Berichtsarchiv — Typen der eingefrorenen Nachweise (Aggregation, kein eigenes Schema)
+// ============================================================
+export const REPORT_TYPES = [
+  "AUDIT", "MGMT_REVIEW", "PMS_REPORT", "DECLARATION", "CALIBRATION", "INCOMING_GOODS",
+] as const;
+export type ReportType = (typeof REPORT_TYPES)[number];
+export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+  AUDIT: "Auditbericht",
+  MGMT_REVIEW: "Managementbewertung",
+  PMS_REPORT: "PMS-Bericht",
+  DECLARATION: "Konformitätserklärung",
+  CALIBRATION: "Kalibrierzertifikat",
+  INCOMING_GOODS: "Wareneingangsprüfung",
+};

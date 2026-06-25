@@ -40,4 +40,5 @@ export type PermissionAction =
   | "pmsReports:list" | "pmsReports:manage" | "pmsReports:approve"
   | "incomingGoods:list" | "incomingGoods:record" | "incomingGoods:manage"
   | "devices:list" | "devices:manage"
+  | "reports:list"
   | "admin:settings" | "admin:featureFlags";
