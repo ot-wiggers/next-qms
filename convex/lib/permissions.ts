@@ -69,6 +69,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
     "devices:list",
     "tasks:own",
     "notifications:read", "notifications:manage",
+    "dashboard:view",
   ],
   auditor: [
     "documents:read",
@@ -89,7 +90,7 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
     "reports:list",
     "tasks:own",
     "notifications:read",
-    "dashboard:view_all",
+    "dashboard:view", "dashboard:view_all",
   ],
 };
 
