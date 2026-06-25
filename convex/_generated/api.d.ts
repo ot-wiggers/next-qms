@@ -49,6 +49,7 @@ import type * as placeholders_reports from "../placeholders/reports.js";
 import type * as pmsReports from "../pmsReports.js";
 import type * as products from "../products.js";
 import type * as qualityObjectives from "../qualityObjectives.js";
+import type * as reports from "../reports.js";
 import type * as risks from "../risks.js";
 import type * as search from "../search.js";
 import type * as searchQuota from "../searchQuota.js";
@@ -108,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   pmsReports: typeof pmsReports;
   products: typeof products;
   qualityObjectives: typeof qualityObjectives;
+  reports: typeof reports;
   risks: typeof risks;
   search: typeof search;
   searchQuota: typeof searchQuota;
