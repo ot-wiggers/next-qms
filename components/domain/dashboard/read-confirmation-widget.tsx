@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { Loader2 } from "lucide-react";
 import {
   BarChart,
@@ -14,7 +15,13 @@ import {
 } from "recharts";
 
 export function ReadConfirmationWidget() {
-  const data = useQuery(api.dashboard.readConfirmationRates);
+  const { can } = usePermissions();
+  const data = useQuery(
+    api.dashboard.readConfirmationRates,
+    can("dashboard:view_all") ? {} : "skip",
+  );
+
+  if (!can("dashboard:view_all")) return null;
 
   const chartData = (data?.documents ?? [])
     .slice(0, 8)

@@ -28,7 +28,10 @@ export default function DashboardPage() {
   const openReviews = useQuery(api.dashboard.openReviews);
   const overdueTasks = useQuery(api.dashboard.overdueTasks);
   const trainingQuota = useQuery(api.dashboard.trainingQuota);
-  const readRates = useQuery(api.dashboard.readConfirmationRates);
+  const readRates = useQuery(
+    api.dashboard.readConfirmationRates,
+    can("dashboard:view_all") ? {} : "skip",
+  );
 
   const greeting = user
     ? `Willkommen, ${user.firstName}`
@@ -70,13 +73,15 @@ export default function DashboardPage() {
               : undefined
           }
         />
-        <KpiCard
-          title="Lesebestätigungen"
-          value={readRates ? `${readRates.averageRate}%` : "–"}
-          icon={BookCheck}
-          loading={!readRates}
-          description="Durchschnittliche Rate"
-        />
+        {can("dashboard:view_all") && (
+          <KpiCard
+            title="Lesebestätigungen"
+            value={readRates ? `${readRates.averageRate}%` : "–"}
+            icon={BookCheck}
+            loading={!readRates}
+            description="Durchschnittliche Rate"
+          />
+        )}
       </div>
 
       {/* Charts row */}
@@ -86,7 +91,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Read confirmations */}
-      {can("documents:read") && (
+      {can("dashboard:view_all") && (
         <div className="grid gap-4 lg:grid-cols-3">
           <ReadConfirmationWidget />
         </div>
