@@ -68,7 +68,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Dokumente", href: "/documents", icon: FileText, permission: "documents:read" },
       { label: "Dokumenten-Graph", href: "/documents/graph", icon: GitBranch, permission: "documents:read" },
-      { label: "Berichte", href: "/reports", icon: BarChart3, featureFlag: "REPORTS", badge: "IN PLANUNG" },
+      { label: "Berichte", href: "/reports", icon: BarChart3, featureFlag: "REPORTS", permission: "reports:list" },
     ],
   },
   {
