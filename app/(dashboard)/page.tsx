@@ -10,6 +10,7 @@ import { KpiCard } from "@/components/domain/dashboard/kpi-card";
 import { DocumentStatusChart } from "@/components/domain/dashboard/document-status-chart";
 import { UpcomingReviewsWidget } from "@/components/domain/dashboard/upcoming-reviews-widget";
 import { ReadConfirmationWidget } from "@/components/domain/dashboard/read-confirmation-widget";
+import { DevicesAmpelCard } from "@/components/domain/dashboard/devices-ampel-card";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { USER_ROLE_LABELS } from "@/lib/types/enums";
@@ -96,6 +97,7 @@ export default function DashboardPage() {
         <TaskListWidget />
         {can("documents:read") && <RecentDocumentsWidget />}
         {can("trainings:list") && <TrainingStatusWidget />}
+        <DevicesAmpelCard />
       </div>
     </div>
   );
