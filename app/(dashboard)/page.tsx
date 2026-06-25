@@ -25,12 +25,19 @@ export default function DashboardPage() {
   const { user } = useCurrentUser();
   const { can, role } = usePermissions();
 
+  const viewAll = can("dashboard:view_all");
+
   const openReviews = useQuery(api.dashboard.openReviews);
   const overdueTasks = useQuery(api.dashboard.overdueTasks);
   const trainingQuota = useQuery(api.dashboard.trainingQuota);
+  // org-weite Lesequote nur für view_all; sonst persönliche „offene Bestätigungen"
   const readRates = useQuery(
     api.dashboard.readConfirmationRates,
-    can("dashboard:view_all") ? {} : "skip",
+    viewAll ? {} : "skip",
+  );
+  const myConfirmations = useQuery(
+    api.dashboard.myOpenConfirmations,
+    viewAll ? "skip" : {},
   );
 
   const greeting = user
@@ -45,6 +52,14 @@ export default function DashboardPage() {
         title={greeting}
         description={roleLabel ? `Angemeldet als ${roleLabel}` : undefined}
       />
+
+      <p className="-mt-2 text-sm text-muted-foreground">
+        {viewAll
+          ? "Org-weite Sicht — alle Bereiche."
+          : can("tasks:team")
+            ? "Sicht auf Ihr Team."
+            : "Ihre persönliche Sicht — nur Ihre eigenen Daten."}
+      </p>
 
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -73,25 +88,34 @@ export default function DashboardPage() {
               : undefined
           }
         />
-        {can("dashboard:view_all") && (
+        {viewAll ? (
           <KpiCard
             title="Lesebestätigungen"
             value={readRates ? `${readRates.averageRate}%` : "–"}
             icon={BookCheck}
             loading={!readRates}
-            description="Durchschnittliche Rate"
+            description="Durchschnittliche Rate (org-weit)"
+          />
+        ) : (
+          <KpiCard
+            title="Offene Bestätigungen"
+            value={myConfirmations?.count ?? "–"}
+            icon={BookCheck}
+            trend={myConfirmations && myConfirmations.count > 0 ? "up" : undefined}
+            loading={!myConfirmations}
+            description="Dokumente, die Sie noch bestätigen müssen"
           />
         )}
       </div>
 
-      {/* Charts row */}
+      {/* Charts row — Statusverteilung nur org-weit, Überprüfungen immer (gescopt) */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <DocumentStatusChart />
+        {viewAll && <DocumentStatusChart />}
         <UpcomingReviewsWidget />
       </div>
 
-      {/* Read confirmations */}
-      {can("dashboard:view_all") && (
+      {/* Org-weite Lesebestätigungsraten nur für view_all */}
+      {viewAll && (
         <div className="grid gap-4 lg:grid-cols-3">
           <ReadConfirmationWidget />
         </div>
