@@ -1,25 +1,64 @@
 import { query } from "./_generated/server";
-import { getAuthenticatedUser } from "./lib/withAuth";
+import type { QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { getAuthenticatedUser, requirePermission } from "./lib/withAuth";
 import { hasPermission } from "./lib/permissions";
 import type { UserRole } from "../lib/types/enums";
 
-/** Count documents currently in review */
+// ============================================================
+// Dashboard-Scope: who sees whose data
+//   all  → dashboard:view_all (QMB, Auditor) → org-weit (kein Filter)
+//   team → tasks:team (Abteilungsleitung)    → eigene Abteilung
+//   own  → sonst (Mitarbeiter)               → nur eigene
+// ============================================================
+type DashboardScope = "own" | "team" | "all";
+
+function resolveScope(role: UserRole): DashboardScope {
+  if (hasPermission(role, "dashboard:view_all")) return "all";
+  if (hasPermission(role, "tasks:team")) return "team";
+  return "own";
+}
+
+/** Nutzer-Ids im Scope; null = org-weit (kein Filter). */
+async function scopedUserIds(
+  ctx: QueryCtx,
+  user: { _id: Id<"users">; departmentId?: Id<"organizations"> },
+  scope: DashboardScope,
+): Promise<Set<Id<"users">> | null> {
+  if (scope === "all") return null;
+  const deptId = user.departmentId;
+  if (scope === "own" || !deptId) return new Set([user._id]);
+  const team = await ctx.db
+    .query("users")
+    .withIndex("by_department", (q) => q.eq("departmentId", deptId))
+    .filter((q) => q.eq(q.field("isArchived"), false))
+    .collect();
+  const ids = new Set(team.map((u) => u._id));
+  ids.add(user._id);
+  return ids;
+}
+
+/** Dokumente in Prüfung im Scope (own = von mir verantwortete) */
 export const openReviews = query({
   handler: async (ctx) => {
-    const user = await getAuthenticatedUser(ctx);
+    const user = await requirePermission(ctx, "dashboard:view");
+    const userIds = await scopedUserIds(ctx, user, resolveScope(user.role as UserRole));
+
     const docs = await ctx.db
       .query("documentRecords")
       .withIndex("by_status", (q) => q.eq("status", "IN_REVIEW"))
       .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
-    return { count: docs.length };
+
+    const scoped = userIds === null ? docs : docs.filter((d) => userIds.has(d.responsibleUserId));
+    return { count: scoped.length };
   },
 });
 
 /** Document status distribution for pie chart */
 export const documentStatusDistribution = query({
   handler: async (ctx) => {
-    await getAuthenticatedUser(ctx);
+    await requirePermission(ctx, "dashboard:view_all");
     const docs = await ctx.db
       .query("documentRecords")
       .filter((q) => q.eq(q.field("isArchived"), false))
@@ -36,59 +75,51 @@ export const documentStatusDistribution = query({
   },
 });
 
-/** Overdue tasks count */
+/** Überfällige Aufgaben im Scope (own/team/all) */
 export const overdueTasks = query({
   handler: async (ctx) => {
-    const user = await getAuthenticatedUser(ctx);
-    const canSeeAll = hasPermission(user.role as UserRole, "tasks:all");
-    const canSeeTeam = hasPermission(user.role as UserRole, "tasks:team");
+    const user = await requirePermission(ctx, "dashboard:view");
+    const userIds = await scopedUserIds(ctx, user, resolveScope(user.role as UserRole));
 
-    let tasks = await ctx.db
+    const tasks = await ctx.db
       .query("tasks")
       .filter((q) =>
         q.and(
           q.eq(q.field("isArchived"), false),
           q.eq(q.field("isOverdue"), true),
           q.neq(q.field("status"), "DONE"),
-          q.neq(q.field("status"), "CANCELLED")
-        )
+          q.neq(q.field("status"), "CANCELLED"),
+        ),
       )
       .collect();
 
-    if (!canSeeAll && !canSeeTeam) {
-      tasks = tasks.filter((t) => t.assigneeId === user._id);
-    } else if (!canSeeAll && canSeeTeam) {
-      const teamUsers = await ctx.db
-        .query("users")
-        .withIndex("by_department", (q) => q.eq("departmentId", user.departmentId))
-        .collect();
-      const teamIds = new Set(teamUsers.map((u) => u._id));
-      tasks = tasks.filter((t) => teamIds.has(t.assigneeId));
-    }
-
-    return { count: tasks.length };
+    const scoped = userIds === null ? tasks : tasks.filter((t) => t.assigneeId && userIds.has(t.assigneeId));
+    return { count: scoped.length };
   },
 });
 
-/** Documents with upcoming review dates (next 90 days) */
+/** Anstehende Überprüfungen (90 Tage) im Scope (own = von mir verantwortete) */
 export const upcomingReviews = query({
   handler: async (ctx) => {
-    await getAuthenticatedUser(ctx);
+    const user = await requirePermission(ctx, "dashboard:view");
+    const userIds = await scopedUserIds(ctx, user, resolveScope(user.role as UserRole));
     const now = Date.now();
     const ninetyDays = now + 90 * 24 * 60 * 60 * 1000;
 
     const docs = await ctx.db
       .query("documentRecords")
       .filter((q) =>
-        q.and(
-          q.eq(q.field("isArchived"), false),
-          q.eq(q.field("status"), "APPROVED")
-        )
+        q.and(q.eq(q.field("isArchived"), false), q.eq(q.field("status"), "APPROVED")),
       )
       .collect();
 
     const upcoming = docs
-      .filter((d) => d.nextReviewDate && d.nextReviewDate <= ninetyDays)
+      .filter(
+        (d) =>
+          (userIds === null || userIds.has(d.responsibleUserId)) &&
+          d.nextReviewDate !== undefined &&
+          d.nextReviewDate <= ninetyDays,
+      )
       .sort((a, b) => (a.nextReviewDate ?? 0) - (b.nextReviewDate ?? 0))
       .slice(0, 10);
 
@@ -97,9 +128,7 @@ export const upcomingReviews = query({
       documentCode: d.documentCode,
       title: d.title,
       nextReviewDate: d.nextReviewDate,
-      daysUntil: Math.floor(
-        ((d.nextReviewDate ?? 0) - now) / (24 * 60 * 60 * 1000)
-      ),
+      daysUntil: Math.floor(((d.nextReviewDate ?? 0) - now) / (24 * 60 * 60 * 1000)),
     }));
   },
 });
