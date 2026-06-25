@@ -36,6 +36,7 @@ export const TASK_TYPES = [
   "CAPA_EFFECTIVENESS_DUE",
   "RISK_REVIEW_DUE",
   "YEAR_CYCLE",
+  "DEVICE_CALIBRATION_DUE",
 ] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
 

@@ -130,6 +130,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   CAPA_EFFECTIVENESS_DUE: "CAPA-Wirksamkeit",
   RISK_REVIEW_DUE: "Risiko-Neubewertung",
   YEAR_CYCLE: "Jahreswechsel",
+  DEVICE_CALIBRATION_DUE: "Kalibrierung fällig",
 };
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
