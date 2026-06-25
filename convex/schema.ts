@@ -46,7 +46,8 @@ const taskType = v.union(
   v.literal("AUDIT_PLAN_DUE"),         // Phase 7: geplantes Audit nicht durchgeführt
   v.literal("CAPA_EFFECTIVENESS_DUE"), // Phase 7: Wirksamkeitsprüfung fällig
   v.literal("RISK_REVIEW_DUE"),        // Phase 7: Risiko-Neubewertung fällig
-  v.literal("YEAR_CYCLE")             // Phase 7: Jahreswechsel-Erinnerungen
+  v.literal("YEAR_CYCLE"),             // Phase 7: Jahreswechsel-Erinnerungen
+  v.literal("DEVICE_CALIBRATION_DUE")  // §7.6: Prüfmittel-Kalibrierung fällig/überfällig
 );
 
 const taskStatus = v.union(
@@ -1100,18 +1101,34 @@ export default defineSchema({
     ...auditFields,
   }).index("by_location_month", ["locationId", "year", "month"]),
 
-  // TODO: Phase 4 — Prüfmittel/Geräte
+  // Prüfmittel/Messgerät (ISO 13485 §7.6, FB 7.6.0)
   deviceRecords: defineTable({
-    title: v.optional(v.string()),
-    status: v.literal("PLACEHOLDER"),
+    inventoryNumber: v.string(),             // Prüfmittel-Nr.
+    name: v.string(),                        // Bezeichnung
+    manufacturer: v.optional(v.string()),
+    serialNumber: v.optional(v.string()),
+    location: v.optional(v.string()),        // Standort/Werkstatt
+    responsible: v.optional(v.string()),     // Verantwortlich (Freitext)
+    calibrationIntervalMonths: v.number(),   // Prüf-/Kalibrierintervall in Monaten
+    lastCalibrationDate: v.optional(v.number()),
+    nextDueDate: v.optional(v.number()),     // Soll-Termin nächste Kalibrierung
+    status: v.union(v.literal("ACTIVE"), v.literal("DECOMMISSIONED")),
+    certFileId: v.optional(v.id("_storage")),// jüngstes Zertifikat (Bequemlichkeit)
+    notes: v.optional(v.string()),
     ...auditFields,
-  }),
+  })
+    .index("by_status", ["status"])
+    .index("by_nextDue", ["nextDueDate"]),
 
-  // TODO: Phase 4 — Gerätekalibrierungen
+  // Kalibrier-/Prüfhistorie je Gerät
   deviceCalibrations: defineTable({
-    title: v.optional(v.string()),
-    deviceId: v.optional(v.id("deviceRecords")),
-    status: v.literal("PLACEHOLDER"),
+    deviceId: v.id("deviceRecords"),
+    calibrationDate: v.number(),
+    performedBy: v.optional(v.string()),     // Labor/Person
+    result: v.union(v.literal("PASSED"), v.literal("CONDITIONAL"), v.literal("FAILED")),
+    nextDueDate: v.number(),                 // berechnet: calibrationDate + Intervall
+    certFileId: v.optional(v.id("_storage")),
+    notes: v.optional(v.string()),
     ...auditFields,
-  }),
+  }).index("by_device", ["deviceId"]),
 });
