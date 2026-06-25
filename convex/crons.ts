@@ -81,4 +81,11 @@ crons.daily(
   {}
 );
 
+// §7.6: Prüfmittel-Kalibrierfälligkeit täglich prüfen
+crons.daily(
+  "check-calibration-due",
+  { hourUTC: 4, minuteUTC: 45 },
+  internal.devices.checkCalibrationDue,
+);
+
 export default crons;
