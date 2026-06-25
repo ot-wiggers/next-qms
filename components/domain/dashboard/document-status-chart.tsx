@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { STATUS_LABELS } from "@/lib/types/enums";
 import { Loader2 } from "lucide-react";
 import {
@@ -22,7 +23,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function DocumentStatusChart() {
-  const data = useQuery(api.dashboard.documentStatusDistribution);
+  const { can } = usePermissions();
+  const data = useQuery(
+    api.dashboard.documentStatusDistribution,
+    can("dashboard:view_all") ? {} : "skip",
+  );
+
+  if (!can("dashboard:view_all")) return null;
 
   const chartData = (data ?? []).map((d) => ({
     name: STATUS_LABELS[d.status] ?? d.status,
