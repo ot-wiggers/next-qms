@@ -720,3 +720,39 @@ export const INCOMING_RESULT_LABELS: Record<IncomingResult, string> = {
   PASSED: "Anforderungen erfüllt — Ware freigegeben",
   FAILED: "Anforderungen nicht erfüllt — Ware gesperrt",
 };
+
+// ============================================================
+// Prüfmittel & Kalibrierung (ISO 13485 §7.6, FB 7.6.0)
+// ============================================================
+
+// Manueller Lifecycle eines Prüfmittels (gespeichert)
+export const DEVICE_STATUSES = ["ACTIVE", "DECOMMISSIONED"] as const;
+export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
+export const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
+  ACTIVE: "Aktiv",
+  DECOMMISSIONED: "Außer Dienst",
+};
+
+// Abgeleitete Kalibrier-Ampel (NICHT gespeichert — aus nextDueDate ± Toleranz)
+export const DEVICE_AMPEL = ["OK", "DUE", "OVERDUE", "UNSCHEDULED", "DECOMMISSIONED"] as const;
+export type DeviceAmpel = (typeof DEVICE_AMPEL)[number];
+export const DEVICE_AMPEL_LABELS: Record<DeviceAmpel, string> = {
+  OK: "Im Intervall",
+  DUE: "Kalibrierung fällig",
+  OVERDUE: "Überfällig",
+  UNSCHEDULED: "Kein Intervall geplant",
+  DECOMMISSIONED: "Außer Dienst",
+};
+
+// Ergebnis einer Kalibrierung/Prüfung
+export const CALIBRATION_RESULTS = ["PASSED", "CONDITIONAL", "FAILED"] as const;
+export type CalibrationResult = (typeof CALIBRATION_RESULTS)[number];
+export const CALIBRATION_RESULT_LABELS: Record<CalibrationResult, string> = {
+  PASSED: "Bestanden",
+  CONDITIONAL: "Bedingt (mit Einschränkung)",
+  FAILED: "Nicht bestanden",
+};
+
+// Toleranz ±30 Tage zum Soll-Termin (FB 7.6.0 Rev. 3). Warnfenster = 30 Tage vor Fälligkeit,
+// als überfällig erst 30 Tage nach Soll-Termin.
+export const CALIBRATION_TOLERANCE_MS = 30 * 24 * 60 * 60 * 1000;

@@ -39,4 +39,5 @@ export type PermissionAction =
   | "risks:list" | "risks:manage"
   | "pmsReports:list" | "pmsReports:manage" | "pmsReports:approve"
   | "incomingGoods:list" | "incomingGoods:record" | "incomingGoods:manage"
+  | "devices:list" | "devices:manage"
   | "admin:settings" | "admin:featureFlags";
