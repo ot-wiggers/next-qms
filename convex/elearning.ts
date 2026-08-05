@@ -20,6 +20,13 @@ async function getOrCreateElearningSession(
     status: "PLANNED", isArchived: false,
     createdAt: now, updatedAt: now, createdBy: userId, updatedBy: userId,
   });
+  await logAuditEvent(ctx, {
+    userId,
+    action: "CREATE",
+    entityType: "trainingSessions",
+    entityId: id,
+    metadata: { trainingId: training._id, location: "E-Learning" },
+  });
   return (await ctx.db.get(id))!;
 }
 
