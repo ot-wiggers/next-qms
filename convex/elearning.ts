@@ -82,8 +82,16 @@ export const reportProgress = mutation({
     const user = await requirePermission(ctx, "trainings:list");
     const p = await ctx.db.get(args.participantId);
     if (!p || p.userId !== user._id) throw new Error("Nicht Ihr Teilnahmedatensatz");
-    if ((p.progress ?? 0) < args.level)
+    if ((p.progress ?? 0) < args.level) {
       await ctx.db.patch(p._id, { progress: args.level, updatedAt: Date.now(), updatedBy: user._id });
+      await logAuditEvent(ctx, {
+        userId: user._id,
+        action: "UPDATE",
+        entityType: "trainingParticipants",
+        entityId: p._id,
+        changes: { progress: args.level },
+      });
+    }
   },
 });
 
@@ -102,7 +110,8 @@ export const complete = mutation({
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .filter((q) => q.eq(q.field("participantId"), p._id))
         .first();
-      return { certificateId: existing!._id };
+      if (!existing) throw new Error("Zertifikat fehlt trotz abgeschlossener Teilnahme");
+      return { certificateId: existing._id };
     }
 
     const session = (await ctx.db.get(p.sessionId))!;
