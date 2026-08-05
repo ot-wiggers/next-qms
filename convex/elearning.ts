@@ -8,16 +8,16 @@ import { createNotification } from "./lib/notificationHelpers";
 
 const MONTH_MS = 30.44 * 24 * 3600 * 1000;
 
-/** Implizite Session je E-Learning-Training (genau eine, Ort "E-Learning"). */
-async function getOrCreateElearningSession(
+/** Fällige Auffrischung: Abschluss älter als refreshAfterMonths. */
+function isRefreshDue(p: Doc<"trainingParticipants">, training: Doc<"trainings">, now: number) {
+  return !!p.completedAt && !!training.refreshAfterMonths &&
+    p.completedAt + training.refreshAfterMonths * MONTH_MS <= now;
+}
+
+/** Neue implizite E-Learning-Session (Ort "E-Learning") anlegen. */
+async function createElearningSession(
   ctx: MutationCtx, training: Doc<"trainings">, userId: Id<"users">
 ): Promise<Doc<"trainingSessions">> {
-  const existing = await ctx.db
-    .query("trainingSessions")
-    .withIndex("by_training", (q) => q.eq("trainingId", training._id))
-    .filter((q) => q.eq(q.field("location"), "E-Learning"))
-    .first();
-  if (existing) return existing;
   const now = Date.now();
   const id = await ctx.db.insert("trainingSessions", {
     trainingId: training._id, scheduledDate: now, location: "E-Learning",
@@ -49,9 +49,24 @@ export const start = mutation({
     const training = await ctx.db.get(args.trainingId);
     if (!training || training.deliveryType !== "elearning")
       throw new Error("Kein E-Learning-Training");
-    const session = await getOrCreateElearningSession(ctx, training, user._id);
-    let participant = await getParticipant(ctx, session._id, user._id);
+    if (training.isArchived || training.status !== "ACTIVE")
+      throw new Error("Diese Schulung ist archiviert oder nicht aktiv.");
+    // Laufende oder noch gültige Teilnahme wiederverwenden; fällige Auffrischung → Neuanlage
+    const sessions = await ctx.db
+      .query("trainingSessions")
+      .withIndex("by_training", (q) => q.eq("trainingId", training._id))
+      .filter((q) => q.eq(q.field("location"), "E-Learning"))
+      .collect();
+    const nowCheck = Date.now();
+    let participant: Doc<"trainingParticipants"> | null = null;
+    let freeSession: Doc<"trainingSessions"> | null = null;
+    for (const s of sessions) {
+      const p = await getParticipant(ctx, s._id, user._id);
+      if (!p) { freeSession = freeSession ?? s; continue; }
+      if (!isRefreshDue(p, training, nowCheck)) { participant = p; break; }
+    }
     if (!participant) {
+      const session = freeSession ?? await createElearningSession(ctx, training, user._id);
       const now = Date.now();
       const pid = await ctx.db.insert("trainingParticipants", {
         sessionId: session._id, userId: user._id, status: "INVITED", progress: 0,
@@ -111,8 +126,7 @@ export const complete = mutation({
     if (p.completedAt) {
       const existing = await ctx.db
         .query("certificates")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .filter((q) => q.eq(q.field("participantId"), p._id))
+        .withIndex("by_participant", (q) => q.eq("participantId", p._id))
         .first();
       if (!existing) throw new Error("Zertifikat fehlt trotz abgeschlossener Teilnahme");
       return { certificateId: existing._id };
@@ -285,7 +299,8 @@ export const myElearning = query({
   handler: async (ctx) => {
     const user = await getAuthenticatedUser(ctx);
     const trainings = await ctx.db.query("trainings")
-      .filter((q) => q.and(q.eq(q.field("isArchived"), false), q.eq(q.field("deliveryType"), "elearning")))
+      .withIndex("by_deliveryType", (q) => q.eq("deliveryType", "elearning"))
+      .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
     const result = [];
     for (const training of trainings) {
@@ -298,8 +313,7 @@ export const myElearning = query({
         if (p) participant = p;
       }
       const cert = participant ? await ctx.db.query("certificates")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .filter((q) => q.eq(q.field("participantId"), participant!._id)).first() : null;
+        .withIndex("by_participant", (q) => q.eq("participantId", participant!._id)).first() : null;
       result.push({
         trainingId: training._id, title: training.title,
         completedAt: participant?.completedAt ?? null,
@@ -319,9 +333,8 @@ export const checkRefreshDue = internalMutation({
     const now = Date.now();
     const trainings = await ctx.db
       .query("trainings")
-      .filter((q) =>
-        q.and(q.eq(q.field("isArchived"), false), q.eq(q.field("deliveryType"), "elearning"))
-      )
+      .withIndex("by_deliveryType", (q) => q.eq("deliveryType", "elearning"))
+      .filter((q) => q.eq(q.field("isArchived"), false))
       .collect();
 
     for (const training of trainings.filter((t) => t.refreshAfterMonths)) {
@@ -329,38 +342,45 @@ export const checkRefreshDue = internalMutation({
         .query("trainingSessions")
         .withIndex("by_training", (q) => q.eq("trainingId", training._id))
         .collect();
+      // Teilnahmen je User bündeln: nur mahnen, wenn keine laufende/gültige Teilnahme existiert
+      const byUser = new Map<string, Doc<"trainingParticipants">[]>();
       for (const session of sessions) {
         const participants = await ctx.db
           .query("trainingParticipants")
           .withIndex("by_session", (q) => q.eq("sessionId", session._id))
           .collect();
         for (const p of participants) {
-          if (!p.completedAt) continue;
-          const due = p.completedAt + training.refreshAfterMonths! * MONTH_MS;
-          if (due > now) continue;
-
-          // Dedup: bereits eine Auffrischungs-Notification zu dieser Teilnahme?
-          const existing = await ctx.db
-            .query("notifications")
-            .withIndex("by_user", (q) => q.eq("userId", p.userId))
-            .filter((q) =>
-              q.and(
-                q.eq(q.field("type"), "training_refresh_due"),
-                q.eq(q.field("resourceId"), String(p._id))
-              )
-            )
-            .first();
-          if (existing) continue;
-
-          await createNotification(ctx, {
-            userId: p.userId,
-            type: "training_refresh_due",
-            title: `Auffrischung fällig: ${training.title}`,
-            message: `Ihre Schulung „${training.title}" ist älter als ${training.refreshAfterMonths} Monate. Bitte erneut absolvieren.`,
-            resourceType: "trainingParticipants",
-            resourceId: String(p._id),
-          });
+          const list = byUser.get(String(p.userId)) ?? [];
+          list.push(p);
+          byUser.set(String(p.userId), list);
         }
+      }
+      for (const ps of byUser.values()) {
+        if (ps.some((p) => !isRefreshDue(p, training, now))) continue;
+        // alle Teilnahmen abgelaufen → jüngsten Abschluss anmahnen
+        const p = ps.reduce((a, b) => (a.completedAt! >= b.completedAt! ? a : b));
+
+        // Dedup: bereits eine Auffrischungs-Notification zu dieser Teilnahme?
+        const existing = await ctx.db
+          .query("notifications")
+          .withIndex("by_user", (q) => q.eq("userId", p.userId))
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("type"), "training_refresh_due"),
+              q.eq(q.field("resourceId"), String(p._id))
+            )
+          )
+          .first();
+        if (existing) continue;
+
+        await createNotification(ctx, {
+          userId: p.userId,
+          type: "training_refresh_due",
+          title: `Auffrischung fällig: ${training.title}`,
+          message: `Ihre Schulung „${training.title}" ist älter als ${training.refreshAfterMonths} Monate. Bitte erneut absolvieren.`,
+          resourceType: "trainingParticipants",
+          resourceId: String(p._id),
+        });
       }
     }
   },

@@ -158,6 +158,20 @@ describe("elearning.start", () => {
     expect(sessions).toHaveLength(1);
     expect(sessions[0].location).toBe("E-Learning");
   });
+
+  it("lehnt archivierte und inaktive Trainings ab (Direkt-URL-Guard)", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+
+    await t.run((ctx) => ctx.db.patch(tid, { isArchived: true }));
+    await expect(asUser.mutation(api.elearning.start, { trainingId: tid }))
+      .rejects.toThrow(/archiviert/);
+
+    await t.run((ctx) => ctx.db.patch(tid, { isArchived: false, status: "ARCHIVED" }));
+    await expect(asUser.mutation(api.elearning.start, { trainingId: tid }))
+      .rejects.toThrow(/nicht aktiv/);
+  });
 });
 
 describe("elearning.complete", () => {
@@ -411,6 +425,51 @@ describe("elearning.myElearning", () => {
   });
 });
 
+describe("elearning refresh (Wiederholung nach Ablauf)", () => {
+  it("start legt bei fälliger Auffrischung neuen Teilnehmer an neuer Session an", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+
+    const r1 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    const c1 = await asUser.mutation(api.elearning.complete, {
+      participantId: r1.participantId, score: 8, maxScore: 8,
+    });
+    await t.run((ctx) =>
+      ctx.db.patch(r1.participantId, { completedAt: Date.now() - 13 * 30.44 * 24 * 3600 * 1000 })
+    );
+
+    // Fällige Auffrischung → neuer Teilnehmer, Fortschritt 0
+    const r2 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    expect(r2.participantId).not.toEqual(r1.participantId);
+    expect(r2.progress).toBe(0);
+
+    // Wiederholter start bleibt idempotent auf der neuen Teilnahme
+    const r3 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    expect(r3.participantId).toEqual(r2.participantId);
+
+    // Abschluss der Wiederholung → neues Zertifikat, completedAt erneuert
+    const c2 = await asUser.mutation(api.elearning.complete, {
+      participantId: r2.participantId, score: 6, maxScore: 8,
+    });
+    expect(c2.certificateId).not.toEqual(c1.certificateId);
+    const p2 = await t.run((ctx) => ctx.db.get(r2.participantId));
+    expect(p2!.completedAt).toBeGreaterThan(Date.now() - 60_000);
+    const cert2 = await t.run((ctx) => ctx.db.get(c2.certificateId));
+    expect(cert2!.validUntil).toBe(cert2!.issuedAt + 12 * 30.44 * 24 * 3600 * 1000);
+  });
+
+  it("start ohne fällige Auffrischung bleibt idempotent", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const r1 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.complete, { participantId: r1.participantId, score: 8, maxScore: 8 });
+    const r2 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    expect(r2.participantId).toEqual(r1.participantId);
+  });
+});
+
 describe("elearning.checkRefreshDue", () => {
   it("meldet fällige Auffrischung genau einmal, auch bei zweitem Cron-Lauf", async () => {
     const t = convexTest(schema);
@@ -433,6 +492,25 @@ describe("elearning.checkRefreshDue", () => {
       resourceType: "trainingParticipants",
       resourceId: String(participantId),
     });
+  });
+
+  it("meldet nicht, wenn eine neuere Teilnahme existiert", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.complete, { participantId, score: 8, maxScore: 8 });
+    await t.run((ctx) =>
+      ctx.db.patch(participantId, { completedAt: Date.now() - 13 * 30.44 * 24 * 3600 * 1000 })
+    );
+    // User hat die Wiederholung bereits gestartet → keine Mahnung
+    const r2 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    expect(r2.participantId).not.toEqual(participantId);
+
+    await t.mutation(internal.elearning.checkRefreshDue, {});
+
+    const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
+    expect(notes.filter((n) => n.type === "training_refresh_due")).toHaveLength(0);
   });
 
   it("meldet nicht, wenn Abschluss noch nicht fällig ist", async () => {

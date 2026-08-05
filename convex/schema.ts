@@ -455,6 +455,7 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_category", ["category"])
+    .index("by_deliveryType", ["deliveryType"])
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["status", "isArchived"],
@@ -567,6 +568,7 @@ export default defineSchema({
     ...auditFields,
   })
     .index("by_user", ["userId"])
+    .index("by_participant", ["participantId"])
     .index("by_training", ["trainingId"]),
 
   effectivenessChecks: defineTable({
