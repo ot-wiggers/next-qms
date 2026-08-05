@@ -1,6 +1,7 @@
 import { convexTest } from "convex-test";
 import { describe, it, expect } from "vitest";
 import schema from "./schema";
+import { api } from "./_generated/api";
 
 describe("test-infra", () => {
   it("bootet das Schema", async () => {
@@ -96,5 +97,65 @@ describe("elearning-fields", () => {
       snapshotUserName: "Test User",
       score: 95,
     });
+  });
+});
+
+async function seedElearningTraining(t: ReturnType<typeof convexTest>) {
+  return await t.run(async (ctx) => {
+    const now = Date.now();
+    const orgId = await ctx.db.insert("organizations", {
+      name: "Test-Organisation",
+      type: "organization",
+      code: "TEST",
+      createdAt: now,
+      updatedAt: now,
+      isArchived: false,
+    });
+
+    const uid = await ctx.db.insert("users", {
+      email: "m@x.de",
+      firstName: "Maria",
+      lastName: "Test",
+      role: "employee",
+      organizationId: orgId,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+      isArchived: false,
+    });
+
+    const tid = await ctx.db.insert("trainings", {
+      title: "KI-Kompetenz",
+      isRequired: true,
+      effectivenessCheckAfterDays: 30,
+      status: "ACTIVE",
+      deliveryType: "elearning",
+      refreshAfterMonths: 12,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: uid,
+      updatedBy: uid,
+    });
+
+    return { uid, tid };
+  });
+}
+
+describe("elearning.start", () => {
+  it("legt implizite Session + Teilnehmer an und ist idempotent", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+
+    const r1 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    const r2 = await asUser.mutation(api.elearning.start, { trainingId: tid });
+
+    expect(r1.participantId).toEqual(r2.participantId);
+    expect(r1.userName).toBe("Maria Test");
+
+    const sessions = await t.run((ctx) => ctx.db.query("trainingSessions").collect());
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].location).toBe("E-Learning");
   });
 });
