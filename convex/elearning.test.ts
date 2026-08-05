@@ -182,3 +182,46 @@ describe("elearning.complete", () => {
     expect(cert!.validUntil).toBe(cert!.issuedAt + 12 * 30.44 * 24 * 3600 * 1000);
   });
 });
+
+const ORG = { venueAccessibility: 0, conferenceRooms: 0, catering: 0, staffSupport: 0 };
+const ORG_NA = { venueAccessibility: true, conferenceRooms: true, catering: true, staffSupport: true };
+const EVENT_OK = { overallEvent: 1, knowledgeUsefulness: 2, structurePresentation: 1, seminarContent: 1, questionOpportunity: 2, seminarMaterials: 1, speakerExpertise: 1, presentationQuality: 1 };
+const WORDS_80 = Array.from({ length: 80 }, (_, i) => "wort" + i).join(" ");
+
+describe("elearning.submitFeedback", () => {
+  async function completed(t: ReturnType<typeof convexTest>) {
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.complete, { participantId, score: 8, maxScore: 8 });
+    return { asUser, participantId };
+  }
+  it("lehnt < 80 Wörter ab", async () => {
+    const t = convexTest(schema);
+    const { asUser, participantId } = await completed(t);
+    await expect(asUser.mutation(api.elearning.submitFeedback, {
+      participantId, shortReport: "zu kurz", organizationRatings: ORG,
+      organizationRatingsNa: ORG_NA, eventRatings: EVENT_OK,
+    })).rejects.toThrow(/80 Wörter/);
+  });
+  it("verlangt Begründung bei 5/6", async () => {
+    const t = convexTest(schema);
+    const { asUser, participantId } = await completed(t);
+    await expect(asUser.mutation(api.elearning.submitFeedback, {
+      participantId, shortReport: WORDS_80, organizationRatings: ORG,
+      organizationRatingsNa: ORG_NA, eventRatings: { ...EVENT_OK, seminarMaterials: 5 },
+    })).rejects.toThrow(/5\/6/);
+  });
+  it("speichert gültigen Bogen mit confirmedAt, Status FEEDBACK_DONE", async () => {
+    const t = convexTest(schema);
+    const { asUser, participantId } = await completed(t);
+    await asUser.mutation(api.elearning.submitFeedback, {
+      participantId, shortReport: WORDS_80, organizationRatings: ORG,
+      organizationRatingsNa: ORG_NA, eventRatings: EVENT_OK,
+    });
+    const fb = await t.run((ctx) => ctx.db.query("trainingFeedback").first());
+    expect(fb!.confirmedAt).toBeGreaterThan(0);
+    const p = await t.run((ctx) => ctx.db.get(participantId));
+    expect(p!.status).toBe("FEEDBACK_DONE");
+  });
+});

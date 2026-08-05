@@ -147,3 +147,79 @@ export const complete = mutation({
     return { certificateId };
   },
 });
+
+const orgRatingsValidator = v.object({
+  venueAccessibility: v.number(), conferenceRooms: v.number(),
+  catering: v.number(), staffSupport: v.number(),
+});
+const orgNaValidator = v.object({
+  venueAccessibility: v.boolean(), conferenceRooms: v.boolean(),
+  catering: v.boolean(), staffSupport: v.boolean(),
+});
+const eventRatingsValidator = v.object({
+  overallEvent: v.number(), knowledgeUsefulness: v.number(),
+  structurePresentation: v.number(), seminarContent: v.number(),
+  questionOpportunity: v.number(), seminarMaterials: v.number(),
+  speakerExpertise: v.number(), presentationQuality: v.number(),
+});
+
+/** Bewertungsbogen 6.2.0: Kurzbericht + Bewertungen, Status FEEDBACK_PENDING → FEEDBACK_DONE. */
+export const submitFeedback = mutation({
+  args: {
+    participantId: v.id("trainingParticipants"),
+    shortReport: v.string(),
+    organizationRatings: orgRatingsValidator,
+    organizationRatingsNa: orgNaValidator,
+    eventRatings: eventRatingsValidator,
+    badRatingReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainings:feedback:submit");
+    const p = await ctx.db.get(args.participantId);
+    if (!p || p.userId !== user._id) throw new Error("Nicht Ihr Teilnahmedatensatz");
+    if (p.status !== "FEEDBACK_PENDING") throw new Error("Bogen bereits abgegeben oder Schulung nicht abgeschlossen");
+
+    const words = args.shortReport.trim().split(/\s+/).filter(Boolean).length;
+    if (words < 80) throw new Error(`Der Kurzbericht braucht mindestens 80 Wörter (aktuell ${words}).`);
+
+    const eventVals = Object.values(args.eventRatings);
+    const orgVals = (Object.keys(args.organizationRatings) as (keyof typeof args.organizationRatings)[])
+      .filter((k) => !args.organizationRatingsNa[k])
+      .map((k) => args.organizationRatings[k]);
+    for (const val of [...eventVals, ...orgVals])
+      if (val < 1 || val > 6) throw new Error("Bewertungen müssen zwischen 1 und 6 liegen (oder „entfällt\").");
+    if ([...eventVals, ...orgVals].some((r) => r >= 5) && !args.badRatingReason?.trim())
+      throw new Error("Sie haben eine 5/6 vergeben — bitte begründen.");
+
+    const now = Date.now();
+    const previousStatus = p.status;
+    const feedbackId = await ctx.db.insert("trainingFeedback", {
+      participantId: p._id, sessionId: p.sessionId, userId: user._id,
+      shortReport: args.shortReport,
+      organizationRatings: args.organizationRatings,
+      organizationRatingsNa: args.organizationRatingsNa,
+      eventRatings: args.eventRatings,
+      badRatingReason: args.badRatingReason,
+      confirmedAt: now,
+      isArchived: false, createdAt: now, updatedAt: now, createdBy: user._id, updatedBy: user._id,
+    });
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "CREATE",
+      entityType: "trainingFeedback",
+      entityId: feedbackId,
+      metadata: { participantId: p._id },
+    });
+
+    validateTransition("participantStatus", p.status, "FEEDBACK_DONE");
+    await ctx.db.patch(p._id, { status: "FEEDBACK_DONE", updatedAt: now, updatedBy: user._id });
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "STATUS_CHANGE",
+      entityType: "trainingParticipants",
+      entityId: p._id,
+      previousStatus,
+      newStatus: "FEEDBACK_DONE",
+    });
+  },
+});
