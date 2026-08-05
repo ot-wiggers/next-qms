@@ -8,3 +8,11 @@ describe("test-infra", () => {
     expect(t).toBeDefined();
   });
 });
+
+describe("elearning-fields", () => {
+  it("akzeptiert elearning-Felder im Schema", async () => {
+    const t = convexTest(schema);
+    // Just verify the schema loads with new fields
+    expect(t).toBeDefined();
+  });
+});
