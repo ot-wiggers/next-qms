@@ -1,9 +1,10 @@
 import { v } from "convex/values";
-import { mutation, MutationCtx } from "./_generated/server";
+import { mutation, internalMutation, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
+import { createNotification } from "./lib/notificationHelpers";
 
 const MONTH_MS = 30.44 * 24 * 3600 * 1000;
 
@@ -252,5 +253,59 @@ export const submitFeedback = mutation({
       previousStatus,
       newStatus: "FEEDBACK_DONE",
     });
+  },
+});
+
+/** Cron (05:30 UTC): fällige E-Learning-Auffrischungen anmahnen (eine Notification je Fälligkeit). */
+export const checkRefreshDue = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const trainings = await ctx.db
+      .query("trainings")
+      .filter((q) =>
+        q.and(q.eq(q.field("isArchived"), false), q.eq(q.field("deliveryType"), "elearning"))
+      )
+      .collect();
+
+    for (const training of trainings.filter((t) => t.refreshAfterMonths)) {
+      const sessions = await ctx.db
+        .query("trainingSessions")
+        .withIndex("by_training", (q) => q.eq("trainingId", training._id))
+        .collect();
+      for (const session of sessions) {
+        const participants = await ctx.db
+          .query("trainingParticipants")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect();
+        for (const p of participants) {
+          if (!p.completedAt) continue;
+          const due = p.completedAt + training.refreshAfterMonths! * MONTH_MS;
+          if (due > now) continue;
+
+          // Dedup: bereits eine Auffrischungs-Notification zu dieser Teilnahme?
+          const existing = await ctx.db
+            .query("notifications")
+            .withIndex("by_user", (q) => q.eq("userId", p.userId))
+            .filter((q) =>
+              q.and(
+                q.eq(q.field("type"), "training_refresh_due"),
+                q.eq(q.field("resourceId"), String(p._id))
+              )
+            )
+            .first();
+          if (existing) continue;
+
+          await createNotification(ctx, {
+            userId: p.userId,
+            type: "training_refresh_due",
+            title: `Auffrischung fällig: ${training.title}`,
+            message: `Ihre Schulung „${training.title}" ist älter als ${training.refreshAfterMonths} Monate. Bitte erneut absolvieren.`,
+            resourceType: "trainingParticipants",
+            resourceId: String(p._id),
+          });
+        }
+      }
+    }
   },
 });

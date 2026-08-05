@@ -1,7 +1,7 @@
 import { convexTest } from "convex-test";
 import { describe, it, expect } from "vitest";
 import schema from "./schema";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 describe("test-infra", () => {
   it("bootet das Schema", async () => {
@@ -258,5 +258,43 @@ describe("elearning.submitFeedback", () => {
     expect(fb!.confirmedAt).toBeGreaterThan(0);
     const p = await t.run((ctx) => ctx.db.get(participantId));
     expect(p!.status).toBe("FEEDBACK_DONE");
+  });
+});
+
+describe("elearning.checkRefreshDue", () => {
+  it("meldet fällige Auffrischung genau einmal, auch bei zweitem Cron-Lauf", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.complete, { participantId, score: 8, maxScore: 8 });
+    // Abschluss künstlich 13 Monate alt machen (refreshAfterMonths: 12)
+    await t.run((ctx) =>
+      ctx.db.patch(participantId, { completedAt: Date.now() - 13 * 30.44 * 24 * 3600 * 1000 })
+    );
+
+    await t.mutation(internal.elearning.checkRefreshDue, {});
+    await t.mutation(internal.elearning.checkRefreshDue, {});
+
+    const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
+    expect(notes.filter((n) => n.type === "training_refresh_due")).toHaveLength(1);
+    expect(notes[0]).toMatchObject({
+      userId: uid,
+      resourceType: "trainingParticipants",
+      resourceId: String(participantId),
+    });
+  });
+
+  it("meldet nicht, wenn Abschluss noch nicht fällig ist", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.complete, { participantId, score: 8, maxScore: 8 });
+
+    await t.mutation(internal.elearning.checkRefreshDue, {});
+
+    const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
+    expect(notes.filter((n) => n.type === "training_refresh_due")).toHaveLength(0);
   });
 });
