@@ -83,6 +83,9 @@ export const reportProgress = mutation({
     const user = await requirePermission(ctx, "trainings:list");
     const p = await ctx.db.get(args.participantId);
     if (!p || p.userId !== user._id) throw new Error("Nicht Ihr Teilnahmedatensatz");
+    const session = (await ctx.db.get(p.sessionId))!;
+    const training = (await ctx.db.get(session.trainingId))!;
+    if (training.deliveryType !== "elearning") throw new Error("Nur für E-Learning-Schulungen");
     if ((p.progress ?? 0) < args.level) {
       await ctx.db.patch(p._id, { progress: args.level, updatedAt: Date.now(), updatedBy: user._id });
       await logAuditEvent(ctx, {
@@ -117,6 +120,7 @@ export const complete = mutation({
 
     const session = (await ctx.db.get(p.sessionId))!;
     const training = (await ctx.db.get(session.trainingId))!;
+    if (training.deliveryType !== "elearning") throw new Error("Nur für E-Learning-Schulungen");
     const now = Date.now();
     const previousStatus = p.status;
 
@@ -209,6 +213,9 @@ export const submitFeedback = mutation({
     const user = await requirePermission(ctx, "trainings:feedback:submit");
     const p = await ctx.db.get(args.participantId);
     if (!p || p.userId !== user._id) throw new Error("Nicht Ihr Teilnahmedatensatz");
+    const session = (await ctx.db.get(p.sessionId))!;
+    const training = (await ctx.db.get(session.trainingId))!;
+    if (training.deliveryType !== "elearning") throw new Error("Nur für E-Learning-Schulungen");
     if (p.status !== "FEEDBACK_PENDING") throw new Error("Bogen bereits abgegeben oder Schulung nicht abgeschlossen");
 
     const words = args.shortReport.trim().split(/\s+/).filter(Boolean).length;
@@ -297,6 +304,7 @@ export const myElearning = query({
         trainingId: training._id, title: training.title,
         completedAt: participant?.completedAt ?? null,
         validUntil: cert?.validUntil ?? null,
+        overdue: cert?.validUntil ? cert.validUntil < Date.now() : false,
         status: participant?.status ?? "OFFEN",
       });
     }

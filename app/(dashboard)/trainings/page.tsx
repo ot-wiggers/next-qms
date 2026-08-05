@@ -5,6 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import { PageHeader } from "@/components/layout/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { MyElearning } from "@/components/domain/elearning/MyElearning";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -96,6 +97,8 @@ export default function TrainingsPage() {
           ) : undefined
         }
       />
+
+      <MyElearning />
 
       <div className="flex gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>

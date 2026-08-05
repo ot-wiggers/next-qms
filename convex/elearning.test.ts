@@ -261,6 +261,102 @@ describe("elearning.submitFeedback", () => {
   });
 });
 
+async function seedPresenceParticipant(t: ReturnType<typeof convexTest>, status: string) {
+  return await t.run(async (ctx) => {
+    const now = Date.now();
+    const orgId = await ctx.db.insert("organizations", {
+      name: "Presenz-Org",
+      type: "organization",
+      code: "PRES",
+      createdAt: now,
+      updatedAt: now,
+      isArchived: false,
+    });
+
+    const uid = await ctx.db.insert("users", {
+      email: "peter@x.de",
+      firstName: "Peter",
+      lastName: "Presenz",
+      role: "employee",
+      organizationId: orgId,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+      isArchived: false,
+    });
+
+    const tid = await ctx.db.insert("trainings", {
+      title: "Präsenz-Schulung",
+      isRequired: true,
+      effectivenessCheckAfterDays: 30,
+      status: "ACTIVE",
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: uid,
+      updatedBy: uid,
+    });
+
+    const sessionId = await ctx.db.insert("trainingSessions", {
+      trainingId: tid,
+      scheduledDate: now,
+      location: "Konferenzraum",
+      status: "PLANNED",
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: uid,
+      updatedBy: uid,
+    });
+
+    const participantId = await ctx.db.insert("trainingParticipants", {
+      sessionId,
+      userId: uid,
+      status,
+      progress: 0,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: uid,
+      updatedBy: uid,
+    });
+
+    return { uid, participantId };
+  });
+}
+
+describe("elearning deliveryType-Guard (Präsenz-Teilnehmer abgelehnt)", () => {
+  it("complete lehnt Präsenz-Teilnehmer ab", async () => {
+    const t = convexTest(schema);
+    const { uid, participantId } = await seedPresenceParticipant(t, "INVITED");
+    const asUser = t.withIdentity({ subject: String(uid) });
+    await expect(
+      asUser.mutation(api.elearning.complete, { participantId, score: 1, maxScore: 1 })
+    ).rejects.toThrow(/E-Learning/);
+  });
+
+  it("reportProgress lehnt Präsenz-Teilnehmer ab", async () => {
+    const t = convexTest(schema);
+    const { uid, participantId } = await seedPresenceParticipant(t, "INVITED");
+    const asUser = t.withIdentity({ subject: String(uid) });
+    await expect(
+      asUser.mutation(api.elearning.reportProgress, { participantId, level: 1 })
+    ).rejects.toThrow(/E-Learning/);
+  });
+
+  it("submitFeedback lehnt Präsenz-Teilnehmer ab", async () => {
+    const t = convexTest(schema);
+    const { uid, participantId } = await seedPresenceParticipant(t, "FEEDBACK_PENDING");
+    const asUser = t.withIdentity({ subject: String(uid) });
+    await expect(
+      asUser.mutation(api.elearning.submitFeedback, {
+        participantId, shortReport: WORDS_80, organizationRatings: ORG,
+        organizationRatingsNa: ORG_NA, eventRatings: EVENT_OK,
+      })
+    ).rejects.toThrow(/E-Learning/);
+  });
+});
+
 describe("elearning.feedbackById", () => {
   async function withFeedback(t: ReturnType<typeof convexTest>) {
     const { uid, tid } = await seedElearningTraining(t);
