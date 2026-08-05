@@ -40,7 +40,7 @@ export function PlayerFrame({ trainingId }: { trainingId: Id<"trainings"> }) {
       frameRef.current?.contentWindow?.postMessage(message, "*");
 
     const onMessage = async (e: MessageEvent) => {
-      if (frameRef.current && e.source !== frameRef.current.contentWindow) return;
+      if (e.source !== frameRef.current?.contentWindow) return;
       const m = e.data;
       try {
         if (m?.type === "ki-schulung:ready") {
