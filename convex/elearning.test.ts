@@ -261,6 +261,18 @@ describe("elearning.submitFeedback", () => {
   });
 });
 
+describe("elearning.myElearning", () => {
+  it("zeigt Abschluss", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.complete, { participantId, score: 8, maxScore: 8 });
+    const list = await asUser.query(api.elearning.myElearning, {});
+    expect(list[0]).toMatchObject({ title: "KI-Kompetenz", status: "FEEDBACK_PENDING" });
+  });
+});
+
 describe("elearning.checkRefreshDue", () => {
   it("meldet fällige Auffrischung genau einmal, auch bei zweitem Cron-Lauf", async () => {
     const t = convexTest(schema);

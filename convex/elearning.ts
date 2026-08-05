@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { mutation, internalMutation, MutationCtx } from "./_generated/server";
+import { query, mutation, internalMutation, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { requirePermission } from "./lib/withAuth";
+import { requirePermission, getAuthenticatedUser } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
 import { validateTransition } from "./lib/stateMachine";
 import { createNotification } from "./lib/notificationHelpers";
@@ -253,6 +253,38 @@ export const submitFeedback = mutation({
       previousStatus,
       newStatus: "FEEDBACK_DONE",
     });
+  },
+});
+
+/** "Meine Schulungen": E-Learning-Trainings des Users mit Fortschritt/Zertifikatsstatus. */
+export const myElearning = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
+    const trainings = await ctx.db.query("trainings")
+      .filter((q) => q.and(q.eq(q.field("isArchived"), false), q.eq(q.field("deliveryType"), "elearning")))
+      .collect();
+    const result = [];
+    for (const training of trainings) {
+      const sessions = await ctx.db.query("trainingSessions")
+        .withIndex("by_training", (q) => q.eq("trainingId", training._id)).collect();
+      let participant = null;
+      for (const s of sessions) {
+        const p = await ctx.db.query("trainingParticipants")
+          .withIndex("by_session_user", (q) => q.eq("sessionId", s._id).eq("userId", user._id)).first();
+        if (p) participant = p;
+      }
+      const cert = participant ? await ctx.db.query("certificates")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .filter((q) => q.eq(q.field("participantId"), participant!._id)).first() : null;
+      result.push({
+        trainingId: training._id, title: training.title,
+        completedAt: participant?.completedAt ?? null,
+        validUntil: cert?.validUntil ?? null,
+        status: participant?.status ?? "OFFEN",
+      });
+    }
+    return result;
   },
 });
 

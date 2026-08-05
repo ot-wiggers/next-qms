@@ -22,7 +22,9 @@ import {
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
 import { getAllowedTransitions } from "../../../../convex/lib/stateMachine";
-import { ArrowLeft, Calendar, Plus, Pencil, Archive, Users, ExternalLink } from "lucide-react";
+import { PackageUpload } from "@/components/domain/elearning/PackageUpload";
+import { Id } from "../../../../convex/_generated/dataModel";
+import { ArrowLeft, Calendar, Plus, Pencil, Archive, Users, ExternalLink, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -37,6 +39,8 @@ interface Training {
   effectivenessCheckAfterDays: number;
   externalLink?: string;
   createdAt: number;
+  deliveryType?: "presence" | "elearning";
+  packageFileId?: string;
 }
 
 interface Session {
@@ -215,8 +219,17 @@ export default function TrainingDetailPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {training.deliveryType === "elearning" && training.packageFileId && (
+                <Button variant="default" size="sm" asChild>
+                  <Link href={`/trainings/${trainingId}/lernen`}>
+                    <GraduationCap className="mr-1 h-4 w-4" />
+                    Lernen starten
+                  </Link>
+                </Button>
+              )}
               {can("trainings:manage") && (
                 <>
+                  <PackageUpload trainingId={trainingId as Id<"trainings">} />
                   <Button
                     variant="outline"
                     size="sm"
