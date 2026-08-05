@@ -138,7 +138,7 @@ async function seedElearningTraining(t: ReturnType<typeof convexTest>) {
       updatedBy: uid,
     });
 
-    return { uid, tid };
+    return { uid, tid, orgId };
   });
 }
 
@@ -524,5 +524,37 @@ describe("elearning.checkRefreshDue", () => {
 
     const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
     expect(notes.filter((n) => n.type === "training_refresh_due")).toHaveLength(0);
+  });
+});
+
+describe("elearning.nachweise + certificateById", () => {
+  it("liefert Nachweis-Zeile mit Bogen- und Zertifikat-Verweis (qmb); Fremdzugriff aufs Zertifikat ohne Permission wirft", async () => {
+    const t = convexTest(schema);
+    const { uid, tid, orgId } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    const { certificateId } = await asUser.mutation(api.elearning.complete, { participantId, score: 7, maxScore: 8 });
+    await asUser.mutation(api.elearning.submitFeedback, {
+      participantId, shortReport: WORDS_80, organizationRatings: ORG,
+      organizationRatingsNa: ORG_NA, eventRatings: EVENT_OK,
+    });
+    const qmbId = await t.run(async (ctx: any) =>
+      ctx.db.insert("users", { firstName: "Q", lastName: "MB", email: "qmb-nachweis@x.de", role: "qmb", status: "active", organizationId: orgId, isArchived: false, createdAt: 1, updatedAt: 1 } as any));
+    const asQmb = t.withIdentity({ subject: String(qmbId) });
+    const rows = await asQmb.query(api.elearning.nachweise, {});
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ score: 7, certificateId, status: "FEEDBACK_DONE" });
+    expect(rows[0].feedbackId).toBeTruthy();
+    // Selbstzugriff aufs eigene Zertifikat ok
+    const own = await asUser.query(api.elearning.certificateById, { certificateId });
+    expect(own).toMatchObject({ score: 7 });
+    // Fremder employee ohne trainings:manage → wirft
+    const otherId = await t.run(async (ctx: any) =>
+      ctx.db.insert("users", { firstName: "F", lastName: "Remd", email: "fremd@x.de", role: "employee", status: "active", organizationId: orgId, isArchived: false, createdAt: 1, updatedAt: 1 } as any));
+    const asOther = t.withIdentity({ subject: String(otherId) });
+    await expect(asOther.query(api.elearning.certificateById, { certificateId })).rejects.toThrow();
+    // qmb darf fremdes Zertifikat lesen
+    const byQmb = await asQmb.query(api.elearning.certificateById, { certificateId });
+    expect(byQmb).toMatchObject({ score: 7 });
   });
 });

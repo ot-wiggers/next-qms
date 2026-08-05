@@ -88,12 +88,17 @@ export default function TrainingsPage() {
         description="Schulungsverwaltung und Terminplanung"
         actions={
           can("trainings:create") ? (
-            <Button size="sm" asChild>
-              <Link href="/trainings/new">
-                <Plus className="mr-1 h-4 w-4" />
-                Neue Schulung
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/trainings/nachweise">Schulungsnachweise</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/trainings/new">
+                  <Plus className="mr-1 h-4 w-4" />
+                  Neue Schulung
+                </Link>
+              </Button>
+            </div>
           ) : undefined
         }
       />

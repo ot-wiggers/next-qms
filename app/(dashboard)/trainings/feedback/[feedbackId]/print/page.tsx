@@ -70,11 +70,20 @@ export default function FeedbackPrintPage() {
   return (
     <div className="bogen">
       <style>{`
+        @page { size: A4 portrait; margin: 14mm 16mm; }
         @media print {
-          aside, header { display: none !important; }
-          main { padding: 0 !important; }
+          aside, header, nav { display: none !important; }
+          html, body, main { background: #fff !important; padding: 0 !important; margin: 0 !important; }
+          main * { color: #000; }
+          .bogen { max-width: none; margin: 0; color: #000;
+            print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          .bogen-ph .ptitle { color: #c00000 !important; }
+          .bogen-ph .logo { color: #005786 !important; }
+          .bogen .kb-label { color: #c00000 !important; }
+          .bogen { page-break-inside: avoid; }
         }
-        .bogen { max-width: 760px; margin: 0 auto; font-size: 0.92rem; color: #001f2e; }
+        .bogen { max-width: 760px; margin: 0 auto; font-size: 0.92rem; color: #001f2e;
+          background: #fff; padding: 20px; border-radius: 8px; }
         .bogen-ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12pt; }
         .bogen-ph .rev { font-size: 8.5pt; line-height: 1.4; color: #5b7386; }
         .bogen-ph .ptitle { font-size: 17pt; font-weight: 700; color: #c00000; }
@@ -156,8 +165,8 @@ export default function FeedbackPrintPage() {
       )}
 
       <div className="bogen-sig">
-        <div><div className="line">&nbsp;</div>Ort, Datum</div>
-        <div><div className="line">&nbsp;</div>Unterschrift Teilnehmer / Teilnehmerin</div>
+        <div><div className="line">Oldenburg, {formatDate(fb.confirmedAt ?? completedAt)}</div>Ort, Datum</div>
+        <div><div className="line">digital bestätigt am {formatDate(fb.confirmedAt)}</div>Unterschrift Teilnehmer / Teilnehmerin</div>
       </div>
 
       <div className="bogen-pf">

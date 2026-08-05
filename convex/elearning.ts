@@ -385,3 +385,71 @@ export const checkRefreshDue = internalMutation({
     }
   },
 });
+
+/** Zertifikat für Druckansicht: Selbstzugriff oder trainings:manage. */
+export const certificateById = query({
+  args: { certificateId: v.id("certificates") },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+    const cert = await ctx.db.get(args.certificateId);
+    if (!cert) return null;
+    if (cert.userId !== user._id) await requirePermission(ctx, "trainings:manage");
+    return cert;
+  },
+});
+
+/** Schulungsnachweise für die Auditierung (qmb/admin): alle E-Learning-Abschlüsse
+ *  mit Verweisen auf Bogen und Zertifikat — daraus sind beide Dokumente reproduzierbar. */
+export const nachweise = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "trainings:manage");
+    const trainings = await ctx.db
+      .query("trainings")
+      .filter((q) =>
+        q.and(q.eq(q.field("isArchived"), false), q.eq(q.field("deliveryType"), "elearning"))
+      )
+      .collect();
+    const rows = [];
+    for (const training of trainings) {
+      const sessions = await ctx.db
+        .query("trainingSessions")
+        .withIndex("by_training", (q) => q.eq("trainingId", training._id))
+        .collect();
+      for (const session of sessions) {
+        const participants = await ctx.db
+          .query("trainingParticipants")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect();
+        for (const p of participants) {
+          if (!p.completedAt) continue;
+          const participant = (await ctx.db.get(p.userId))!;
+          const feedback = await ctx.db
+            .query("trainingFeedback")
+            .withIndex("by_participant", (q) => q.eq("participantId", p._id))
+            .first();
+          const cert = await ctx.db
+            .query("certificates")
+            .withIndex("by_user", (q) => q.eq("userId", p.userId))
+            .filter((q) => q.eq(q.field("participantId"), p._id))
+            .first();
+          rows.push({
+            participantId: p._id,
+            userName: `${participant.firstName} ${participant.lastName}`,
+            trainingTitle: training.title,
+            completedAt: p.completedAt,
+            score: p.score ?? null,
+            maxScore: p.maxScore ?? null,
+            status: p.status,
+            feedbackId: feedback?._id ?? null,
+            feedbackConfirmedAt: feedback?.confirmedAt ?? null,
+            certificateId: cert?._id ?? null,
+            validUntil: cert?.validUntil ?? null,
+          });
+        }
+      }
+    }
+    rows.sort((a, b) => b.completedAt - a.completedAt);
+    return rows;
+  },
+});
