@@ -163,6 +163,37 @@ const eventRatingsValidator = v.object({
   speakerExpertise: v.number(), presentationQuality: v.number(),
 });
 
+export const generatePackageUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "trainings:manage");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const attachPackage = mutation({
+  args: { trainingId: v.id("trainings"), fileId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainings:manage");
+    const training = await ctx.db.get(args.trainingId);
+    if (!training) throw new Error("Training nicht gefunden");
+    await ctx.db.patch(args.trainingId, {
+      packageFileId: args.fileId,
+      packageVersion: (training.packageVersion ?? 0) + 1,
+      deliveryType: "elearning",
+      updatedAt: Date.now(),
+      updatedBy: user._id,
+    });
+    await logAuditEvent(ctx, {
+      entityType: "trainings",
+      entityId: args.trainingId,
+      action: "UPDATE",
+      userId: user._id,
+      metadata: { packageVersion: (training.packageVersion ?? 0) + 1 },
+    });
+  },
+});
+
 /** Bewertungsbogen 6.2.0: Kurzbericht + Bewertungen, Status FEEDBACK_PENDING → FEEDBACK_DONE. */
 export const submitFeedback = mutation({
   args: {

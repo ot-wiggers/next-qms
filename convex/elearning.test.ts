@@ -188,6 +188,41 @@ const ORG_NA = { venueAccessibility: true, conferenceRooms: true, catering: true
 const EVENT_OK = { overallEvent: 1, knowledgeUsefulness: 2, structurePresentation: 1, seminarContent: 1, questionOpportunity: 2, seminarMaterials: 1, speakerExpertise: 1, presentationQuality: 1 };
 const WORDS_80 = Array.from({ length: 80 }, (_, i) => "wort" + i).join(" ");
 
+describe("elearning.attachPackage", () => {
+  it("setzt Paket und Version (qmb)", async () => {
+    const t = convexTest(schema);
+    const { tid } = await seedElearningTraining(t);
+    const qmbId = await t.run(async (ctx) => {
+      const now = Date.now();
+      const orgId = await ctx.db.insert("organizations", {
+        name: "QMB-Org",
+        type: "organization",
+        code: "QMB",
+        createdAt: now,
+        updatedAt: now,
+        isArchived: false,
+      });
+      return await ctx.db.insert("users", {
+        firstName: "QMB",
+        lastName: "User",
+        email: "q@x.de",
+        role: "qmb",
+        organizationId: orgId,
+        status: "active",
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      } as any);
+    });
+    const asQmb = t.withIdentity({ subject: String(qmbId) });
+    const fileId = await t.run((ctx) => ctx.storage.store(new Blob(["<html>"], { type: "text/html" })));
+    await asQmb.mutation(api.elearning.attachPackage, { trainingId: tid, fileId });
+    await asQmb.mutation(api.elearning.attachPackage, { trainingId: tid, fileId });
+    const tr = await t.run((ctx) => ctx.db.get(tid));
+    expect(tr).toMatchObject({ packageFileId: fileId, packageVersion: 2, deliveryType: "elearning" });
+  });
+});
+
 describe("elearning.submitFeedback", () => {
   async function completed(t: ReturnType<typeof convexTest>) {
     const { uid, tid } = await seedElearningTraining(t);
