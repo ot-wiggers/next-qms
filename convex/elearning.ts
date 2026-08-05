@@ -3,6 +3,9 @@ import { mutation, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { requirePermission } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
+import { validateTransition } from "./lib/stateMachine";
+
+const MONTH_MS = 30.44 * 24 * 3600 * 1000;
 
 /** Implizite Session je E-Learning-Training (genau eine, Ort "E-Learning"). */
 async function getOrCreateElearningSession(
@@ -69,5 +72,69 @@ export const start = mutation({
       userName: `${user.firstName} ${user.lastName}`,
       packageUrl,
     };
+  },
+});
+
+/** Player-Fortschritt: höchstes erreichtes Level speichern (nur aufwärts). */
+export const reportProgress = mutation({
+  args: { participantId: v.id("trainingParticipants"), level: v.number() },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainings:list");
+    const p = await ctx.db.get(args.participantId);
+    if (!p || p.userId !== user._id) throw new Error("Nicht Ihr Teilnahmedatensatz");
+    if ((p.progress ?? 0) < args.level)
+      await ctx.db.patch(p._id, { progress: args.level, updatedAt: Date.now(), updatedBy: user._id });
+  },
+});
+
+/** Player-Abschluss: Status setzen, Score speichern, Zertifikat ausstellen (idempotent). */
+export const complete = mutation({
+  args: { participantId: v.id("trainingParticipants"), score: v.number(), maxScore: v.number() },
+  handler: async (ctx, args) => {
+    const user = await requirePermission(ctx, "trainings:list");
+    const p = await ctx.db.get(args.participantId);
+    if (!p || p.userId !== user._id) throw new Error("Nicht Ihr Teilnahmedatensatz");
+
+    // Idempotent: erster Abschluss gewinnt
+    if (p.completedAt) {
+      const existing = await ctx.db
+        .query("certificates")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .filter((q) => q.eq(q.field("participantId"), p._id))
+        .first();
+      return { certificateId: existing!._id };
+    }
+
+    const session = (await ctx.db.get(p.sessionId))!;
+    const training = (await ctx.db.get(session.trainingId))!;
+    const now = Date.now();
+    const previousStatus = p.status;
+
+    validateTransition("participantStatus", p.status, "ATTENDED");
+    validateTransition("participantStatus", "ATTENDED", "FEEDBACK_PENDING");
+    await ctx.db.patch(p._id, {
+      status: "FEEDBACK_PENDING", attendedAt: now, completedAt: now,
+      score: args.score, maxScore: args.maxScore, updatedAt: now, updatedBy: user._id,
+    });
+
+    const certificateId = await ctx.db.insert("certificates", {
+      userId: user._id, trainingId: training._id, participantId: p._id,
+      issuedAt: now,
+      validUntil: training.refreshAfterMonths ? now + training.refreshAfterMonths * MONTH_MS : undefined,
+      score: args.score, maxScore: args.maxScore,
+      snapshotUserName: `${user.firstName} ${user.lastName}`, snapshotTrainingTitle: training.title,
+      isArchived: false, createdAt: now, updatedAt: now, createdBy: user._id, updatedBy: user._id,
+    });
+    // "elearning-complete" ist kein gültiger Audit-Action-String (siehe lib/auditLog.ts);
+    // STATUS_CHANGE + previous/newStatus folgt der Konvention aus trainings.ts markAttendance().
+    await logAuditEvent(ctx, {
+      userId: user._id,
+      action: "STATUS_CHANGE",
+      entityType: "trainingParticipants",
+      entityId: p._id,
+      previousStatus,
+      newStatus: "FEEDBACK_PENDING",
+    });
+    return { certificateId };
   },
 });

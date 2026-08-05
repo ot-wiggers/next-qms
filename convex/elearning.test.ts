@@ -159,3 +159,26 @@ describe("elearning.start", () => {
     expect(sessions[0].location).toBe("E-Learning");
   });
 });
+
+describe("elearning.complete", () => {
+  it("setzt Status, speichert Score, stellt Zertifikat aus — idempotent", async () => {
+    const t = convexTest(schema);
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.reportProgress, { participantId, level: 3 });
+    const c1 = await asUser.mutation(api.elearning.complete, { participantId, score: 7, maxScore: 8 });
+    const c2 = await asUser.mutation(api.elearning.complete, { participantId, score: 5, maxScore: 8 });
+
+    expect(c1.certificateId).toEqual(c2.certificateId); // erster Abschluss gewinnt
+
+    const p = await t.run((ctx) => ctx.db.get(participantId));
+    expect(p).toMatchObject({ status: "FEEDBACK_PENDING", score: 7, progress: 3 });
+    expect(p!.completedAt).toBeGreaterThan(0);
+
+    const cert = await t.run((ctx) => ctx.db.get(c1.certificateId));
+    expect(cert).toMatchObject({ snapshotUserName: "Maria Test", score: 7 });
+    expect(cert!.validUntil).toBe(cert!.issuedAt + 12 * 30.44 * 24 * 3600 * 1000);
+  });
+});
