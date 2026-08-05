@@ -446,11 +446,16 @@ export default defineSchema({
     effectivenessCheckAfterDays: v.number(), // default: 30
     targetOrganizationIds: v.optional(v.array(v.id("organizations"))),
     externalLink: v.optional(v.string()), // e.g. link to external training provider
+    deliveryType: v.optional(v.union(v.literal("presence"), v.literal("elearning"))), // undefined = presence
+    packageFileId: v.optional(v.id("_storage")),
+    packageVersion: v.optional(v.number()),
+    refreshAfterMonths: v.optional(v.number()),
     status: trainingStatus,
     ...auditFields,
   })
     .index("by_status", ["status"])
     .index("by_category", ["category"])
+    .index("by_deliveryType", ["deliveryType"])
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["status", "isArchived"],
@@ -478,6 +483,10 @@ export default defineSchema({
     userId: v.id("users"),
     status: participantStatus,
     attendedAt: v.optional(v.number()),
+    progress: v.optional(v.number()),    // höchstes abgeschlossenes Level (E-Learning)
+    score: v.optional(v.number()),
+    maxScore: v.optional(v.number()),
+    completedAt: v.optional(v.number()), // E-Learning-Abschluss
     ...auditFields,
   })
     .index("by_session", ["sessionId"])
@@ -513,6 +522,16 @@ export default defineSchema({
 
     badRatingReason: v.optional(v.string()), // "Ich habe eine 5/6 vergeben weil:"
 
+    // Selbstlern-Format: Organisations-Items können entfallen (true = "entfällt";
+    // der Zahlenwert in organizationRatings ist dann 0 und wird ignoriert)
+    organizationRatingsNa: v.optional(v.object({
+      venueAccessibility: v.boolean(),
+      conferenceRooms: v.boolean(),
+      catering: v.boolean(),
+      staffSupport: v.boolean(),
+    })),
+    confirmedAt: v.optional(v.number()), // Zeitstempel Bestätigung „Angaben selbst gemacht"
+
     // Certificate / Teilnehmerliste upload
     certificateFileId: v.optional(v.id("_storage")),
     certificateFileName: v.optional(v.string()),
@@ -535,6 +554,22 @@ export default defineSchema({
     .index("by_participant", ["participantId"])
     .index("by_session", ["sessionId"])
     .index("by_user", ["userId"]),
+
+  certificates: defineTable({
+    userId: v.id("users"),
+    trainingId: v.id("trainings"),
+    participantId: v.id("trainingParticipants"),
+    issuedAt: v.number(),
+    validUntil: v.optional(v.number()),
+    score: v.number(),
+    maxScore: v.number(),
+    snapshotUserName: v.string(),
+    snapshotTrainingTitle: v.string(),
+    ...auditFields,
+  })
+    .index("by_user", ["userId"])
+    .index("by_participant", ["participantId"])
+    .index("by_training", ["trainingId"]),
 
   effectivenessChecks: defineTable({
     participantId: v.id("trainingParticipants"),

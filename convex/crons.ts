@@ -88,4 +88,11 @@ crons.daily(
   internal.devices.checkCalibrationDue,
 );
 
+// E-Learning: fällige Auffrischungen anmahnen
+crons.daily(
+  "elearning-refresh-due",
+  { hourUTC: 5, minuteUTC: 30 },
+  internal.elearning.checkRefreshDue,
+);
+
 export default crons;

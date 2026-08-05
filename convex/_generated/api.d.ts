@@ -26,6 +26,7 @@ import type * as documentReviews from "../documentReviews.js";
 import type * as documentVersions from "../documentVersions.js";
 import type * as documents from "../documents.js";
 import type * as effectiveness from "../effectiveness.js";
+import type * as elearning from "../elearning.js";
 import type * as email from "../email.js";
 import type * as featureFlags from "../featureFlags.js";
 import type * as hmv from "../hmv.js";
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   documentVersions: typeof documentVersions;
   documents: typeof documents;
   effectiveness: typeof effectiveness;
+  elearning: typeof elearning;
   email: typeof email;
   featureFlags: typeof featureFlags;
   hmv: typeof hmv;
