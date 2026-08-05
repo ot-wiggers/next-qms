@@ -261,6 +261,48 @@ describe("elearning.submitFeedback", () => {
   });
 });
 
+describe("elearning.feedbackById", () => {
+  async function withFeedback(t: ReturnType<typeof convexTest>) {
+    const { uid, tid } = await seedElearningTraining(t);
+    const asUser = t.withIdentity({ subject: String(uid) });
+    const { participantId } = await asUser.mutation(api.elearning.start, { trainingId: tid });
+    await asUser.mutation(api.elearning.complete, { participantId, score: 8, maxScore: 8 });
+    await asUser.mutation(api.elearning.submitFeedback, {
+      participantId, shortReport: WORDS_80, organizationRatings: ORG,
+      organizationRatingsNa: ORG_NA, eventRatings: EVENT_OK,
+    });
+    const fb = await t.run((ctx) => ctx.db.query("trainingFeedback").first());
+    return { asUser, feedbackId: fb!._id };
+  }
+
+  it("liefert das eigene Feedback", async () => {
+    const t = convexTest(schema);
+    const { asUser, feedbackId } = await withFeedback(t);
+    const result = await asUser.query(api.elearning.feedbackById, { feedbackId });
+    expect(result).toMatchObject({ trainingTitle: "KI-Kompetenz", userName: "Maria Test" });
+    expect(result!.fb._id).toEqual(feedbackId);
+  });
+
+  it("verweigert fremdes Feedback ohne trainings:manage", async () => {
+    const t = convexTest(schema);
+    const { feedbackId } = await withFeedback(t);
+    const now = Date.now();
+    const otherId = await t.run(async (ctx) => {
+      const orgId = await ctx.db.insert("organizations", {
+        name: "Fremd-Org", type: "organization", code: "FRGN",
+        createdAt: now, updatedAt: now, isArchived: false,
+      });
+      return await ctx.db.insert("users", {
+        email: "other@x.de", firstName: "Other", lastName: "User",
+        role: "employee", organizationId: orgId, status: "active",
+        createdAt: now, updatedAt: now, isArchived: false,
+      });
+    });
+    const asOther = t.withIdentity({ subject: String(otherId) });
+    await expect(asOther.query(api.elearning.feedbackById, { feedbackId })).rejects.toThrow();
+  });
+});
+
 describe("elearning.myElearning", () => {
   it("zeigt Abschluss", async () => {
     const t = convexTest(schema);

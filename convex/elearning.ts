@@ -256,6 +256,22 @@ export const submitFeedback = mutation({
   },
 });
 
+/** Bewertungsbogen für Druckansicht: Selbstzugriff oder trainings:manage. */
+export const feedbackById = query({
+  args: { feedbackId: v.id("trainingFeedback") },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+    const fb = await ctx.db.get(args.feedbackId);
+    if (!fb) return null;
+    if (fb.userId !== user._id) await requirePermission(ctx, "trainings:manage");
+    const p = (await ctx.db.get(fb.participantId))!;
+    const session = (await ctx.db.get(fb.sessionId))!;
+    const training = (await ctx.db.get(session.trainingId))!;
+    const author = (await ctx.db.get(fb.userId))!;
+    return { fb, trainingTitle: training.title, userName: `${author.firstName} ${author.lastName}`, completedAt: p.completedAt };
+  },
+});
+
 /** "Meine Schulungen": E-Learning-Trainings des Users mit Fortschritt/Zertifikatsstatus. */
 export const myElearning = query({
   args: {},
