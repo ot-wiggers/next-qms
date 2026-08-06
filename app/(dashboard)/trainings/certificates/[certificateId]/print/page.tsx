@@ -48,8 +48,8 @@ export default function CertificatePrintPage() {
         }
         .cert .accent { position: absolute; left: 9mm; right: 9mm; bottom: 9mm; height: 2.2mm;
           background: linear-gradient(90deg, #005786 0 72%, #e31e24 72% 100%); }
-        .cert .inner { position: relative; text-align: center; padding-top: 8mm; }
-        .cert img.logo { height: 16mm; margin: 0 auto 10mm; display: block; }
+        .cert .inner { position: relative; text-align: center; padding-top: 14mm; }
+        .cert img.logo { position: absolute; top: 0; right: 0; height: 14mm; }
         .cert .word { font-size: 10pt; letter-spacing: 0.42em; text-transform: uppercase; color: #5b7386; }
         .cert h1 { font-size: 34pt; font-weight: 800; color: #005786; margin: 2mm 0 0; letter-spacing: -0.01em; }
         .cert .redline { width: 26mm; height: 1.4mm; background: #e31e24; margin: 5mm auto 10mm; border-radius: 1mm; }
