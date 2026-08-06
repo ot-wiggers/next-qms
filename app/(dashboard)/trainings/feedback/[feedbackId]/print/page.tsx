@@ -104,6 +104,7 @@ export default function FeedbackPrintPage() {
         .bogen-why .box { border: 1px solid #000; min-height: 30pt; padding: 4pt 6pt; font-size: 9pt; margin-top: 2pt; white-space: pre-wrap; }
         .bogen-sig { display: flex; justify-content: space-between; margin-top: 30pt; font-size: 8.5pt; }
         .bogen-sig .line { width: 200pt; border-top: 1pt solid #000; padding-top: 2pt; }
+        .sig-script { font-family: "Snell Roundhand","Segoe Script","Brush Script MT",cursive; font-size: 11pt; }
         .bogen-pf { margin-top: 18pt; display: flex; justify-content: space-between; font-size: 7.5pt; color: #333; }
       `}</style>
 
@@ -166,7 +167,7 @@ export default function FeedbackPrintPage() {
 
       <div className="bogen-sig">
         <div><div className="line">Oldenburg, {formatDate(fb.confirmedAt ?? completedAt)}</div>Ort, Datum</div>
-        <div><div className="line">digital bestätigt am {formatDate(fb.confirmedAt)}</div>Unterschrift Teilnehmer / Teilnehmerin</div>
+        <div><div className="line"><span className="sig-script">{userName}</span> · digital bestätigt am {formatDate(fb.confirmedAt)}</div>Unterschrift Teilnehmer / Teilnehmerin</div>
       </div>
 
       <div className="bogen-pf">
