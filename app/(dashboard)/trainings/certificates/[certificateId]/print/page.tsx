@@ -64,7 +64,7 @@ export default function CertificatePrintPage() {
         .cert .topics { font-size: 8.5pt; color: #5b7386; line-height: 1.7; max-width: 140mm; margin: 0 auto; }
         .cert .sig { margin-top: 16mm; display: flex; justify-content: center; }
         .cert .sig .line { border-top: 1pt solid #001f2e; width: 62mm; padding-top: 2mm; font-size: 9pt; color: #5b7386; }
-        .cert .sig-script { font-family: "Snell Roundhand","Segoe Script","Brush Script MT",cursive; font-size: 13pt; color: #001f2e; }
+        .cert .sig .signame { font-size: 12pt; color: #001f2e; padding-bottom: 1.5mm; width: 62mm; }
         .cert .legal { position: absolute; left: 0; right: 0; bottom: 15mm; text-align: center; font-size: 7.5pt; color: #8ba2b3; }
       `}</style>
 
@@ -100,7 +100,7 @@ export default function CertificatePrintPage() {
             (Halluzination, Bias, Phishing) · Datenschutz &amp; Gesundheitsdaten (Art. 9 DSGVO) ·
             Regeln der KI-Nutzung im Sanitätshaus · Wissenscheck
           </p>
-          <div className="sig"><div className="line"><span className="sig-script">Thomas Wiggers</span><br/>Geschäftsleitung — Sanitätshaus Wiggers</div></div>
+          <div className="sig"><div><div className="signame">Thomas Wiggers</div><div className="line">Geschäftsleitung — Sanitätshaus Wiggers</div></div></div>
         </div>
         <div className="legal">Elektronisch erstellter Nachweis · reproduzierbar aus dem QMS (Zertifikat-ID {String(certificateId)})</div>
       </div>
