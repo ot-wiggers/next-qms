@@ -245,13 +245,13 @@ describe("elearning.submitFeedback", () => {
     await asUser.mutation(api.elearning.complete, { participantId, score: 8, maxScore: 8 });
     return { asUser, participantId };
   }
-  it("lehnt < 80 Wörter ab", async () => {
+  it("lehnt < 40 Wörter ab", async () => {
     const t = convexTest(schema);
     const { asUser, participantId } = await completed(t);
     await expect(asUser.mutation(api.elearning.submitFeedback, {
       participantId, shortReport: "zu kurz", organizationRatings: ORG,
       organizationRatingsNa: ORG_NA, eventRatings: EVENT_OK,
-    })).rejects.toThrow(/80 Wörter/);
+    })).rejects.toThrow(/40 Wörter/);
   });
   it("verlangt Begründung bei 5/6", async () => {
     const t = convexTest(schema);

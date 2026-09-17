@@ -233,7 +233,7 @@ export const submitFeedback = mutation({
     if (p.status !== "FEEDBACK_PENDING") throw new Error("Bogen bereits abgegeben oder Schulung nicht abgeschlossen");
 
     const words = args.shortReport.trim().split(/\s+/).filter(Boolean).length;
-    if (words < 80) throw new Error(`Der Kurzbericht braucht mindestens 80 Wörter (aktuell ${words}).`);
+    if (words < 40) throw new Error(`Der Kurzbericht braucht mindestens 40 Wörter (aktuell ${words}).`);
 
     const eventVals = Object.values(args.eventRatings);
     const orgVals = (Object.keys(args.organizationRatings) as (keyof typeof args.organizationRatings)[])
