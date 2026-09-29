@@ -52,6 +52,56 @@ interface DocumentRecord {
   updatedAt: number;
 }
 
+interface LinkedDoc {
+  _id: string;
+  linkType: string;
+  direction: "outgoing" | "incoming";
+  otherDocumentId: string;
+  otherDocumentCode: string;
+  otherDocumentTitle?: string;
+}
+
+const LINK_GROUPS: { label: string; linkType: string; direction: LinkedDoc["direction"] }[] = [
+  { label: "Gehört zu", linkType: "implements", direction: "outgoing" },
+  { label: "Umgesetzt durch", linkType: "implements", direction: "incoming" },
+  { label: "Verweist auf", linkType: "references", direction: "outgoing" },
+  { label: "Wird referenziert von", linkType: "references", direction: "incoming" },
+];
+
+function LinkedDocuments({ documentId }: { documentId: string }) {
+  const links = useQuery(api.documentLinks.listByDocument, { documentId: documentId as any }) as
+    | LinkedDoc[]
+    | undefined;
+  if (!links || links.length === 0) return null;
+  const byCode = (a: LinkedDoc, b: LinkedDoc) =>
+    a.otherDocumentCode.localeCompare(b.otherDocumentCode, "de", { numeric: true });
+  return (
+    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      {LINK_GROUPS.map((g) => {
+        const items = links.filter((l) => l.linkType === g.linkType && l.direction === g.direction).sort(byCode);
+        if (items.length === 0) return null;
+        return (
+          <div key={g.label}>
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              {g.label} ({items.length})
+            </p>
+            <ul className="space-y-0.5">
+              {items.map((l) => (
+                <li key={l._id} className="text-sm">
+                  <Link href={`/documents/${l.otherDocumentId}`} className="text-primary hover:underline">
+                    <span className="font-mono text-xs text-muted-foreground mr-1.5">{l.otherDocumentCode}</span>
+                    {l.otherDocumentTitle}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AttachmentLink({ fileId, fileName, fileSize }: { fileId: string; fileName: string; fileSize: number }) {
   const url = useQuery(api.documents.getFileUrl, { fileId: fileId as any });
   return (
@@ -348,6 +398,8 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
               </ul>
             </div>
           )}
+
+          <LinkedDocuments documentId={document._id} />
 
           {/* Rich content (Tiptap editor, read-only) */}
           {document.richContent && (

@@ -484,3 +484,54 @@ export const purgeServerProbes = internalMutation({
     return del;
   },
 });
+
+/** Titel/Kategorien bereinigen + abgeleitete Dokumentverknüpfungen anlegen (idempotent). */
+export const applyDocumentCleanup = internalMutation({
+  args: {
+    docs: v.array(v.object({
+      documentCode: v.string(), oldTitle: v.string(), title: v.string(), category: v.string(),
+    })),
+    links: v.array(v.object({
+      source: v.array(v.string()), target: v.array(v.string()),
+      type: v.union(v.literal("implements"), v.literal("references")),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const actor = await importActor(ctx);
+    const now = Date.now();
+    const all = (await ctx.db.query("documentRecords").collect()).filter((d) => !d.isArchived);
+    const find = (code: string, title: string) =>
+      all.find((d) => d.documentCode === code && d.title === title);
+
+    let renamed = 0;
+    for (const r of args.docs) {
+      const d = find(r.documentCode, r.oldTitle) ?? find(r.documentCode, r.title);
+      if (!d) throw new Error(`Dokument nicht gefunden: ${r.documentCode} ${r.oldTitle}`);
+      if (d.title !== r.title || d.category !== r.category) {
+        const plain = (d.contentPlaintext ?? "").replace(/^.*\n/, `${r.documentCode} ${r.title}\n`);
+        await ctx.db.patch(d._id, { title: r.title, category: r.category, contentPlaintext: plain,
+          updatedAt: now, updatedBy: actor._id });
+        d.title = r.title;
+        renamed++;
+      }
+    }
+
+    const existing = await ctx.db.query("documentLinks").collect();
+    const seen = new Set(existing.map((l) => `${l.sourceDocumentId}|${l.targetDocumentId}|${l.linkType}`));
+    let created = 0;
+    for (const l of args.links) {
+      const s = find(l.source[0], l.source[1]);
+      const t = find(l.target[0], l.target[1]);
+      if (!s || !t) throw new Error(`Verknüpfung ohne Dokument: ${l.source.join(" ")} → ${l.target.join(" ")}`);
+      const key = `${s._id}|${t._id}|${l.type}`;
+      if (seen.has(key)) continue;
+      await ctx.db.insert("documentLinks", {
+        sourceDocumentId: s._id, targetDocumentId: t._id, linkType: l.type,
+        createdAt: now, createdBy: actor._id,
+      });
+      seen.add(key);
+      created++;
+    }
+    return { renamed, linksCreated: created, linksTotal: seen.size };
+  },
+});
