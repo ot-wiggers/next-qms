@@ -47,8 +47,26 @@ interface DocumentRecord {
   nextReviewDate?: number;
   reviewIntervalDays?: number;
   isArchived?: boolean;
+  attachments?: { fileId: string; fileName: string; fileSize: number }[];
   createdAt: number;
   updatedAt: number;
+}
+
+function AttachmentLink({ fileId, fileName, fileSize }: { fileId: string; fileName: string; fileSize: number }) {
+  const url = useQuery(api.documents.getFileUrl, { fileId: fileId as any });
+  return (
+    <li className="flex items-center gap-2 text-sm">
+      <FileDown className="h-4 w-4 text-muted-foreground" />
+      {url ? (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+          {fileName}
+        </a>
+      ) : (
+        <span>{fileName}</span>
+      )}
+      <span className="text-xs text-muted-foreground">{Math.round(fileSize / 1024)} KB</span>
+    </li>
+  );
 }
 
 interface ReadConfirmation {
@@ -318,6 +336,18 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
               </Button>
             )}
           </div>
+
+          {/* Angehängte Originaldateien (z. B. freigegebene PDF aus dem Import) */}
+          {document.attachments && document.attachments.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Originaldateien</p>
+              <ul className="space-y-1">
+                {document.attachments.map((a) => (
+                  <AttachmentLink key={a.fileId} fileId={a.fileId} fileName={a.fileName} fileSize={a.fileSize} />
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Rich content (Tiptap editor, read-only) */}
           {document.richContent && (

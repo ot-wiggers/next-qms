@@ -1,6 +1,14 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 
+// Selbstregistrierung nur mit Firmen-E-Mail (bestehende Konten dürfen sich weiter anmelden)
+export const SIGNUP_DOMAIN = "@ot-wiggers.de";
+export function assertSignupAllowed(email: string) {
+  if (!email.trim().toLowerCase().endsWith(SIGNUP_DOMAIN)) {
+    throw new Error(`Registrierung nur mit einer ${SIGNUP_DOMAIN}-Adresse möglich.`);
+  }
+}
+
 const CustomPassword = Password({
   profile(params) {
     return {
@@ -21,6 +29,7 @@ export const { auth, signIn, signOut, store } = convexAuth({
       }
 
       const profile = (args as any).profile ?? {};
+      assertSignupAllowed(profile.email ?? "");
 
       const org = await ctx.db
         .query("organizations")

@@ -1,0 +1,22 @@
+# .gitignore-Regeln gelten hier NICHT automatisch mehr (graphify nimmt .graphifyignore bevorzugt)
+node_modules/
+.next/
+graphify-out/
+scripts/out/
+.worktrees/
+PDF/
+.superpowers/
+.claude/
+# 2026: Einzelnachweise/Scans/Archiv sind Daten, kein Wissen -> nicht in den Graphen
+2026/6 Zertifikate/Mitarbeiter/
+2026/6 Zertifikate/Alt/
+2026/6 Zertifikate/bis 2021/
+2026/6 Zertifikate/bis 2024-25/
+2026/6 Zertifikate/Pr*fungen/
+2026/6 Zertifikate/PQ Angebot/
+2026/5 Technische Dokumentation/Gebrauchsanweisungen/Archiv/
+2026/QM Doku 2026/*/Wareneingangspr*fung/
+2026/QM Doku 2026/Interne Audite 2026/
+*.xlsm
+~$*
+Thumbs.db
