@@ -48,6 +48,7 @@ interface ProductRow {
   status: string;
   manufacturerId?: string;
   departmentId?: string;
+  hmvNummer?: string;
 }
 
 interface Manufacturer {
@@ -228,6 +229,17 @@ export default function ProductsPage() {
           </p>
         </div>
       ),
+    },
+    {
+      key: "hmv",
+      header: "HMV-Nr.",
+      className: "w-[130px]",
+      cell: (row) =>
+        row.hmvNummer ? (
+          <code className="text-xs">{row.hmvNummer}</code>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
     },
     {
       key: "department",

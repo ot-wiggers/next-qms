@@ -535,3 +535,63 @@ export const applyDocumentCleanup = internalMutation({
     return { renamed, linksCreated: created, linksTotal: seen.size };
   },
 });
+
+/** Versorgungsspektrum aus den PQ-Versorgungsbereichen markieren (idempotent über hmvNummer). */
+export const markSpectrum = internalMutation({
+  args: {
+    items: v.array(v.object({
+      hmvNummer: v.string(),
+      hmvLevel: v.union(v.literal("produktgruppe"), v.literal("anwendungsort"),
+        v.literal("untergruppe"), v.literal("produktart")),
+      displayName: v.string(),
+      rehadatId: v.string(),
+    })),
+  },
+  handler: async (ctx, { items }) => {
+    const actor = await importActor(ctx);
+    const org = (await ctx.db.query("organizations").withIndex("by_type", (q) => q.eq("type", "organization")).first())!;
+    const existing = new Set((await ctx.db.query("hmvMarkedItems")
+      .withIndex("by_organization", (q) => q.eq("organizationId", org._id)).collect()).map((m) => m.hmvNummer));
+    const now = Date.now();
+    let created = 0;
+    for (const it of items) {
+      if (existing.has(it.hmvNummer)) continue;
+      await ctx.db.insert("hmvMarkedItems", { ...it, organizationId: org._id, isArchived: false,
+        createdAt: now, updatedAt: now, createdBy: actor._id, updatedBy: actor._id });
+      created++;
+    }
+    // HMV-Platzhalter „Nicht besetzt“ gehören nicht ins Spektrum
+    for (const m of await ctx.db.query("hmvMarkedItems")
+      .withIndex("by_organization", (q) => q.eq("organizationId", org._id)).collect()) {
+      if (m.displayName.includes("Nicht besetzt")) await ctx.db.delete(m._id);
+    }
+    await logAuditEvent(ctx, { userId: actor._id, action: "CREATE", entityType: "hmvMarkedItems",
+      entityId: "import2026-pq", metadata: { import2026: true, created, source: "PQ-Zertifikate + GKV-Kriterienkatalog 28.04.2025" } });
+    return { created, skipped: items.length - created };
+  },
+});
+
+/** HMV-Nummern aus dem Abgleich an die Produkte schreiben (nur eindeutige Treffer). */
+export const applyProductHmv = internalMutation({
+  args: {
+    matches: v.array(v.object({ productId: v.id("products"), hmvNummer: v.string(), hmvName: v.string() })),
+  },
+  handler: async (ctx, { matches }) => {
+    const actor = await importActor(ctx);
+    const now = Date.now();
+    let updated = 0;
+    for (const m of matches) {
+      const p = await ctx.db.get(m.productId);
+      if (!p || p.hmvNummer === m.hmvNummer) continue;
+      const note = `HMV-Abgleich 2026: ${m.hmvNummer} „${m.hmvName}“`;
+      await ctx.db.patch(p._id, {
+        hmvNummer: m.hmvNummer,
+        productGroup: p.productGroup ?? m.hmvNummer.slice(0, 2),
+        notes: [p.notes, note].filter(Boolean).join(" | "),
+        updatedAt: now, updatedBy: actor._id,
+      });
+      updated++;
+    }
+    return { updated };
+  },
+});
