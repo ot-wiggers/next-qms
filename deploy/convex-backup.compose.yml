@@ -1,0 +1,46 @@
+# Backup-Dienst für das self-hosted Convex auf Dokploy (Compose-Service "nextqms-convex").
+# In Dokploy: diesen Service + das Volume "backups" in das bestehende Compose-File einfügen
+# (neben "backend" und "dashboard"), unter Environment CONVEX_ADMIN_KEY setzen, Redeploy.
+# Wichtig: "$$" ist Absicht — Compose ersetzt sonst "$(...)" / "${...}" schon beim Deploy
+# (leere Werte → "sh: syntax error: unexpected "&&"" wie im alten Backup-Dienst).
+services:
+  backup:
+    image: node:22-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    working_dir: /app
+    environment:
+      - CONVEX_SELF_HOSTED_URL=http://backend:3210
+      - CONVEX_SELF_HOSTED_ADMIN_KEY=${CONVEX_ADMIN_KEY}
+      - BACKUP_KEEP_DAYS=14
+      - BACKUP_INTERVAL_SECONDS=86400
+      - BACKUP_RETRY_SECONDS=600
+    volumes:
+      - backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        # Die Convex-CLI verlangt eine package.json im Arbeitsverzeichnis
+        echo '{"name":"convex-backup","private":true}' > package.json
+        npm install --silent --no-audit --no-fund convex@1.32.0
+        # Warten, bis das Backend antwortet (depends_on wartet nur auf den Containerstart)
+        until wget -q -O /dev/null "$${CONVEX_SELF_HOSTED_URL}/version"; do sleep 10; done
+        while true; do
+          f=/backups/convex-$$(date +%Y-%m-%d_%H%M%S).zip
+          if npx convex export --include-file-storage --path "$$f" > /tmp/export.log 2>&1; then
+            echo "$$(date -Iseconds) Backup ok: $$f ($$(du -h "$$f" | cut -f1))"
+            wait_s=$${BACKUP_INTERVAL_SECONDS}
+          else
+            echo "$$(date -Iseconds) Backup FEHLGESCHLAGEN, neuer Versuch in $${BACKUP_RETRY_SECONDS}s:" >&2
+            tail -n 5 /tmp/export.log >&2
+            rm -f "$$f"
+            wait_s=$${BACKUP_RETRY_SECONDS}
+          fi
+          find /backups -name 'convex-*.zip' -mtime +$${BACKUP_KEEP_DAYS} -delete
+          sleep "$$wait_s"
+        done
+
+volumes:
+  backups:
