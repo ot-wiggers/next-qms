@@ -53,3 +53,7 @@ scripts/out/
 
 # Jahresablage 2026 (reale QM-Dokumente, sensibel)
 2026/
+
+# Lokale Claude-Tooling-Ordner
+.claude/
+.superpowers/
