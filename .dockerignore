@@ -1,0 +1,15 @@
+.git
+.claude
+.superpowers
+node_modules
+.next
+.env*
+2026
+PDF
+docs
+e2e
+scripts
+test-results
+playwright-report
+coverage
+graphify-out
