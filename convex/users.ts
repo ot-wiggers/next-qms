@@ -33,7 +33,6 @@ export const createProfile = mutation({
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Nicht authentifiziert");
-    await ctx.runQuery(internal.users.assertCanManagePasswords, {});
 
     const user = await ctx.db.get(authUserId as any);
     if (!user) throw new Error("Benutzer nicht gefunden");
@@ -204,6 +203,7 @@ export const changePassword = action({
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Nicht authentifiziert");
+    await ctx.runQuery(internal.users.assertCanManagePasswords, {});
 
     if (!args.newPassword || args.newPassword.length < 8) {
       throw new Error(
