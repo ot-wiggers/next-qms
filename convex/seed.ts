@@ -1,10 +1,11 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 
 /**
  * Seed demo data for development.
  * Run via Convex dashboard: api.seed.run
  */
-export const run = mutation({
+// Nur intern (CLI): sonst könnte jeder ohne Anmeldung Demo-Daten schreiben
+export const run = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;

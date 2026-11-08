@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getAuthUserId, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { requirePermission, getAuthenticatedUser } from "./lib/withAuth";
 import { logAuditEvent } from "./lib/auditLog";
@@ -32,6 +33,7 @@ export const createProfile = mutation({
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Nicht authentifiziert");
+    await ctx.runQuery(internal.users.assertCanManagePasswords, {});
 
     const user = await ctx.db.get(authUserId as any);
     if (!user) throw new Error("Benutzer nicht gefunden");
@@ -182,6 +184,14 @@ export const archive = mutation({
   handler: async (ctx, args) => {
     const currentUser = await requirePermission(ctx, "users:archive");
     await archiveRecord(ctx, "users", args.id, currentUser._id);
+  },
+});
+
+/** Nur Admins dürfen Passwörter setzen (vorher konnte jede angemeldete Person jedes Passwort ändern). */
+export const assertCanManagePasswords = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    await requirePermission(ctx, "users:archive");
   },
 });
 
